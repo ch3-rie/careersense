@@ -1,0 +1,14 @@
+{{greeting}}
+
+{{intro}}
+
+{{detail}}
+
+{{action_line}}
+{{action_url}}
+
+CareerSense
+Angeles University Foundation
+{{office}}
+
+Personal data is processed under the Data Privacy Act of 2012 (RA 10173).

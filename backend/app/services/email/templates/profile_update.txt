@@ -1,0 +1,19 @@
+{{greeting}}
+
+The Angeles University Foundation {{office}} is requesting that you review and update information in your CareerSense alumni profile.
+
+Information requiring attention:
+{{fields_text}}
+
+Message from AAPS:
+{{message}}
+
+Please log in to CareerSense and update your information:
+{{action_url}}
+
+Thank you.
+
+Angeles University Foundation
+{{office}}
+
+Personal data is processed under the Data Privacy Act of 2012 (RA 10173).

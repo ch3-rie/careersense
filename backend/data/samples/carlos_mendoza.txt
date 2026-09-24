@@ -1,0 +1,16 @@
+Carlos Villanueva Mendoza
+Angeles City, Pampanga, Philippines
+carlos.mendoza@gmail.com
+
+EDUCATION
+Bachelor of Science in Computer Science
+Angeles University Foundation
+2020 - 2024
+
+WORK EXPERIENCE
+Junior Software Developer
+Pampanga Digital Labs | July 2024 - Present
+Immediate Head: Ana Villanueva (ana.villanueva@pdl.example)
+
+SKILLS
+Python, JavaScript, SQL, Git, React

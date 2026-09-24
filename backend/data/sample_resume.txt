@@ -1,0 +1,20 @@
+Maria Cruz Reyes
+Angeles City, Pampanga, Philippines
+maria.reyes@gmail.com
+
+EDUCATION
+Bachelor of Science in Information Technology
+Angeles University Foundation
+2018 - 2022
+
+WORK EXPERIENCE
+Junior Software Developer
+Pampanga Digital Labs | June 2022 - December 2023
+Immediate Head: Rico Alvarez (rico.alvarez@nlsc.example)
+
+Software Engineer
+North Luzon Systems Corp. | January 2024 - Present
+Immediate Head: Rico Alvarez (rico.alvarez@nlsc.example)
+
+SKILLS
+Python, SQL, React, Git, REST APIs

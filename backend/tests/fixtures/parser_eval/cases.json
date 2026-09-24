@@ -1,0 +1,135 @@
+[
+  {
+    "id": "single-column",
+    "text": "Ana B. Dela Cruz\nana.delacruz@example.com\nAngeles City, Pampanga, Philippines\n\nEducation\nBachelor of Science in Information Technology\nSample University\n2018-2022\n\nWork Experience\nSoftware Engineer\nNorth Labs\n2022-Present\n\nSkills\nPython, SQL, Project Management\n",
+    "expected": {
+      "first_name": "Ana",
+      "last_name": "Dela Cruz",
+      "degree_contains": "Information Technology",
+      "year_graduated": "2022",
+      "current_title": "Software Engineer",
+      "current_employer": "North Labs",
+      "first_title": "Software Engineer",
+      "further_studies": "",
+      "skills": ["Python", "SQL", "Project Management"],
+      "country": "Philippines",
+      "salary": ""
+    }
+  },
+  {
+    "id": "master-further-study",
+    "text": "Luis Ramos\nlramos@example.com\nPhilippines\n\nEducation\nBachelor of Science in Information Technology\nSample University\n2016-2020\nMaster of Information Technology\nSample University\n2025\n\nExperience\nSystems Analyst\nHarbor Systems\n2021-Present\n\nSkills\nData Analysis, Microsoft Excel\n",
+    "expected": {
+      "first_name": "Luis",
+      "last_name": "Ramos",
+      "degree_contains": "Information Technology",
+      "year_graduated": "2020",
+      "current_title": "Systems Analyst",
+      "current_employer": "Harbor Systems",
+      "further_studies": "Yes",
+      "further_program_contains": "Master of Information Technology",
+      "skills": ["Data Analysis", "Microsoft Excel"],
+      "country": "Philippines"
+    }
+  },
+  {
+    "id": "graduate-studies-phrase",
+    "text": "Mara Santos\nmsantos@example.com\n\nEducation\nBachelor of Science in Business Administration\nSample University\n2019-2023\nCurrently pursuing graduate studies in Business Administration\n\nEmployment History\nAccount Officer\nSample Credit Co.\n2023-Present\n\nSkills\nCustomer Service\n",
+    "expected": {
+      "degree_contains": "Business Administration",
+      "year_graduated": "2023",
+      "further_studies": "Yes",
+      "current_title": "Account Officer"
+    }
+  },
+  {
+    "id": "certifications-are-not-degrees",
+    "text": "Paolo Reyes\npreyes@example.com\nPhilippines\n\nEducation\nBachelor of Science in Information Technology\nSample University\n2018-2022\n\nCertifications\nAWS Cloud Practitioner\nGoogle Analytics Certificate\n\nExperience\nIT Support Specialist\nSample Office\n2022-Present\n\nSkills\nCustomer Service\n",
+    "expected": {
+      "degree_contains": "Information Technology",
+      "year_graduated": "2022",
+      "further_studies": "",
+      "current_title": "IT Support Specialist",
+      "skills": ["Customer Service"]
+    }
+  },
+  {
+    "id": "monthly-salary",
+    "text": "Rina Gomez\nrgomez@example.com\nPhilippines\n\nEducation\nBachelor of Science in Nursing\nSample University\n2017-2021\n\nExperience\nStaff Nurse\nSample Hospital\n2021-Present\nSalary: PHP 25,000/month\n\nSkills\nPatient Care\n",
+    "expected": {
+      "degree_contains": "Nursing",
+      "current_title": "Staff Nurse",
+      "current_employer": "Sample Hospital",
+      "salary": "₱13,800 to ₱27,599",
+      "country": "Philippines"
+    }
+  },
+  {
+    "id": "expected-salary-not-current",
+    "text": "Carlo Santos\ncsantos@example.com\n\nEducation\nBachelor of Science in Accountancy\nSample University\n2018-2022\n\nExperience\nJunior Accountant\nSample Audit Firm\n2022-2024\nExpected Salary: 40,000\n\nSkills\nMicrosoft Excel\n",
+    "expected": {
+      "degree_contains": "Accountancy",
+      "current_title": "",
+      "salary": "",
+      "is_currently_employed": "No"
+    }
+  },
+  {
+    "id": "ambiguous-education-year",
+    "text": "Elena Cruz\necruz@example.com\n\nEducation\nBachelor of Science in Civil Engineering\nSample University\n2019\n\nExperience\nSite Engineer\nSample Builders\n2020-Present\n\nSkills\nAutoCAD\n",
+    "expected": {
+      "degree_contains": "Civil Engineering",
+      "year_graduated": "",
+      "current_title": "Site Engineer"
+    }
+  },
+  {
+    "id": "compound-name-and-suffix",
+    "text": "Sean Gabriel Santos Jr.\nsean.santos@example.com\nPhilippines\n\nEducation\nBachelor of Science in Computer Science\nSample University\n2018-2022\n\nExperience\nSoftware Engineer\nSample Software\n2022-Present\n\nSkills\nPython\n",
+    "expected": {
+      "first_name": "Sean Gabriel",
+      "middle_name": "",
+      "last_name": "Santos Jr.",
+      "degree_contains": "Computer Science",
+      "year_graduated": "2022"
+    }
+  },
+  {
+    "id": "internship-before-job",
+    "text": "Nina Flores\nnflores@example.com\n\nEducation\nBachelor of Science in Information Technology\nSample University\n2019-2023\n\nEmployment History and Internships\nIT Intern\nSample Office\nJune 2022 - August 2022\n\nSoftware Engineer\nSample Software\n2023-Present\n\nSkills\nSQL\n",
+    "expected": {
+      "degree_contains": "Information Technology",
+      "first_title": "IT Intern",
+      "current_title": "Software Engineer",
+      "current_employer": "Sample Software"
+    }
+  },
+  {
+    "id": "weak-country-token",
+    "text": "Mark Dela Rosa\nmrosa@example.com\nMobile: 0917 000 0000 ph\n\nEducation\nBachelor of Science in Information Technology\nSample University\n2018-2022\n\nExperience\nDeveloper\nSample Labs\n2022-Present\n\nSkills\nPython\n",
+    "expected": {
+      "last_name": "Dela Rosa",
+      "country": "",
+      "current_title": "Developer"
+    }
+  },
+  {
+    "id": "no-skills-section",
+    "text": "Liza Santos\nlsantos@example.com\nPhilippines\n\nEducation\nBachelor of Science in Information Technology\nSample University\n2018-2022\n\nExperience\nSoftware Engineer\nSample Labs\n2022-Present\nBuilt tools with python for the staff.\n",
+    "expected": {
+      "degree_contains": "Information Technology",
+      "skills": [],
+      "current_title": "Software Engineer"
+    }
+  },
+  {
+    "id": "diploma-after-bachelor",
+    "text": "Hector Lim\nhlim@example.com\n\nEducation\nBachelor of Science in Education\nSample University\n2015-2019\nDiploma in Teaching\nSample Institute\n2020-2021\n\nExperience\nTeacher\nSample School\n2019-Present\n\nSkills\nClassroom Management\n",
+    "expected": {
+      "degree_contains": "Education",
+      "year_graduated": "2019",
+      "further_studies": "Yes",
+      "further_program_contains": "Diploma"
+    }
+  }
+]
