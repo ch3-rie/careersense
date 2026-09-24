@@ -13,6 +13,7 @@ COPY alembic.ini .
 COPY migrations ./migrations
 COPY app ./app
 COPY data ./data
+COPY scripts ./scripts
 
 ENV PYTHONUNBUFFERED=1
 
