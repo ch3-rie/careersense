@@ -569,7 +569,8 @@ export function Dialog({
     const node = dialogRef.current;
     const body = node?.querySelector(".dialog-body");
     const firstField = focusablesIn(body)[0];
-    (firstField || node)?.focus();
+    (firstField || node)?.focus({ preventScroll: true });
+    if (body) body.scrollTop = 0;
     const unlock = lockPageScroll();
     const entry = { node: dialogRef };
 

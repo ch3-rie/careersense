@@ -1206,6 +1206,56 @@ h1, h2, h3, .serif { font-family: var(--font-serif); letter-spacing: -0.02em; li
 }
 .account-office dd a { color: inherit; text-decoration: none; }
 .account-office dd a:hover { text-decoration: underline; }
+.account-office-today {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+.account-office-today-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.account-office-today-status.is-open { color: var(--ok); }
+.account-office-today-status.is-closed { color: var(--danger); }
+.account-office-today-status svg {
+  width: 16px;
+  height: 16px;
+  color: var(--navy);
+  transition: transform 160ms ease;
+}
+.account-office-today-status svg.is-open { transform: rotate(180deg); }
+.account-office-hours {
+  display: grid;
+  gap: 0;
+  margin: 8px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+  font-weight: 650;
+}
+.account-office-hours li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 0;
+}
+.account-office-hours li.is-today span:first-child { color: var(--navy); }
 .account-help-body {
   display: flex;
   flex: 1;

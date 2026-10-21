@@ -12,20 +12,36 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.models import Account
-from app.services.alumni_hub import AAPS_OFFICE
 from app.services.email.service import app_url
 
 _TOKEN_RE = re.compile(r"^v1\.(\d+)\.([0-9a-f]{64})$")
 
 
-def office_contact() -> dict[str, str]:
+ALUMNI_OFFICE_LOCATION = "Room 307, 3rd Floor, Angeles Hall, Angeles City, Philippines, 2009"
+ALUMNI_OFFICE_PHONE = "(045) 625 2888"
+ALUMNI_OFFICE_EMAIL = "alumni@auf.edu.ph"
+ALUMNI_OFFICE_TIMEZONE = "Asia/Manila"
+ALUMNI_OFFICE_SCHEDULE = [
+    {"day": "Monday", "opens": "08:00", "closes": "17:00"},
+    {"day": "Tuesday", "opens": "08:00", "closes": "17:00"},
+    {"day": "Wednesday", "opens": "08:00", "closes": "17:00"},
+    {"day": "Thursday", "opens": "08:00", "closes": "17:00"},
+    {"day": "Friday", "opens": "08:00", "closes": "17:00"},
+    {"day": "Saturday", "closed": True},
+    {"day": "Sunday", "closed": True},
+]
+
+
+def office_contact() -> dict:
     settings = get_settings()
     return {
-        "name": "Office of Alumni Affairs and Placement Services (OAAPS)",
-        "email": (settings.oaaps_email or "").strip(),
-        "phone": (settings.oaaps_phone or "").strip() or AAPS_OFFICE["phone"],
-        "hours": (settings.oaaps_hours or "").strip() or AAPS_OFFICE["hours"],
-        "location": AAPS_OFFICE["location"],
+        "name": "Alumni Office",
+        "email": (settings.oaaps_email or "").strip() or ALUMNI_OFFICE_EMAIL,
+        "phone": (settings.oaaps_phone or "").strip() or ALUMNI_OFFICE_PHONE,
+        "hours": (settings.oaaps_hours or "").strip() or "Monday–Friday, 08:00–17:00",
+        "location": ALUMNI_OFFICE_LOCATION,
+        "timezone": ALUMNI_OFFICE_TIMEZONE,
+        "schedule": ALUMNI_OFFICE_SCHEDULE,
     }
 
 

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ForgotStepper, PasswordHints, PasswordMatch, PinInput } from "./AuthFlow";
 import { PortalShell } from "./Layout";
 import { Panel } from "./RecordViews";
+import { ChevronDownIcon } from "./icons";
 import { Alert, Dialog, Field } from "./ui";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -181,8 +182,8 @@ export default function AccountSettings({ role }) {
                 description="A lost sign-in email is restored by OAAPS."
               >
                 <div className="account-help-body">
-                  <p>The sign-in email cannot be changed in CareerSense. Contact OAAPS, and the office will confirm your university record before restoring access.</p>
-                  <button type="button" className="btn btn-outline" onClick={() => setHelpTopic("email")}>Contact OAAPS</button>
+                  <p>The sign-in email cannot be changed in CareerSense. Contact the Alumni Office, and the office will confirm your university record before restoring access.</p>
+                  <button type="button" className="btn btn-outline" onClick={() => setHelpTopic("email")}>Contact the Alumni Office</button>
                 </div>
               </Panel>
               <Panel
@@ -193,15 +194,15 @@ export default function AccountSettings({ role }) {
                 <div className="account-help-body">
                   <p>Accounts are not deleted or deactivated on this page. Contact the Office of Alumni Affairs and Placement Services (OAAPS) to request help.</p>
                   <p className="muted">Opening the contact details does not delete or deactivate your account.</p>
-                  <button type="button" className="btn btn-outline" onClick={() => setHelpTopic("delete")}>Contact OAAPS</button>
+                  <button type="button" className="btn btn-outline" onClick={() => setHelpTopic("delete")}>Contact the Alumni Office</button>
                 </div>
               </Panel>
             </div>
           </section>
           {helpTopic ? (
             <Dialog
-              title="Office of Alumni Affairs and Placement Services (OAAPS)"
-              description={helpTopic === "delete" ? "Viewing these instructions does not delete or deactivate your account." : "OAAPS confirms your alumni record before restoring access to a sign-in email."}
+              title="Alumni Office"
+              description={helpTopic === "delete" ? "Viewing these instructions does not delete or deactivate your account." : "The Alumni Office confirms your alumni record before restoring access to a sign-in email."}
               hideActions
               onClose={() => setHelpTopic("")}
               footer={(
@@ -494,12 +495,83 @@ function SecretField({ label, value, onChange, autoComplete, disabled }) {
   );
 }
 
+const OFFICE_TIME_ZONE = "Asia/Manila";
+const OFFICE_SCHEDULE = [
+  { day: "Monday", opens: "08:00", closes: "17:00" },
+  { day: "Tuesday", opens: "08:00", closes: "17:00" },
+  { day: "Wednesday", opens: "08:00", closes: "17:00" },
+  { day: "Thursday", opens: "08:00", closes: "17:00" },
+  { day: "Friday", opens: "08:00", closes: "17:00" },
+  { day: "Saturday", closed: true },
+  { day: "Sunday", closed: true },
+];
+
+function officeSchedule(office) {
+  const rows = Array.isArray(office?.schedule) ? office.schedule : [];
+  const usable = rows.filter((row) => row && row.day);
+  return usable.length ? usable : OFFICE_SCHEDULE;
+}
+
+function manilaClock(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: OFFICE_TIME_ZONE,
+    weekday: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const read = (type) => parts.find((part) => part.type === type)?.value || "";
+  const hour = Number(read("hour"));
+  const minute = Number(read("minute"));
+  return {
+    weekday: read("weekday"),
+    minutes: (Number.isFinite(hour) ? hour : 0) * 60 + (Number.isFinite(minute) ? minute : 0),
+  };
+}
+
+function minutesFromClock(value) {
+  const match = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function isOfficeOpen(schedule, date = new Date()) {
+  const { weekday, minutes } = manilaClock(date);
+  const today = schedule.find((row) => row.day === weekday);
+  if (!today || today.closed) return false;
+  const opens = minutesFromClock(today.opens);
+  const closes = minutesFromClock(today.closes);
+  if (opens == null || closes == null) return false;
+  return minutes >= opens && minutes < closes;
+}
+
+function hoursLabel(row) {
+  if (row?.closed || !row?.opens || !row?.closes) return "CLOSED";
+  return `${row.opens} - ${row.closes}`;
+}
+
 function OfficeDetails({ office, state, onRetry }) {
-  const location = String(office?.location || "").trim();
-  const hours = String(office?.hours || "").trim();
-  const phone = String(office?.phone || "").trim();
-  const email = String(office?.email || "").trim();
-  const hasDetails = Boolean(location || hours || phone || email);
+  const schedule = officeSchedule(office);
+  const location = String(office?.location || "Room 307, 3rd Floor, Angeles Hall, Angeles City, Philippines, 2009").trim();
+  const phone = String(office?.phone || "(045) 625 2888").trim();
+  const email = String(office?.email || "alumni@auf.edu.ph").trim();
+  const [openNow, setOpenNow] = useState(() => isOfficeOpen(schedule));
+  const [today, setToday] = useState(() => manilaClock().weekday);
+  const [showSchedule, setShowSchedule] = useState(false);
+  const todayRow = schedule.find((row) => row.day === today);
+  const todayStatus = openNow ? "Open" : "Closed";
+
+  useEffect(() => {
+    const tick = () => {
+      const rows = officeSchedule(office);
+      setOpenNow(isOfficeOpen(rows));
+      setToday(manilaClock().weekday);
+    };
+    tick();
+    const timer = window.setInterval(tick, 30000);
+    return () => window.clearInterval(timer);
+  }, [office]);
+
   return (
     <div className="account-office">
       {state === "loading" ? <p>Loading office details…</p> : null}
@@ -509,15 +581,41 @@ function OfficeDetails({ office, state, onRetry }) {
           <button type="button" className="btn btn-outline btn-sm" onClick={onRetry}>Try again</button>
         </div>
       ) : null}
-      {state === "ready" && hasDetails ? (
+      {state === "ready" ? (
         <dl className="account-office-list">
+          <div>
+            <dt>Office hours</dt>
+            <dd>
+              <button
+                type="button"
+                className="account-office-today"
+                aria-expanded={showSchedule}
+                aria-label={`${today}, ${todayStatus}. ${showSchedule ? "Hide" : "Show"} the weekly schedule`}
+                onClick={() => setShowSchedule((current) => !current)}
+              >
+                <span>{today}</span>
+                <span className={`account-office-today-status${openNow ? " is-open" : " is-closed"}`}>
+                  {openNow && todayRow ? hoursLabel(todayRow) : "Closed"}
+                  <ChevronDownIcon size={16} className={showSchedule ? "is-open" : undefined} />
+                </span>
+              </button>
+              {showSchedule ? (
+                <ul className="account-office-hours">
+                  {schedule.map((row) => (
+                    <li key={row.day} className={row.day === today ? "is-today" : undefined}>
+                      <span>{row.day}</span>
+                      <span>{hoursLabel(row)}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </dd>
+          </div>
           {location ? <div><dt>Office location</dt><dd>{location}</dd></div> : null}
-          {hours ? <div><dt>Office hours</dt><dd>{hours}</dd></div> : null}
           {phone ? <div><dt>Phone</dt><dd><a href={`tel:${phone}`}>{phone}</a></dd></div> : null}
           {email ? <div><dt>Email</dt><dd><a href={`mailto:${email}`}>{email}</a></dd></div> : null}
         </dl>
       ) : null}
-      {state === "ready" && !hasDetails ? <p>Contact information is currently unavailable.</p> : null}
     </div>
   );
 }

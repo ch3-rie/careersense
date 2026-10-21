@@ -576,7 +576,7 @@ export default function AlumniResume() {
             <p>Please try again.</p>
             <button type="button" className="btn btn-navy" onClick={() => setLoadId((value) => value + 1)}>Retry</button>
           </section>
-        ) : null}
+      ) : null}
         {doc && gapNote(doc) ? <p className="resume-gaps">{gapNote(doc)}</p> : null}
         {doc && (
           <ResumeRevision.Provider value={revision}>
@@ -650,7 +650,7 @@ function ResumeSkeleton() {
         <div className="skeleton resume-skel-line" />
         <div className="skeleton resume-skel-line is-mid" />
       </div>
-    </div>
+                </div>
   );
 }
 
