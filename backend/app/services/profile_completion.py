@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Account, AlumniJob, FurtherStudy, Resume, TracerSubmission
 from app.services.achievements import PROFILE_COMPLETE_KEY, serialize_achievement
-from app.services.employment import is_no, is_yes, resolve_current_employment
+from app.services.employment import apply_profile_unemployment, is_no, is_yes, resolve_current_employment
 
 logger = logging.getLogger("careersense")
 
@@ -73,7 +73,8 @@ def field_snapshot(db: Session, user: Account) -> dict:
     latest = _latest_submission(db, user.id)
     data = latest.data_json if latest else {}
     extra = latest.extra_answers if latest else {}
-    employment = resolve_current_employment(data)
+    employment_data = apply_profile_unemployment(data, profile)
+    employment = resolve_current_employment(employment_data)
     jobs = db.query(AlumniJob).filter(AlumniJob.account_id == user.id).all()
     studies = db.query(FurtherStudy).filter(FurtherStudy.account_id == user.id).all()
     study_rows = [
@@ -119,7 +120,7 @@ def field_snapshot(db: Session, user: Account) -> dict:
         "tracer_required_ok": tracer_required_ok,
         "currently_employed": employment.currently_employed,
         "present_is_first": employment.present_is_first,
-        "current_employment_answer": data.get("is_currently_employed") or "",
+        "current_employment_answer": employment_data.get("is_currently_employed") or "",
         "ever_employed": data.get("ever_employed") or "",
         "occupation": employment.occupation,
         "employer": employment.employer,
@@ -240,7 +241,7 @@ def _studies_category(snapshot: dict) -> tuple[int, float, list[str], str | None
         return 0, 0.0, ["Whether you enrolled in further studies after graduation"], route
     if any(_study_complete(item) for item in snapshot.get("studies") or []):
         return 100, 1.0, [], None
-    return 0, 0.0, ["Program and institution for your further studies"], route
+    return 0, 0.0, ["Program and institution for your further studies"], "/alumni#further-studies"
 
 
 def _tracer_category(snapshot: dict) -> tuple[int, float, list[str], str | None]:
@@ -348,7 +349,7 @@ def progress_from_snapshot(snapshot: dict) -> dict[str, Any]:
     )
     further_studies, studies_ratio = _category(
         "further_studies",
-        "Further studies",
+        "Further Studies / Degrees Earned",
         studies_percent,
         studies_ratio,
         studies_missing,

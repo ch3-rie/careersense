@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ProfilePhoto, initials } from "./AlumniProfileExtras";
-import { MinusIcon, PlusIcon } from "./icons";
+import { FileDrop } from "./FileDrop";
+import { CameraIcon, MinusIcon, PlusIcon } from "./icons";
 import { Alert, Dialog } from "./ui";
 import { api } from "../lib/api";
 import {
@@ -19,7 +21,7 @@ import {
   loadOrientedImage,
   maxZoomFor,
   maxZoomForFrame,
-  validatePhotoFile,
+  imageFileError,
 } from "../lib/profilePhoto";
 import { friendlyError } from "../lib/userMessages";
 
@@ -28,12 +30,158 @@ function sameCrop(a, b) {
   return a.zoom === b.zoom && Math.abs(a.sx - b.sx) < 0.5 && Math.abs(a.sy - b.sy) < 0.5;
 }
 
+function PhotoActionBadge({
+  hasImage,
+  label,
+  changeLabel,
+  removeLabel,
+  disabled,
+  onFile,
+  onInvalid,
+  onRemove,
+}) {
+  const rootRef = useRef(null);
+  const buttonRef = useRef(null);
+  const menuRef = useRef(null);
+  const inputRef = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    function onDoc(event) {
+      if (rootRef.current?.contains(event.target) || menuRef.current?.contains(event.target)) return;
+      setOpen(false);
+    }
+    function onKey(event) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setCoords(null);
+      return undefined;
+    }
+    function place() {
+      const button = buttonRef.current;
+      const menu = menuRef.current;
+      if (!button || !menu) return;
+      const rect = button.getBoundingClientRect();
+      const gap = 6;
+      const margin = 8;
+      const width = menu.offsetWidth;
+      const height = menu.offsetHeight;
+      const spaceBelow = window.innerHeight - rect.bottom - margin;
+      const spaceAbove = rect.top - margin;
+      const openUp = spaceBelow < height + gap && spaceAbove > spaceBelow;
+      let top = openUp ? rect.top - height - gap : rect.bottom + gap;
+      let left = rect.left;
+      if (left + width > window.innerWidth - margin) left = rect.right - width;
+      left = Math.min(Math.max(margin, left), window.innerWidth - width - margin);
+      const lead = button.closest(".alumni-profile-identity")?.querySelector(".alumni-profile-lead");
+      if (!openUp && lead) {
+        const leadRect = lead.getBoundingClientRect();
+        const hitsLead = left < leadRect.right && left + width > leadRect.left && top < leadRect.bottom && top + height > leadRect.top;
+        const belowLead = leadRect.bottom + gap;
+        if (hitsLead && belowLead + height <= window.innerHeight - margin) top = belowLead;
+      }
+      top = Math.min(Math.max(margin, top), window.innerHeight - height - margin);
+      setCoords({ top, left });
+    }
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
+
+  function openPicker() {
+    if (disabled) return;
+    setOpen(false);
+    inputRef.current?.click();
+  }
+
+  function onChange(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const invalid = imageFileError(file);
+    if (invalid) {
+      onInvalid?.(invalid);
+      return;
+    }
+    onInvalid?.("");
+    onFile?.(file);
+  }
+
+  return (
+    <div className="photo-action" ref={rootRef}>
+      <button
+        ref={buttonRef}
+        type="button"
+        className="photo-edit-badge"
+        aria-label={label}
+        aria-haspopup={hasImage ? "menu" : undefined}
+        aria-expanded={hasImage ? open : undefined}
+        disabled={disabled}
+        onClick={() => {
+          if (hasImage) setOpen((value) => !value);
+          else openPicker();
+        }}
+      >
+        <CameraIcon size={16} />
+      </button>
+      {open && typeof document !== "undefined"
+        ? createPortal(
+          <div
+            ref={menuRef}
+            className="photo-edit-menu"
+            role="menu"
+            style={coords ? { top: coords.top, left: coords.left } : { visibility: "hidden" }}
+          >
+            <button type="button" role="menuitem" onClick={openPicker}>{changeLabel}</button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onRemove?.();
+              }}
+            >
+              {removeLabel}
+            </button>
+          </div>,
+          document.body,
+        )
+        : null}
+      <input
+        ref={inputRef}
+        className="sr-only"
+        type="file"
+        accept={PHOTO_ACCEPT}
+        disabled={disabled}
+        onChange={onChange}
+      />
+    </div>
+  );
+}
+
 export function ProfilePhotoControl({
   profile,
   src,
   size = "lg",
   compact = false,
   quiet = false,
+  editBadge = false,
   disabled,
   onFile,
   onInvalid,
@@ -45,6 +193,7 @@ export function ProfilePhotoControl({
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState("");
+  const [dragOver, setDragOver] = useState(false);
   const removingRef = useRef(false);
   const locked = disabled || removing;
 
@@ -53,17 +202,21 @@ export function ProfilePhotoControl({
     inputRef.current?.click();
   }
 
-  function onChange(event) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
+  function acceptPhoto(file) {
     if (!file) return;
-    const invalid = validatePhotoFile(file);
+    const invalid = imageFileError(file);
     if (invalid) {
       onInvalid?.(invalid);
       return;
     }
     onInvalid?.("");
     onFile?.(file);
+  }
+
+  function onChange(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    acceptPhoto(file);
   }
 
   async function removePhoto() {
@@ -84,16 +237,47 @@ export function ProfilePhotoControl({
   }
 
   return (
-    <div className={`profile-photo-control ${compact ? "is-compact" : ""} ${quiet ? "is-quiet" : ""}`}>
-      <button
-        type="button"
-        className="profile-photo-pick"
-        onClick={openPicker}
-        disabled={locked}
-        aria-label={label}
-      >
-        <ProfilePhoto profile={profile} src={src} size={size} />
-      </button>
+    <div
+      className={`profile-photo-control ${compact ? "is-compact" : ""} ${quiet ? "is-quiet" : ""}${dragOver ? " is-over" : ""}`}
+      onDragOver={(event) => {
+        event.preventDefault();
+        if (!locked) setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(event) => {
+        event.preventDefault();
+        setDragOver(false);
+        if (!locked) acceptPhoto(event.dataTransfer.files?.[0]);
+      }}
+    >
+      {editBadge ? (
+        <div className="profile-photo-frame">
+          <ProfilePhoto profile={profile} src={src} size={size} />
+          <PhotoActionBadge
+            hasImage={hasPhoto}
+            label={label}
+            changeLabel={label}
+            removeLabel="Remove photo"
+            disabled={locked}
+            onFile={onFile}
+            onInvalid={onInvalid}
+            onRemove={() => {
+              setRemoveError("");
+              setConfirmRemove(true);
+            }}
+          />
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="profile-photo-pick"
+          onClick={openPicker}
+          disabled={locked}
+          aria-label={label}
+        >
+          <ProfilePhoto profile={profile} src={src} size={size} />
+        </button>
+      )}
       {!quiet ? (
         <div className="profile-photo-control-copy">
           <div className="profile-photo-actions">
@@ -114,18 +298,20 @@ export function ProfilePhotoControl({
               </button>
             ) : null}
           </div>
-          <p className="muted photo-guidance">JPG, PNG, or WebP · Maximum 5 MB</p>
+          <p className="muted photo-guidance">Drag and drop a photo here, or use the button. JPG, PNG, or WebP · Maximum 5 MB</p>
           <p className="muted photo-guidance">For best results, use a clear photo where your face is visible.</p>
         </div>
       ) : null}
-      <input
-        ref={inputRef}
-        className="sr-only"
-        type="file"
-        accept={PHOTO_ACCEPT}
-        disabled={locked}
-        onChange={onChange}
-      />
+      {editBadge ? null : (
+        <input
+          ref={inputRef}
+          className="sr-only"
+          type="file"
+          accept={PHOTO_ACCEPT}
+          disabled={locked}
+          onChange={onChange}
+        />
+      )}
       {confirmRemove ? (
         <Dialog
           title="Remove profile photo?"
@@ -268,7 +454,7 @@ export function PhotoCropDialog({ file, onClose, onUploaded, onReplace, kind = "
     const next = event.target.files?.[0];
     event.target.value = "";
     if (!next || !onReplace) return;
-    const invalid = validatePhotoFile(next);
+    const invalid = imageFileError(next);
     if (invalid) {
       setError(invalid);
       return;
@@ -401,10 +587,30 @@ export function PhotoCropDialog({ file, onClose, onUploaded, onReplace, kind = "
         {preparing ? (
           <p className="muted">Preparing photo…</p>
         ) : prepared ? (
-          <div className="photo-crop">
+          <div
+            className="photo-crop"
+            onDragOver={(event) => {
+              if (!onReplace || saving) return;
+              event.preventDefault();
+            }}
+            onDrop={(event) => {
+              if (!onReplace || saving) return;
+              event.preventDefault();
+              const next = event.dataTransfer.files?.[0];
+              if (!next) return;
+              const invalid = imageFileError(next);
+              if (invalid) {
+                setError(invalid);
+                return;
+              }
+              setError("");
+              onReplace(next);
+            }}
+          >
             <div className="photo-crop-stage">
               <p className="photo-crop-caption">
                 {isCover ? "This area will become your profile header." : "This area will become your profile picture."}
+                {onReplace ? " Drop another JPG, PNG, or WebP here to replace it. Maximum 5 MB." : ""}
               </p>
               <div
                 ref={viewRef}
@@ -493,7 +699,7 @@ export function PhotoCropDialog({ file, onClose, onUploaded, onReplace, kind = "
                 </button>
               </div>
             </div>
-            {isCover && onReplace ? (
+            {onReplace ? (
               <input
                 ref={replaceRef}
                 className="sr-only"
@@ -506,7 +712,7 @@ export function PhotoCropDialog({ file, onClose, onUploaded, onReplace, kind = "
               <button type="button" className="btn btn-outline btn-sm" onClick={resetCrop} disabled={saving || !dirty}>
                 Reset
               </button>
-              {isCover && onReplace ? (
+              {onReplace ? (
                 <button type="button" className="btn btn-outline btn-sm" onClick={() => replaceRef.current?.click()} disabled={saving}>
                   Choose another photo
                 </button>
@@ -546,31 +752,65 @@ export function PhotoCropDialog({ file, onClose, onUploaded, onReplace, kind = "
   );
 }
 
+export function CoverPhotoBadge({ hasCover, disabled, onFile, onInvalid, onRemoved }) {
+  const [busy, setBusy] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [removeError, setRemoveError] = useState("");
+
+  async function removeCover() {
+    setBusy(true);
+    setRemoveError("");
+    try {
+      const payload = await api("/api/alumni/profile/cover", { method: "DELETE" });
+      setConfirmRemove(false);
+      onRemoved?.(payload);
+    } catch (err) {
+      setRemoveError(friendlyError(err, "We couldn't remove your cover photo. Please try again."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="alumni-cover-edit">
+      <PhotoActionBadge
+        hasImage={hasCover}
+        label={hasCover ? "Edit cover photo" : "Add cover photo"}
+        changeLabel={hasCover ? "Change cover photo" : "Add cover photo"}
+        removeLabel="Remove cover photo"
+        disabled={disabled || busy}
+        onFile={onFile}
+        onInvalid={onInvalid}
+        onRemove={() => {
+          setRemoveError("");
+          setConfirmRemove(true);
+        }}
+      />
+      {confirmRemove ? (
+        <Dialog
+          title="Remove cover photo?"
+          description="Your alumni profile will use the default header background. You can add a new cover photo later."
+          confirmLabel={busy ? "Removing…" : "Remove cover photo"}
+          danger
+          busy={busy}
+          onConfirm={removeCover}
+          onClose={() => {
+            if (!busy) setConfirmRemove(false);
+          }}
+        >
+          <Alert type="error">{removeError}</Alert>
+        </Dialog>
+      ) : null}
+    </div>
+  );
+}
+
 export function CoverPhotoControl({ hasCover, disabled, onFile, onUploaded, onInvalid }) {
-  const inputRef = useRef(null);
   const [busy, setBusy] = useState("");
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removeError, setRemoveError] = useState("");
   const locked = disabled || Boolean(busy);
   const label = hasCover ? "Change cover photo" : "Add cover photo";
-
-  function openPicker() {
-    if (locked) return;
-    inputRef.current?.click();
-  }
-
-  function onChange(event) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    const invalid = validatePhotoFile(file);
-    if (invalid) {
-      onInvalid?.(invalid);
-      return;
-    }
-    onInvalid?.("");
-    onFile?.(file);
-  }
 
   async function removeCover() {
     setBusy("removing");
@@ -588,15 +828,24 @@ export function CoverPhotoControl({ hasCover, disabled, onFile, onUploaded, onIn
 
   return (
     <div className="cover-photo-control">
-      <button
-        type="button"
-        className="btn btn-outline btn-sm"
-        onClick={openPicker}
+      <FileDrop
+        compact
+        handoff
+        accept={PHOTO_ACCEPT}
+        validate={imageFileError}
         disabled={locked}
-        aria-label={label}
-      >
-        {label}
-      </button>
+        label={label}
+        formats="JPG, PNG, or WebP"
+        maxSize="Maximum 5 MB"
+        description="The photo opens in the crop editor before it is saved."
+        onChange={(file, message) => {
+          if (message) onInvalid?.(message);
+          else if (file) {
+            onInvalid?.("");
+            onFile?.(file);
+          }
+        }}
+      />
       {hasCover ? (
         <button
           type="button"
@@ -610,14 +859,6 @@ export function CoverPhotoControl({ hasCover, disabled, onFile, onUploaded, onIn
           {busy === "removing" ? "Removing…" : "Remove cover photo"}
         </button>
       ) : null}
-      <input
-        ref={inputRef}
-        className="sr-only"
-        type="file"
-        accept={PHOTO_ACCEPT}
-        disabled={locked}
-        onChange={onChange}
-      />
       {confirmRemove ? (
         <Dialog
           title="Remove cover photo?"

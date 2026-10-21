@@ -25,9 +25,10 @@ from app.models import (
 )
 from app.schemas import CardApplicationIn, ProfileUpdateIn
 from app.services.email.dispatch import send_notice
-from app.services.employment import resolve_current_employment
+from app.services.employment import apply_profile_unemployment, resolve_current_employment, unemployment_public
 from app.services.jobs import ensure_job_timeline
 from app.services.profile_completion import refresh_alumni_progress
+from app.services.profile_records import serialize_activity
 from app.services.studies import serialize_studies
 from app.services.validation import sanitize_alumni_path, sanitize_http_url
 
@@ -84,11 +85,11 @@ def maybe_send_gts_reminder(db: Session, user: Account) -> None:
             subject="Graduate Tracer Survey reminder",
             headline="Graduate Tracer Survey reminder",
             intro=(
-                "AAPS still needs your Graduate Tracer Survey. "
-                "It is the official employment record used for alumni reports and your Angelenean Alumni Card."
+                "AAPS maintains your official tracer record for alumni reports and your Angelenean Alumni Card. "
+                "Keep your Home profile current, then open Extract Resume."
             ),
             path="/alumni/resume",
-            cta="Complete the Graduate Tracer Survey",
+            cta="Extract Resume",
         )
         if result is not None and result.ok:
             db.add(
@@ -604,6 +605,7 @@ def build_aac_prefill(db: Session, user: Account) -> list[dict]:
     )
     email = _clean(user.personal_email)
     gts_email = _clean(gts.get("personal_email") or gts.get("email"))
+    gts = apply_profile_unemployment(gts, profile)
     employed = _clean(gts.get("is_currently_employed")).lower()
     if employed == "no":
         employer, employer_origin = "", ""
@@ -904,7 +906,7 @@ def ensure_starter_notifications(db: Session, user: Account, card: AlumniCard, h
         items.append(
             (
                 "Complete your Graduate Tracer Survey",
-                "AAPS uses the tracer as your official employment record. You can enter answers on Resume & tracer.",
+                "AAPS maintains your official tracer record. Keep your Home profile current, then open Extract Resume.",
                 "tracer",
             )
         )
@@ -946,7 +948,8 @@ def assemble_profile(db: Session, user: Account, *, notify_badges: bool = False)
         if alignment
         else (latest.alignment_status if latest else "Unknown")
     )
-    employment = resolve_current_employment(data)
+    employment_data = apply_profile_unemployment(data, profile)
+    employment = resolve_current_employment(employment_data)
     related = ""
     if employment.currently_employed:
         related = data.get("first_related") if employment.present_is_first else data.get("present_related_degree") or ""
@@ -974,9 +977,11 @@ def assemble_profile(db: Session, user: Account, *, notify_badges: bool = False)
             "has_cover": bool(profile and profile.cover_path),
             "college": record.college if record else "",
             "course_code": record.course_code if record else "",
+            **unemployment_public(profile),
         },
         "skills": skills,
         "further_studies": studies,
+        **{key: value for key, value in serialize_activity(db, user.id).items() if key != "jobs"},
         "jobs": jobs,
         "card": card_for_alumni(db, user, card),
         "perks": list_perks(db, user),
@@ -987,7 +992,7 @@ def assemble_profile(db: Session, user: Account, *, notify_badges: bool = False)
             "alignment_detail": alignment.justification_detail if alignment else "",
             "field": (soc.category if soc and soc.category else "") or (current_job.get("industry") if current_job else ""),
             "related_to_degree": related,
-            "employment_status": data.get("is_currently_employed") or ("Yes" if current_job else ""),
+            "employment_status": employment_data.get("is_currently_employed") or ("" if profile and profile.currently_unemployed else ("Yes" if current_job else "")),
             "time_to_first_job": data.get("time_to_first_job") or "",
         },
         "latest_submission": {

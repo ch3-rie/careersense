@@ -1,0 +1,36 @@
+@startuml
+!include style.puml
+title Figure 7. Use Case Diagram for Registration Approval
+
+actor Administrator as admin
+
+rectangle "CareerSense" {
+  usecase "Review registration" as UC23
+  usecase "Verify graduate\nidentity" as UC24
+  usecase "Download applicant\nresume" as UC23a
+  usecase "Approve account" as UC25
+  usecase "Reject account" as UC26
+  usecase "Record audit log" as UC45
+  usecase "Send email" as UC43
+}
+
+actor "Email Service" as email
+
+admin --> UC23
+admin --> UC24
+admin --> UC25
+admin --> UC26
+
+UC24 .up.> UC23 : <<extend>>\n[application is open]
+UC23a .up.> UC23 : <<extend>>\n[resume is opened]
+UC25 ..> UC45 : <<include>>
+UC26 ..> UC45 : <<include>>
+UC43 .up.> UC25 : <<extend>>\n[email enabled]
+UC43 .up.> UC26 : <<extend>>\n[email enabled]
+UC43 --> email
+
+legend right
+  Approval sets the account to Active.
+  Rejection stores a reason and sets the account to Rejected.
+endlegend
+@enduml

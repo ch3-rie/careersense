@@ -1,0 +1,33 @@
+@startuml
+!include style.puml
+title Figure 9. Use Case Diagram for Card Processing and Profile Follow-up
+
+actor Administrator as admin
+
+rectangle "CareerSense" {
+  usecase "Process alumni card\napplications" as UC30
+  usecase "Manage pickup\nslots" as UC31
+  usecase "Request a profile\nupdate" as UC32
+  usecase "Configure profile\nreminders" as UC33
+  usecase "Record audit log" as UC45
+  usecase "Send email" as UC43
+}
+
+actor "Email Service" as email
+
+admin --> UC30
+admin --> UC32
+admin --> UC33
+
+UC31 .up.> UC30 : <<extend>>\n[pickup is scheduled]
+UC30 ..> UC45 : <<include>>
+UC43 .up.> UC32 : <<extend>>\n[email enabled]
+UC43 .up.> UC33 : <<extend>>\n[reminder mail is sent]
+UC43 --> email
+
+legend right
+  Card status moves through For verification, Approved,
+  Ready for pickup, Claimed, and For renewal.
+  The in-app notice is still created when email is off.
+endlegend
+@enduml

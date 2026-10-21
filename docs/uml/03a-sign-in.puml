@@ -1,0 +1,34 @@
+@startuml
+!include style.puml
+title Figure 3a. Use Case Diagram for Sign-in and Session
+
+actor Guest as guest
+actor Alumni as alumni
+actor Administrator as admin
+
+rectangle "CareerSense" {
+  usecase "View public site" as UC01
+  usecase "Sign in" as UC04
+  usecase "Sign out" as UC07
+  usecase "Change password" as UC08
+  usecase "View pending\nnotice" as UC09
+  usecase "View rejection\nreason" as UC10
+}
+
+guest --> UC01
+guest --> UC04
+alumni --> UC04
+alumni --> UC07
+alumni --> UC08
+admin --> UC04
+admin --> UC07
+admin --> UC08
+
+UC09 .up.> UC04 : <<extend>>\n[status = Pending]
+UC10 .up.> UC04 : <<extend>>\n[status = Rejected]
+
+legend right
+  <<extend>> runs only for an Alumni account in that status.
+  Pending and Rejected are states, not separate actors.
+endlegend
+@enduml

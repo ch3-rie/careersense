@@ -32,11 +32,18 @@ function AuthLayout({ children }) {
   );
 }
 
+function mailIsReady(data) {
+  if (!data || typeof data !== "object") return true;
+  if (Object.prototype.hasOwnProperty.call(data, "email_configured")) return Boolean(data.email_configured);
+  if (Object.prototype.hasOwnProperty.call(data, "email_enabled")) return Boolean(data.email_enabled);
+  return true;
+}
+
 function EmailDeliveryNotice() {
   const [configured, setConfigured] = useState(true);
   useEffect(() => {
     api("/api/health")
-      .then((data) => setConfigured(Boolean(data.email_configured)))
+      .then((data) => setConfigured(mailIsReady(data)))
       .catch(() => {});
   }, []);
   if (configured) return null;

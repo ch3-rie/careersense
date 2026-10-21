@@ -1,0 +1,35 @@
+@startuml
+!include style.puml
+title Figure 10. Use Case Diagram for Survey, Perks, Occupation Codes, and Staff Accounts
+
+actor Administrator as admin
+
+rectangle "CareerSense" {
+  usecase "Maintain survey" as UC34
+  usecase "Maintain perks" as UC36
+  usecase "Maintain SOC codes\nand job mappings" as UC37
+  usecase "Manage administrator\naccounts" as UC38
+  usecase "View audit log" as UC39
+  usecase "Publish or restore\nsurvey version" as UC35
+  usecase "Record audit log" as UC45
+
+  UC39 -[hidden]right- UC38
+  UC38 -[hidden]right- UC37
+  UC37 -[hidden]right- UC36
+  UC36 -[hidden]right- UC34
+}
+
+admin --> UC34
+admin --> UC36
+admin --> UC37
+admin --> UC38
+admin --> UC39
+
+UC35 .left.> UC34 : <<extend>>\n[draft or prior version selected]
+UC38 ..> UC45 : <<include>>
+
+legend right
+  Publishing makes that version the live Graduate Tracer Survey.
+  The last Active administrator cannot be deactivated.
+endlegend
+@enduml

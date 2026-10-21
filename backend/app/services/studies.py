@@ -17,6 +17,7 @@ def serialize_study(row: FurtherStudy) -> dict:
         "id": row.id,
         "course_degree": row.course_degree or "",
         "school": row.school or "",
+        "institution_address": row.institution_address or "",
         "year_enrolled": row.year_enrolled or "",
         "scholarship": row.scholarship or "",
         "is_graduated": row.is_graduated,
@@ -48,6 +49,7 @@ def _apply_payload(row: FurtherStudy, payload: StudyIn) -> None:
         raise HTTPException(status_code=400, detail="Program and institution are required.")
     row.course_degree = course
     row.school = school
+    row.institution_address = (payload.institution_address or "").strip()[:240]
     row.year_enrolled = _year_enrolled(payload.year_enrolled)
     row.scholarship = (payload.scholarship or "").strip()
     row.is_graduated = payload.is_graduated

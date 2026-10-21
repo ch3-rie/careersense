@@ -1,11 +1,31 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from sqlalchemy.orm.attributes import flag_modified
+from fastapi.responses import FileResponse, Response
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.deps import require_active_alumni, require_pending_or_active_alumni
-from app.models import Account, AlumniSkill, Resume, TracerSubmission
-from app.schemas import CardApplicationIn, GtsPayload, JobIn, ProfileUpdateIn, StudyIn
+from app.rate_limit import enforce_rate_limit, qr_lookup_limiter
+from app.services.alumni_qr import (
+    alumni_qr_identity,
+    office_contact,
+    qr_svg,
+    verified_alumni_for_token,
+    verify_url,
+)
+from app.models import Account, AlumniCertification, AlumniSkill, Resume, TracerSubmission
+from app.schemas import (
+    AwardIn,
+    CardApplicationIn,
+    CertificationIn,
+    EmploymentStatusIn,
+    GtsPayload,
+    JobIn,
+    ProfileUpdateIn,
+    SeminarIn,
+    StudyIn,
+)
 from app.services.alignment import analyze_career_alignment, alignment_score
 from app.services.alumni_hub import (
     apply_card_application,
@@ -37,10 +57,35 @@ from app.services.studies import create_study, delete_study, serialize_studies, 
 from app.services.parser import extract_resume_from_upload, map_to_gts_fields
 from app.services.parser_course import select_current_experience
 from app.services.profile_completion import refresh_alumni_progress
+from app.services.resume_pdf import (
+    build_resume_pdf,
+    merge_resume_content,
+    profile_from_document,
+    resume_document_from_profile,
+    resume_filename,
+    resume_preview,
+    sanitize_resume_document,
+)
+from app.services.profile_records import (
+    certification_file,
+    create_award,
+    create_certification,
+    create_seminar,
+    delete_award,
+    delete_certification,
+    delete_seminar,
+    replace_certificate,
+    serialize_activity,
+    set_employment_status,
+    update_award,
+    update_certification,
+    update_seminar,
+)
 from app.services.profile_updates import evaluate_profile_update_completions
 from app.services.survey import get_published_schema, require_survey_writable, validate_required_answers
 
 router = APIRouter(prefix="/api/alumni", tags=["alumni"])
+public_router = APIRouter(prefix="/api/public", tags=["public"])
 
 
 def _latest_submission(db: Session, account_id: int) -> TracerSubmission | None:
@@ -256,6 +301,31 @@ def redeem_perk(perk_id: int, user: Account = Depends(require_active_alumni), db
     return {"perks": claim_perk(db, user, perk_id)}
 
 
+@router.get("/office")
+def alumni_office(_user: Account = Depends(require_active_alumni)):
+    return office_contact()
+
+
+@router.get("/qr")
+def alumni_qr(user: Account = Depends(require_active_alumni)):
+    return alumni_qr_identity(user)
+
+
+@router.get("/qr/image")
+def alumni_qr_image(user: Account = Depends(require_active_alumni)):
+    svg = qr_svg(verify_url(user.id))
+    return Response(content=svg, media_type="image/svg+xml", headers={"Cache-Control": "private, max-age=3600"})
+
+
+@public_router.get("/alumni-qr/{token}")
+def verify_alumni_qr(token: str, request: Request, db: Session = Depends(get_db)):
+    enforce_rate_limit(request, qr_lookup_limiter, "alumni-qr")
+    user = verified_alumni_for_token(db, token)
+    if user is None:
+        raise HTTPException(status_code=404, detail="This QR code could not be verified.")
+    return alumni_qr_identity(user)
+
+
 @router.get("/card")
 def alumni_card(user: Account = Depends(require_active_alumni), db: Session = Depends(get_db)):
     return card_workspace(db, user)
@@ -349,6 +419,137 @@ def remove_study(study_id: int, user: Account = Depends(require_active_alumni), 
     refresh_alumni_progress(db, user, notify=True)
     db.commit()
     return {"studies": studies}
+
+
+@router.put("/employment-status")
+@router.put("/employment-note")
+def save_employment_status(
+    payload: EmploymentStatusIn,
+    user: Account = Depends(require_active_alumni),
+    db: Session = Depends(get_db),
+):
+    status = set_employment_status(db, user, payload)
+    refresh_alumni_progress(db, user, notify=False)
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+    return status
+
+
+@router.post("/seminars")
+def add_seminar(payload: SeminarIn, user: Account = Depends(require_active_alumni), db: Session = Depends(get_db)):
+    return {"seminars": create_seminar(db, user, payload)}
+
+
+@router.put("/seminars/{seminar_id}")
+def edit_seminar(
+    seminar_id: int,
+    payload: SeminarIn,
+    user: Account = Depends(require_active_alumni),
+    db: Session = Depends(get_db),
+):
+    return {"seminars": update_seminar(db, user, seminar_id, payload)}
+
+
+@router.delete("/seminars/{seminar_id}")
+def remove_seminar(seminar_id: int, user: Account = Depends(require_active_alumni), db: Session = Depends(get_db)):
+    return {"seminars": delete_seminar(db, user, seminar_id)}
+
+
+@router.post("/certifications")
+async def add_certification(
+    name: str = Form(""),
+    awarded_on: str = Form(""),
+    awarding_body: str = Form(""),
+    verification_url: str = Form(""),
+    certificate: UploadFile = File(...),
+    user: Account = Depends(require_active_alumni),
+    db: Session = Depends(get_db),
+):
+    try:
+        payload = CertificationIn(
+            name=name,
+            awarded_on=awarded_on,
+            awarding_body=awarding_body,
+            verification_url=verification_url,
+        )
+    except ValidationError as exc:
+        message = exc.errors()[0].get("msg") if exc.errors() else ""
+        raise HTTPException(
+            status_code=400,
+            detail=message or "Certification name, awarding body, and award date are required.",
+        ) from exc
+    file_bytes = await certificate.read()
+    rows = create_certification(db, user, payload, file_bytes, certificate.filename or "")
+    return {"certifications": rows}
+
+
+@router.put("/certifications/{certification_id}")
+def edit_certification(
+    certification_id: int,
+    payload: CertificationIn,
+    user: Account = Depends(require_active_alumni),
+    db: Session = Depends(get_db),
+):
+    return {"certifications": update_certification(db, user, certification_id, payload)}
+
+
+@router.post("/certifications/{certification_id}/file")
+async def replace_certification_file(
+    certification_id: int,
+    certificate: UploadFile = File(...),
+    user: Account = Depends(require_active_alumni),
+    db: Session = Depends(get_db),
+):
+    file_bytes = await certificate.read()
+    rows = replace_certificate(db, user, certification_id, file_bytes, certificate.filename or "")
+    return {"certifications": rows}
+
+
+@router.get("/certifications/{certification_id}/file")
+def alumni_certification_file(
+    certification_id: int,
+    user: Account = Depends(require_active_alumni),
+    db: Session = Depends(get_db),
+):
+    row = certification_file(db, certification_id, account_id=user.id)
+    path = resolve_stored_file(row.certificate_path, missing_detail="Certificate file is no longer on disk.")
+    return FileResponse(
+        path,
+        media_type=row.certificate_mime or "application/octet-stream",
+        filename=safe_download_name(row.certificate_filename or "certificate"),
+        content_disposition_type="inline",
+    )
+
+
+@router.delete("/certifications/{certification_id}")
+def remove_certification(
+    certification_id: int,
+    user: Account = Depends(require_active_alumni),
+    db: Session = Depends(get_db),
+):
+    return {"certifications": delete_certification(db, user, certification_id)}
+
+
+@router.post("/awards")
+def add_award(payload: AwardIn, user: Account = Depends(require_active_alumni), db: Session = Depends(get_db)):
+    return {"awards": create_award(db, user, payload)}
+
+
+@router.put("/awards/{award_id}")
+def edit_award(
+    award_id: int,
+    payload: AwardIn,
+    user: Account = Depends(require_active_alumni),
+    db: Session = Depends(get_db),
+):
+    return {"awards": update_award(db, user, award_id, payload)}
+
+
+@router.delete("/awards/{award_id}")
+def remove_award(award_id: int, user: Account = Depends(require_active_alumni), db: Session = Depends(get_db)):
+    return {"awards": delete_award(db, user, award_id)}
 
 
 @router.get("/analytics")
@@ -463,6 +664,131 @@ def submit_gts(
         if user.status == "Pending"
         else "Tracer record updated.",
     }
+
+
+def _resume_profile(db: Session, user: Account) -> dict:
+    profile = user.profile
+    record = user.university_record
+    activity = serialize_activity(db, user.id)
+    jobs = ensure_job_timeline(db, user)
+    skills = [row.skill_name for row in db.query(AlumniSkill).filter(AlumniSkill.account_id == user.id).all() if row.skill_name]
+    if not skills:
+        latest = _latest_submission(db, user.id)
+        raw_skills = (latest.data_json or {}).get("skills") if latest else []
+        skills = [str(item).strip() for item in (raw_skills or []) if str(item).strip()]
+    name = " ".join(
+        part.strip()
+        for part in [
+            profile.first_name if profile else "",
+            profile.middle_name if profile else "",
+            profile.last_name if profile else "",
+        ]
+        if part and part.strip()
+    )
+    covered = {
+        row.id: list(row.skills_covered or [])
+        for row in db.query(AlumniCertification).filter(AlumniCertification.account_id == user.id)
+    }
+    certifications = []
+    for row in activity.get("certifications") or []:
+        item = dict(row)
+        item["skills"] = covered.get(row.get("id"), [])
+        certifications.append(item)
+    uploads = [
+        {
+            "parser_source": resume.parser_source,
+            "parsed": resume.parsed_json if isinstance(resume.parsed_json, dict) else {},
+            "text": resume.extracted_text or "",
+        }
+        for resume in (
+            db.query(Resume)
+            .filter(Resume.account_id == user.id)
+            .order_by(Resume.created_at.desc(), Resume.id.desc())
+        )
+    ]
+    return merge_resume_content(
+        {
+            "name": name or user.personal_email,
+            "email": user.personal_email or "",
+            "phone": (profile.phone if profile else "") or "",
+            "address": (profile.address if profile else "") or "",
+            "city": (profile.city if profile else "") or "",
+            "country": (profile.country_residence if profile else "") or "",
+            "bio": (profile.bio if profile else "") or "",
+            "degree": (profile.degree if profile else "") or (record.degree if record else ""),
+            "college": record.college if record else "",
+            "year_graduated": (profile.year_graduated if profile else "") or (record.year_graduated if record else ""),
+            "studies": serialize_studies(db, user.id),
+            "jobs": jobs,
+            "skills": skills,
+            "certifications": certifications,
+            "seminars": activity.get("seminars") or [],
+            "awards": activity.get("awards") or [],
+        },
+        uploads,
+    )
+
+
+def _saved_resume_document(user: Account) -> dict | None:
+    profile = user.profile
+    saved = profile.resume_document if profile is not None else None
+    if isinstance(saved, dict) and saved.get("sections") is not None:
+        return sanitize_resume_document(saved)
+    return None
+
+
+def _export_source(db: Session, user: Account) -> dict:
+    saved = _saved_resume_document(user)
+    document = saved if saved is not None else resume_document_from_profile(_resume_profile(db, user))
+    return profile_from_document(document)
+
+
+@router.get("/resume/document")
+def resume_document(user: Account = Depends(require_active_alumni), db: Session = Depends(get_db)):
+    saved = _saved_resume_document(user)
+    if saved is not None:
+        return {"saved": True, "notices": [], "document": saved}
+    failed = (
+        db.query(Resume)
+        .filter(Resume.account_id == user.id, Resume.parser_source.in_(["failed", "empty"]))
+        .count()
+    )
+    notices = []
+    if failed:
+        notices.append("One uploaded file could not be read. This draft uses your saved profile and any uploaded files that could be read.")
+    return {"saved": False, "notices": notices, "document": resume_document_from_profile(_resume_profile(db, user))}
+
+
+@router.put("/resume/document")
+def save_resume_document(
+    payload: dict,
+    user: Account = Depends(require_active_alumni),
+    db: Session = Depends(get_db),
+):
+    if user.profile is None:
+        raise HTTPException(status_code=400, detail="No alumni profile is on file.")
+    document = sanitize_resume_document(payload)
+    user.profile.resume_document = document
+    flag_modified(user.profile, "resume_document")
+    db.commit()
+    return {"saved": True, "document": document}
+
+
+@router.get("/resume/preview")
+def preview_resume(user: Account = Depends(require_active_alumni), db: Session = Depends(get_db)):
+    return resume_preview(_export_source(db, user))
+
+
+@router.get("/resume/export")
+def export_resume(user: Account = Depends(require_active_alumni), db: Session = Depends(get_db)):
+    source = _export_source(db, user)
+    pdf = build_resume_pdf(source)
+    filename = safe_download_name(resume_filename(source.get("name") or ""))
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/resumes")

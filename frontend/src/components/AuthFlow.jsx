@@ -1,19 +1,13 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { FileDrop } from "./FileDrop";
 import {
   AlertTriangleIcon,
   CheckCircleIcon,
   CheckIcon,
   FileTextIcon,
   InfoIcon,
-  UploadIcon,
 } from "./icons";
-import {
-  MAX_RESUME_BYTES,
-  RESUME_ACCEPT,
-  fileKindLabel,
-  formatFileSize,
-  passwordChecks,
-} from "../lib/userMessages";
+import { RESUME_ACCEPT, passwordChecks, resumeFileError } from "../lib/userMessages";
 
 export function AuthPageHeader({ kicker = "CareerSense", title, lead, badge }) {
   return (
@@ -211,107 +205,22 @@ export function FileUploadField({
   hint = "PDF, DOCX, or TXT · Maximum 10 MB",
   description = "This file only suggests survey answers. You can correct them before you submit.",
 }) {
-  const inputId = useId();
-  const errorId = `${inputId}-error`;
-  const hintId = `${inputId}-hint`;
-  const inputRef = useRef(null);
-  const [dragOver, setDragOver] = useState(false);
-
-  function applyFile(next, { allowEmpty = false } = {}) {
-    if (!next) {
-      if (allowEmpty) onChange(null);
-      return;
-    }
-    const name = String(next.name || "").toLowerCase();
-    if (!/\.(pdf|docx|txt)$/.test(name)) {
-      onChange(null, "Please upload a PDF, DOCX, or TXT resume.");
-      return;
-    }
-    if (next.size > MAX_RESUME_BYTES) {
-      onChange(null, "Resume must be 10 MB or smaller.");
-      return;
-    }
-    onChange(next, "");
-  }
-
-  function clearFile(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    if (inputRef.current) inputRef.current.value = "";
-    onChange(null, "");
-  }
-
-  if (file) {
-    return (
-      <div className={`file-selected ${error ? "has-error" : ""}`}>
-        <span className="file-selected-icon" aria-hidden="true">
-          <CheckIcon size={18} />
-        </span>
-        <div className="file-selected-copy">
-          <strong id={inputId}>{file.name}</strong>
-          <p className="muted" id={hintId}>
-            {fileKindLabel(file.name)} · {formatFileSize(file.size)}
-          </p>
-        </div>
-        <div className="file-selected-actions">
-          <button type="button" className="btn btn-outline btn-sm" disabled={disabled} onClick={() => inputRef.current?.click()}>
-            Change file
-          </button>
-          <button type="button" className="btn btn-outline btn-sm" disabled={disabled} onClick={clearFile}>
-            Remove
-          </button>
-        </div>
-        <input
-          ref={inputRef}
-          id={`${inputId}-input`}
-          className="sr-only"
-          type="file"
-          accept={RESUME_ACCEPT}
-          aria-label="Replace resume file"
-          disabled={disabled}
-          onChange={(event) => {
-            const next = event.target.files?.[0];
-            if (next) applyFile(next);
-          }}
-        />
-        {error ? <span className="field-error" id={errorId}>{error}</span> : null}
-      </div>
-    );
-  }
-
+  const [formats, maxSize] = String(hint).split(" · ");
   return (
-    <div className={`field file-upload-field ${error ? "has-error" : ""}`}>
-      <label
-        htmlFor={inputId}
-        className={`dropzone file-dropzone ${dragOver ? "is-over" : ""}`}
-        onDragOver={(event) => {
-          event.preventDefault();
-          setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(event) => {
-          event.preventDefault();
-          setDragOver(false);
-          applyFile(event.dataTransfer.files?.[0] || null, { allowEmpty: true });
-        }}
-      >
-        <UploadIcon size={28} />
-        <strong>{label}</strong>
-        <span className="muted" id={hintId}>{hint}</span>
-        <p className="file-dropzone-copy">{description}</p>
-        <input
-          ref={inputRef}
-          id={inputId}
-          type="file"
-          accept={RESUME_ACCEPT}
-          disabled={disabled}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={[hintId, error ? errorId : null].filter(Boolean).join(" ") || undefined}
-          onChange={(event) => applyFile(event.target.files?.[0] || null, { allowEmpty: true })}
-        />
-      </label>
-      {error ? <span className="field-error" id={errorId}>{error}</span> : null}
-    </div>
+    <FileDrop
+      className="file-upload-field"
+      file={file}
+      accept={RESUME_ACCEPT}
+      validate={resumeFileError}
+      onChange={onChange}
+      error={error}
+      disabled={disabled}
+      required
+      label={label}
+      formats={formats || hint}
+      maxSize={maxSize && maxSize !== formats ? maxSize : ""}
+      description={description}
+    />
   );
 }
 

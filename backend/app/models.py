@@ -70,6 +70,9 @@ class Account(Base):
     skills: Mapped[list["AlumniSkill"]] = relationship(back_populates="account")
     studies: Mapped[list["FurtherStudy"]] = relationship(back_populates="account")
     jobs: Mapped[list["AlumniJob"]] = relationship(back_populates="account")
+    seminars: Mapped[list["AlumniSeminar"]] = relationship(back_populates="account")
+    certifications: Mapped[list["AlumniCertification"]] = relationship(back_populates="account")
+    awards: Mapped[list["AlumniAward"]] = relationship(back_populates="account")
     alignment: Mapped[Optional["AlignmentResult"]] = relationship(back_populates="account", uselist=False)
     alumni_card: Mapped[Optional["AlumniCard"]] = relationship(back_populates="account", uselist=False)
     notifications: Mapped[list["AlumniNotification"]] = relationship(back_populates="account")
@@ -104,7 +107,13 @@ class AlumniProfile(Base):
     cover_mime: Mapped[str] = mapped_column(String(120), default="")
     bio: Mapped[str] = mapped_column(Text, default="")
     address: Mapped[str] = mapped_column(String(240), default="")
+    no_employment_reason: Mapped[str] = mapped_column(Text, default="")
+    currently_unemployed: Mapped[bool] = mapped_column(Boolean, default=False)
+    unemployment_reason: Mapped[str] = mapped_column(String(40), default="")
+    unemployment_details: Mapped[str] = mapped_column(Text, default="")
+    employment_answer_before: Mapped[str] = mapped_column(String(8), default="")
     birth_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    resume_document: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -179,6 +188,7 @@ class FurtherStudy(Base):
     account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False, index=True)
     course_degree: Mapped[str] = mapped_column(String(200), default="")
     school: Mapped[str] = mapped_column(String(200), default="")
+    institution_address: Mapped[str] = mapped_column(String(240), default="")
     year_enrolled: Mapped[str] = mapped_column(String(8), default="")
     scholarship: Mapped[str] = mapped_column(String(200), default="")
     is_graduated: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
@@ -198,9 +208,36 @@ class AlumniJob(Base):
     is_current: Mapped[bool] = mapped_column(Boolean, default=False)
     industry: Mapped[str] = mapped_column(String(120), default="")
     location: Mapped[str] = mapped_column(String(120), default="")
+    salary_range: Mapped[str] = mapped_column(String(80), default="")
     description: Mapped[str] = mapped_column(Text, default="")
 
     account: Mapped[Account] = relationship(back_populates="jobs")
+
+
+class AlumniSeminar(Base):
+    __tablename__ = "alumni_seminars"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    location: Mapped[str] = mapped_column(String(200), nullable=False)
+    held_on: Mapped[str] = mapped_column(String(20), default="")
+    organizer: Mapped[str] = mapped_column(String(200), default="")
+
+    account: Mapped[Account] = relationship(back_populates="seminars")
+
+
+class AlumniAward(Base):
+    __tablename__ = "alumni_awards"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    issuer: Mapped[str] = mapped_column(String(200), default="")
+    awarded_on: Mapped[str] = mapped_column(String(20), default="")
+    description: Mapped[str] = mapped_column(Text, default="")
+
+    account: Mapped[Account] = relationship(back_populates="awards")
 
 
 class AlumniSkill(Base):
@@ -421,12 +458,19 @@ class AlumniCertification(Base):
     __tablename__ = "alumni_certifications"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False, index=True)
     certification_name: Mapped[str] = mapped_column(String(200), nullable=False)
     issuing_organization: Mapped[str] = mapped_column(String(200), default="")
     date_issued: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    awarded_on: Mapped[str] = mapped_column(String(20), default="")
     skills_covered: Mapped[list] = mapped_column(JSON, default=list)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    verification_url: Mapped[str] = mapped_column(String(500), default="")
+    certificate_path: Mapped[str] = mapped_column(String(500), default="")
+    certificate_mime: Mapped[str] = mapped_column(String(120), default="")
+    certificate_filename: Mapped[str] = mapped_column(String(255), default="")
+
+    account: Mapped[Account] = relationship(back_populates="certifications")
 
 
 class ProfileUpdateRequest(Base):

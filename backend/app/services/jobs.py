@@ -43,6 +43,7 @@ def serialize_job(row: AlumniJob) -> dict:
         "is_current": bool(row.is_current),
         "industry": row.industry or "",
         "location": row.location or "",
+        "salary_range": row.salary_range or "",
         "description": row.description or "",
         "duration": job_duration(row.start_date, row.end_date, bool(row.is_current)),
     }
@@ -198,21 +199,31 @@ def ensure_job_timeline(db: Session, user: Account) -> list[dict]:
     return serialize_jobs(db, user.id)
 
 
-def _apply_payload(row: AlumniJob, payload: JobIn) -> None:
+def _apply_payload(row: AlumniJob, payload: JobIn, user: Account, *, creating: bool) -> None:
     title = payload.job_title.strip()
     company = payload.company.strip()
     if not title or not company:
         raise HTTPException(status_code=400, detail="Job title and company are required.")
-    end = None if payload.is_current else payload.end_date
+    unemployed = bool(user.profile and user.profile.currently_unemployed)
+    is_current = bool(payload.is_current)
+    if unemployed and creating and is_current:
+        raise HTTPException(
+            status_code=400,
+            detail="Update your employment status to currently employed before marking a role as current.",
+        )
+    if unemployed and not creating:
+        is_current = bool(row.is_current)
+    end = None if is_current else payload.end_date
     if payload.start_date and end and end < payload.start_date:
         raise HTTPException(status_code=400, detail="End date must be on or after the start date.")
     row.job_title = title
     row.company = company
     row.start_date = payload.start_date
     row.end_date = end
-    row.is_current = bool(payload.is_current)
+    row.is_current = is_current
     row.industry = (payload.industry or "").strip()
     row.location = (payload.location or "").strip()
+    row.salary_range = (payload.salary_range or "").strip()
     row.description = (payload.description or "").strip()[:800]
 
 
@@ -225,7 +236,7 @@ def _owned_job(db: Session, user: Account, job_id: int) -> AlumniJob:
 
 def create_job(db: Session, user: Account, payload: JobIn) -> list[dict]:
     row = AlumniJob(account_id=user.id, job_title="", company="")
-    _apply_payload(row, payload)
+    _apply_payload(row, payload, user, creating=True)
     db.add(row)
     _mark_ready(user)
     db.commit()
@@ -234,7 +245,7 @@ def create_job(db: Session, user: Account, payload: JobIn) -> list[dict]:
 
 def update_job(db: Session, user: Account, job_id: int, payload: JobIn) -> list[dict]:
     row = _owned_job(db, user, job_id)
-    _apply_payload(row, payload)
+    _apply_payload(row, payload, user, creating=False)
     _mark_ready(user)
     db.commit()
     return serialize_jobs(db, user.id)

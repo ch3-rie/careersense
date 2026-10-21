@@ -5,6 +5,7 @@ import {
   BarChartIcon,
   ClipboardListIcon,
   CreditCardIcon,
+  QrCodeIcon,
   DatabaseIcon,
   FileTextIcon,
   GiftIcon,
@@ -133,13 +134,13 @@ const ALUMNI_NAV = [
   {
     label: "Services",
     items: [
-      ["Alumni Card", "/alumni/card", CreditCardIcon],
+      ["Alumni QR", "/alumni/qr", QrCodeIcon],
       ["Perks & Discounts", "/alumni/perks", GiftIcon],
     ],
   },
   {
     label: "My Record",
-    items: [["Resume & Tracer", "/alumni/resume", FileTextIcon]],
+    items: [["Extract Resume", "/alumni/resume", FileTextIcon]],
   },
   { label: "Account", items: [["Account", "/alumni/account", SettingsIcon]] },
 ];

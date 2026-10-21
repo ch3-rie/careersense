@@ -29,8 +29,20 @@ UNEMPLOYMENT_REASONS = [
     "Board or Licensure Examination Preparation",
     "Health-related reason/s",
     "Looking for a job, but cannot find one",
+    "Not Currently Seeking Employment",
     "Continuing Education",
     "Other",
+]
+
+# Profile status uses plain labels. The third value is the Graduate Tracer Survey reason
+# so reports and employment statistics keep using the survey's categories.
+PROFILE_UNEMPLOYMENT_REASONS = [
+    ("seeking", "Currently Seeking Employment", "Looking for a job, but cannot find one"),
+    ("further_studies", "Pursuing Further Studies", "Continuing Education"),
+    ("personal_family", "Personal or Family Reasons", "Family-related reason/s"),
+    ("health", "Health Reasons", "Health-related reason/s"),
+    ("not_seeking", "Not Currently Seeking Employment", "Not Currently Seeking Employment"),
+    ("other", "Other", "Other"),
 ]
 
 HOW_FOUND_FIRST_JOB = [
@@ -89,11 +101,11 @@ CORE_GTS_SECTIONS = [
     },
     {
         "key": "studies",
-        "name": "Further Studies",
+        "name": "Further Studies / Degrees Earned",
         "locked": True,
         "fields": [
             "Enrolled in further studies",
-            "Course/Degree, School, Year, Scholarship, Graduated",
+            "Course/Degree, School, Address of Institution, Year, Scholarship, Graduated",
         ],
     },
     {

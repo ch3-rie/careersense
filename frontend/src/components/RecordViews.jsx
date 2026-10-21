@@ -97,6 +97,7 @@ export function StudiesList({ studies }) {
           <tr>
             <th>Program</th>
             <th>School</th>
+            <th>Address of Institution</th>
             <th>Year enrolled</th>
             <th>Scholarship</th>
             <th>Graduated</th>
@@ -107,6 +108,7 @@ export function StudiesList({ studies }) {
             <tr key={row.id || index}>
               <td>{row.course_degree || row["Course/Degree"] || "—"}</td>
               <td>{row.school || row.School || "—"}</td>
+              <td>{row.institution_address || row["Address of Institution"] || "—"}</td>
               <td>{row.year_enrolled || row["Year of First Enrollment"] || "—"}</td>
               <td>{row.scholarship || row.Scholarship || "—"}</td>
               <td>{displayValue(row.is_graduated ?? row.Graduated)}</td>
@@ -251,7 +253,7 @@ export function TracerRecord({
 
   const studiesBlock = (
     <section>
-      <h3>Further studies</h3>
+      <h3>Further Studies / Degrees Earned</h3>
       <p className="muted">Enrolled after graduation: {displayValue(data.enroll_further_studies)}</p>
       <StudiesList studies={studies} />
     </section>
@@ -465,7 +467,7 @@ export function ResumeExtract({ parsed = {}, alignment, gts = {}, parserSource, 
       </section>
       {Array.isArray(studies) && studies.length ? (
         <section>
-          <h3>Further studies</h3>
+          <h3>Further Studies / Degrees Earned</h3>
           <StudiesList studies={studies} />
         </section>
       ) : null}
@@ -490,8 +492,6 @@ export function ProfileCard({ user = {}, profile = {} }) {
           { label: "Degree", value: displayValue(profile.degree) },
           { label: "Year graduated", value: displayValue(profile.year_graduated) },
           { label: "Country", value: displayValue(profile.country_residence) },
-          { label: "Primary guardian", value: displayValue(profile.guardian_type) },
-          { label: "Guardian completed college", value: displayValue(profile.guardian_degree_completed) },
           { label: "Member since", value: formatDateTime(user.created_at) },
         ]}
       />

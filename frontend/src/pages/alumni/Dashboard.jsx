@@ -1,13 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { CoverPhotoControl, PhotoCropDialog, ProfilePhotoControl } from "../../components/ProfilePhotoEditor";
-import {
-  MailIcon,
-  MapPinIcon,
-  PencilIcon,
-  PhoneIcon,
-} from "../../components/icons";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { CoverPhotoBadge, CoverPhotoControl, PhotoCropDialog, ProfilePhotoControl } from "../../components/ProfilePhotoEditor";
+import { MailIcon, MapPinIcon, PencilIcon, PhoneIcon } from "../../components/icons";
 import { JobTimeline } from "../../components/JobTimeline";
+import { AwardList, CertificationList, SeminarList } from "../../components/ProfileRecords";
 import { StudyTimeline } from "../../components/StudyTimeline";
 import { PortalShell } from "../../components/Layout";
 import { ProfileProgress } from "../../components/ProfileProgress";
@@ -74,30 +70,49 @@ function attentionItem(data) {
   const submittedAt = data?.latest_submission?.submitted_at;
   if (submittedAt && isStaleDate(submittedAt)) {
     return {
-      title: "Keep your alumni record current",
+      title: "Update your employment",
       lead: `Your employment information was last updated more than a year ago (${formatLongDate(submittedAt)}).`,
-      cta: "Update tracer",
-      to: "/alumni/resume",
-      action: { kind: "link", to: "/alumni/resume" },
+      cta: "Update employment",
+      to: "/alumni#work-history",
+      action: { kind: "link", to: "/alumni#work-history" },
     };
   }
   return null;
 }
 
-function careerLine(employment, occupation) {
-  if (employment.answered && !employment.currentlyEmployed) {
-    return { text: "Not currently employed", empty: false };
+function careerLine(employment, occupation, profile) {
+  if (profile?.currently_unemployed || (employment.answered && !employment.currentlyEmployed)) {
+    const reason = String(profile?.unemployment_reason_label || "").trim();
+    return { text: reason ? `Unemployed · ${reason}` : "Unemployed", empty: false };
   }
   if (occupation) return { text: occupation, empty: false };
-  return { text: "Career information not yet provided", empty: true };
+  return { text: "No current role added yet", empty: true };
 }
 
-function locationLines(profile) {
-  const address = String(profile.address || "").trim();
+function residentialAddress(profile) {
+  const street = String(profile.address || "").trim();
   const city = String(profile.city || "").trim();
   const country = String(profile.country_residence || "").trim();
-  const locality = [city, country].filter(Boolean).join(", ");
-  return [address, locality].filter(Boolean);
+  return [street, city, country].filter(Boolean).join(", ");
+}
+
+const SECTION_ALIASES = {
+  education: "further-studies",
+  studies: "further-studies",
+  employment: "work-history",
+  contact: "profile",
+  about: "profile",
+  personal: "profile",
+  achievements: "alumni-badges",
+  badges: "alumni-badges",
+  "profile-completion": "alumni-badges",
+};
+
+function scrollTargetId(hash) {
+  const raw = String(hash || "").replace(/^#/, "");
+  if (!raw) return "";
+  if (raw.startsWith("achievement-")) return "alumni-badges";
+  return SECTION_ALIASES[raw] || raw;
 }
 
 const EMPTY_FORM = {
@@ -111,6 +126,7 @@ const EMPTY_FORM = {
 
 export default function AlumniDashboard() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [photoSrc, setPhotoSrc] = useState("");
@@ -132,15 +148,16 @@ export default function AlumniDashboard() {
     loadDashboard().catch((err) => setError(friendlyError(err, "We couldn't load your alumni profile. Please try again.")));
   }, []);
 
+  function openSection(id) {
+    navigate({ pathname: "/alumni", hash: id }, { replace: true });
+  }
+
   useEffect(() => {
     if (!location.hash || !data) return;
-    const id = location.hash.slice(1);
+    const id = scrollTargetId(location.hash);
+    if (!id) return;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const behavior = reduceMotion ? "auto" : "smooth";
-    if (id === "contact" || id === "profile" || id === "about") {
-      document.getElementById("profile")?.scrollIntoView({ behavior, block: "start" });
-      return;
-    }
     document.getElementById(id)?.scrollIntoView({ behavior, block: "start" });
   }, [location.hash, data]);
 
@@ -230,11 +247,11 @@ export default function AlumniDashboard() {
       return;
     }
     if (action?.kind === "jobs") {
-      document.getElementById("work-history")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      openSection("work-history");
       return;
     }
     if (action?.kind === "studies") {
-      document.getElementById("further-studies")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      openSection("further-studies");
     }
   }
 
@@ -278,14 +295,20 @@ export default function AlumniDashboard() {
   const occupation = latest?.job_title || employment.occupation;
   const completion = data?.completion || null;
   const attention = data ? attentionItem(data) : null;
-  const career = careerLine(employment, occupation);
+  const career = careerLine(
+    profile.currently_unemployed ? { ...employment, currentlyEmployed: false, answered: true } : employment,
+    profile.currently_unemployed ? "" : occupation,
+    profile,
+  );
   const bio = String(profile.bio || "").trim();
-  const phone = String(profile.phone || "").trim();
   const email = String(account.email || "").trim();
-  const places = locationLines(profile);
-  const degreeLine = [profile.degree, profile.year_graduated ? `Batch ${profile.year_graduated}` : ""]
-    .filter(Boolean)
-    .join(" · ");
+  const phone = String(profile.phone || "").trim();
+  const residence = residentialAddress(profile);
+  const contacts = [
+    phone ? ["phone", phone] : null,
+    email ? ["email", email] : null,
+    residence ? ["address", residence] : null,
+  ].filter(Boolean);
   const coverAlt = `${displayName} cover photo`;
 
   return (
@@ -301,16 +324,25 @@ export default function AlumniDashboard() {
         <article className="alumni-profile">
           <header className="alumni-profile-hero" id="profile">
             <div className={`alumni-cover${coverSrc ? " has-image" : ""}`}>
-              {coverSrc ? (
-                <img src={coverSrc} alt={coverAlt} />
-              ) : (
-                <div className="alumni-cover-fallback" aria-hidden="true" />
-              )}
+              <div className="alumni-cover-media">
+                {coverSrc ? (
+                  <img src={coverSrc} alt={coverAlt} />
+                ) : (
+                  <div className="alumni-cover-fallback" aria-hidden="true" />
+                )}
+              </div>
+              <CoverPhotoBadge
+                hasCover={Boolean(profile.has_cover)}
+                onFile={openCoverEditor}
+                onInvalid={setError}
+                onRemoved={(payload) => applyCoverResult(payload, "Cover photo removed.")}
+              />
             </div>
             <div className="alumni-profile-head">
               <div className="alumni-profile-identity">
                 <ProfilePhotoControl
                   quiet
+                  editBadge
                   profile={profile}
                   src={photoSrc}
                   size="xl"
@@ -319,54 +351,39 @@ export default function AlumniDashboard() {
                   onRemoved={(payload) => applyPhotoResult(payload, "Profile photo removed.")}
                 />
                 <div className="alumni-profile-copy-top">
-                  <div className="alumni-profile-titles">
-                    <div className="alumni-profile-lead">
-                      <h1>{displayName}</h1>
-                      <p className={`alumni-identity-role${career.empty ? " is-empty" : ""}`}>{career.text}</p>
-                    </div>
-                    {degreeLine ? <p className="alumni-profile-degree">{degreeLine}</p> : null}
+                  <div className="alumni-profile-lead">
+                    <h1>{displayName}</h1>
+                    <p className={`alumni-identity-role${career.empty ? " is-empty" : ""}`}>{career.text}</p>
                   </div>
-                  <button type="button" className="btn btn-outline alumni-profile-edit" onClick={openEdit}>
-                    <PencilIcon size={16} />
-                    Edit profile
-                  </button>
+                  <div className="alumni-profile-actions">
+                    <button type="button" className="btn btn-outline alumni-profile-edit" onClick={openEdit}>
+                      <PencilIcon size={16} />
+                      Edit profile
+                    </button>
+                  </div>
+                </div>
+                <div className="alumni-profile-meta">
+                  <div className="header-bio" id="about">
+                    <p className="header-bio-label">Bio</p>
+                    <p className={`alumni-bio${bio ? "" : " is-empty"}`}>{bio || "No biography added yet"}</p>
+                  </div>
+                  {contacts.length ? (
+                    <ul className="header-contact">
+                      {contacts.map(([kind, value]) => (
+                        <li key={kind}>
+                          {kind === "phone" ? <PhoneIcon size={15} /> : null}
+                          {kind === "email" ? <MailIcon size={15} /> : null}
+                          {kind === "address" ? <MapPinIcon size={15} /> : null}
+                          <span className="sr-only">{kind === "phone" ? "Contact number" : kind === "email" ? "Email" : "Address"}</span>
+                          {kind === "email" ? <a href={`mailto:${value}`}>{value}</a> : <span>{value}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="header-contact is-empty">No contact details added yet</p>
+                  )}
                 </div>
               </div>
-              {bio ? (
-                <p className="alumni-bio">{bio}</p>
-              ) : (
-                <p className="alumni-bio is-empty">Add a short professional bio to introduce yourself.</p>
-              )}
-              <section className="alumni-contact" id="contact" aria-label="Email, phone, and location">
-                <dl>
-                  <div>
-                    <dt>
-                      <MailIcon size={16} />
-                      Email
-                    </dt>
-                    <dd>
-                      {email || "No email on file"}
-                      <span className="fact-hint">Official account email</span>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>
-                      <PhoneIcon size={16} />
-                      Phone
-                    </dt>
-                    <dd>{phone || "No phone number added"}</dd>
-                  </div>
-                  <div>
-                    <dt>
-                      <MapPinIcon size={16} />
-                      Location
-                    </dt>
-                    <dd>
-                      {places.length ? places.map((line) => <span key={line}>{line}</span>) : "No location added"}
-                    </dd>
-                  </div>
-                </dl>
-              </section>
             </div>
           </header>
 
@@ -397,37 +414,62 @@ export default function AlumniDashboard() {
             </section>
           ) : null}
 
-          <JobTimeline
-            jobs={jobs}
-            onJobsChange={(next) => {
-              setData((current) => ({ ...current, jobs: next }));
-              loadDashboard().catch(() => {});
-            }}
-          />
-
-          <StudyTimeline
-            studies={studies}
-            onStudiesChange={(next) => {
-              setData((current) => ({ ...current, further_studies: next }));
-              loadDashboard().catch(() => {});
-            }}
-          />
-
-          <ProfileProgress
-            variant="full"
-            completion={completion}
-            state={completion ? "ready" : "error"}
-            onEdit={openEdit}
-            onPhoto={() => document.getElementById("profile")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-            onRetry={retryCompletion}
-          />
+          <div className="alumni-home-records">
+            <div className="profile-stack">
+              <JobTimeline
+                jobs={jobs}
+                currentlyUnemployed={Boolean(profile.currently_unemployed)}
+                unemploymentReason={profile.unemployment_reason || ""}
+                unemploymentDetails={profile.unemployment_details || ""}
+                onEmploymentChange={() => {
+                  loadDashboard().catch(() => {});
+                }}
+                onJobsChange={(next) => {
+                  setData((current) => ({ ...current, jobs: next }));
+                  loadDashboard().catch(() => {});
+                }}
+              />
+              <StudyTimeline
+                studies={studies}
+                degreeRecord={{
+                  degree: profile.degree,
+                  college: profile.college,
+                  yearGraduated: profile.year_graduated,
+                }}
+                onStudiesChange={(next) => {
+                  setData((current) => ({ ...current, further_studies: next }));
+                  loadDashboard().catch(() => {});
+                }}
+              />
+              <SeminarList
+                seminars={data.seminars || []}
+                onChange={(next) => setData((current) => ({ ...current, seminars: next }))}
+              />
+              <CertificationList
+                certifications={data.certifications || []}
+                onChange={(next) => setData((current) => ({ ...current, certifications: next }))}
+              />
+              <AwardList
+                awards={data.awards || []}
+                onChange={(next) => setData((current) => ({ ...current, awards: next }))}
+              />
+              <ProfileProgress
+                variant="full"
+                completion={completion}
+                state={completion ? "ready" : "error"}
+                onEdit={openEdit}
+                onPhoto={() => openSection("profile")}
+                onRetry={retryCompletion}
+              />
+            </div>
+          </div>
         </article>
       )}
 
       {editOpen ? (
         <Dialog
           title="Edit profile"
-          description="These details appear on your professional alumni profile. Official AUF registry information stays read-only."
+          description="These details appear on your professional alumni profile."
           confirmLabel={busy ? "Saving…" : "Save profile"}
           busy={busy}
           wide
@@ -436,95 +478,64 @@ export default function AlumniDashboard() {
         >
           <Alert type="error">{error}</Alert>
 
-          <fieldset className="profile-edit-group">
-            <legend>Profile presentation</legend>
-            <ProfilePhotoControl
-              compact
-              profile={profile}
-              src={photoSrc}
-              size="md"
-              disabled={busy}
-              onFile={openPhotoEditor}
-              onInvalid={setError}
-              onRemoved={(payload) => applyPhotoResult(payload, "Profile photo removed.")}
-            />
-            <div className="cover-edit-row">
-              <p className="cover-edit-label">Cover photo</p>
-              <CoverPhotoControl
-                hasCover={Boolean(profile.has_cover)}
-                disabled={busy}
-                onFile={openCoverEditor}
-                onUploaded={applyCoverResult}
-                onInvalid={setError}
-              />
-              <p className="muted photo-guidance">JPG, PNG, or WebP · Maximum 5 MB. Displayed across the profile header.</p>
-            </div>
-            <Field label="Professional bio" hint={`${form.bio.length}/${BIO_MAX}`}>
-              <textarea
-                rows={5}
-                value={form.bio}
-                onChange={(e) => setForm({ ...form, bio: e.target.value })}
-                maxLength={BIO_MAX}
-                placeholder="Introduce your professional background in a few sentences."
-              />
-            </Field>
-          </fieldset>
+          <div className="profile-edit-form">
+            <fieldset className="profile-edit-group">
+              <legend>Photos</legend>
+              <div className="profile-edit-media">
+                <ProfilePhotoControl
+                  compact
+                  profile={profile}
+                  src={photoSrc}
+                  size="md"
+                  disabled={busy}
+                  onFile={openPhotoEditor}
+                  onInvalid={setError}
+                  onRemoved={(payload) => applyPhotoResult(payload, "Profile photo removed.")}
+                />
+                <CoverPhotoControl
+                  hasCover={Boolean(profile.has_cover)}
+                  disabled={busy}
+                  onFile={openCoverEditor}
+                  onUploaded={applyCoverResult}
+                  onInvalid={setError}
+                />
+              </div>
+            </fieldset>
 
-          <fieldset className="profile-edit-group">
-            <legend>Official AUF record</legend>
-            <p className="muted profile-edit-note">Controlled by the graduate registry. Contact AAPS if a correction is needed.</p>
-            <dl className="alumni-facts profile-readonly">
-              <div>
-                <dt>Full name</dt>
-                <dd>{displayName}</dd>
-              </div>
-              <div>
-                <dt>Student number</dt>
-                <dd>{account.student_id || "—"}</dd>
-              </div>
-              <div>
-                <dt>Degree</dt>
-                <dd>{profile.degree || "—"}</dd>
-              </div>
-              <div>
-                <dt>College</dt>
-                <dd>{profile.college || "—"}</dd>
-              </div>
-              <div>
-                <dt>Graduation year</dt>
-                <dd>{profile.year_graduated || "—"}</dd>
-              </div>
-              <div>
-                <dt>Approval status</dt>
-                <dd>{account.status || "—"}</dd>
-              </div>
-              <div>
-                <dt>Email</dt>
-                <dd>{email || "—"}</dd>
-              </div>
-            </dl>
-          </fieldset>
+            <fieldset className="profile-edit-group">
+              <legend>About</legend>
+              <Field label="Professional bio" hint={`${form.bio.length}/${BIO_MAX}`}>
+                <textarea
+                  rows={4}
+                  value={form.bio}
+                  onChange={(e) => setForm({ ...form, bio: e.target.value })}
+                  maxLength={BIO_MAX}
+                  placeholder="Introduce your professional background in a few sentences."
+                />
+              </Field>
+            </fieldset>
 
-          <fieldset className="profile-edit-group">
-            <legend>Contact and location</legend>
-            <Field label="Phone">
-              <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} maxLength={40} />
-            </Field>
-            <Field label="Address">
-              <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} maxLength={240} />
-            </Field>
-            <div className="inline-fields">
-              <Field label="City">
-                <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} maxLength={120} />
+            <fieldset className="profile-edit-group">
+              <legend>Contact</legend>
+              <Field label="Phone">
+                <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} maxLength={40} />
               </Field>
-              <Field label="Country of residence">
-                <input value={form.country_residence} onChange={(e) => setForm({ ...form, country_residence: e.target.value })} maxLength={80} />
+              <Field label="Address">
+                <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} maxLength={240} />
               </Field>
-            </div>
-            <Field label="Husband’s surname" hint="Optional. Used for official records when applicable.">
-              <input value={form.husband_surname} onChange={(e) => setForm({ ...form, husband_surname: e.target.value })} maxLength={80} />
-            </Field>
-          </fieldset>
+              <div className="inline-fields">
+                <Field label="City">
+                  <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} maxLength={120} />
+                </Field>
+                <Field label="Country of residence">
+                  <input value={form.country_residence} onChange={(e) => setForm({ ...form, country_residence: e.target.value })} maxLength={80} />
+                </Field>
+              </div>
+              <Field label="Husband’s surname" hint="Optional. For official records when applicable.">
+                <input value={form.husband_surname} onChange={(e) => setForm({ ...form, husband_surname: e.target.value })} maxLength={80} />
+              </Field>
+            </fieldset>
+          </div>
         </Dialog>
       ) : null}
 
@@ -543,6 +554,7 @@ export default function AlumniDashboard() {
       {cropFile ? (
         <PhotoCropDialog
           file={cropFile}
+          onReplace={setCropFile}
           onClose={() => setCropFile(null)}
           onUploaded={(payload) => {
             applyPhotoResult(payload, "Profile photo updated successfully.");

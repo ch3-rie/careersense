@@ -12,6 +12,7 @@ import {
   StatusTimeline,
 } from "../../components/AuthFlow";
 import GtsForm from "../../components/GtsForm";
+import { ALUMNI_HIDDEN_QUESTIONS } from "../../lib/surveySchema";
 import RegistrationLeaveGuard from "../../components/RegistrationLeaveGuard";
 import { PublicFooter, PublicHeader } from "../../components/Layout";
 import { Alert, Badge, Field, Skeleton } from "../../components/ui";
@@ -293,6 +294,7 @@ export default function RegisterPage() {
               ) : (
                 <GtsForm
                   variant="review"
+                  hideQuestionIds={ALUMNI_HIDDEN_QUESTIONS}
                   initial={result.gts_prefill}
                   options={options}
                   busy={busy}

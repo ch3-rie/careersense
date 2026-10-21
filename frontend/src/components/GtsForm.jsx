@@ -16,6 +16,7 @@ export default function GtsForm({
   alignmentHint,
   variant,
   resume,
+  hideQuestionIds,
 }) {
   const liveSchema = schema || options?.survey;
   if (liveSchema?.sections?.length) {
@@ -34,6 +35,7 @@ export default function GtsForm({
         alignmentHint={alignmentHint}
         variant={variant}
         resume={resume}
+        hideQuestionIds={hideQuestionIds}
       />
     );
   }

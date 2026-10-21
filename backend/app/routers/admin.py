@@ -25,7 +25,7 @@ from app.models import (
     UniversityRecord,
 )
 from app.routers.auth import _norm, match_university_record
-from app.schemas import MappingIn, QuestionIn, QuestionUpdate, RejectRequest, SocIn, UniversityRecordIn
+from app.schemas import GtsPayload, MappingIn, QuestionIn, QuestionUpdate, RejectRequest, SocIn, UniversityRecordIn
 from app.services.academic_filters import (
     academic_catalog,
     apply_registry_academic_filters,
@@ -33,8 +33,12 @@ from app.services.academic_filters import (
 )
 from app.services.alignment import invalidate_soc_cache
 from app.services.email import send_account_status_email
-from app.services.employment import resolve_current_employment
+from app.services.gts import persist_tracer_submission
+from app.services.survey import get_published_schema, validate_required_answers
+from app.services.employment import apply_profile_unemployment, resolve_current_employment
 from app.services.files import resolve_stored_file, safe_download_name
+from app.services.profile_records import certification_file, serialize_activity
+from app.services.studies import serialize_studies
 from app.services.oaaps_docx import render_oaaps_docx
 from app.services.reports import (
     _relatedness,
@@ -244,14 +248,17 @@ def approval_detail(account_id: int, admin: Account = Depends(require_admin), db
         else None,
         "further_studies": [
             {
+                "id": s.id,
                 "course_degree": s.course_degree,
                 "school": s.school,
+                "institution_address": s.institution_address or "",
                 "year_enrolled": s.year_enrolled,
                 "scholarship": s.scholarship,
                 "is_graduated": s.is_graduated,
             }
             for s in studies
         ],
+        "profile_activity": serialize_activity(db, user.id),
         "resumes": [
             {"id": r.id, "filename": r.original_filename, "created_at": r.created_at, "parsed": r.parsed_json}
             for r in resumes
@@ -379,6 +386,22 @@ def reject(account_id: int, payload: RejectRequest, admin: Account = Depends(req
     return {"ok": True, "status": user.status}
 
 
+@router.get("/certifications/{certification_id}/file")
+def admin_certification_file(
+    certification_id: int,
+    admin: Account = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    row = certification_file(db, certification_id)
+    path = resolve_stored_file(row.certificate_path, missing_detail="Certificate file is no longer on disk.")
+    return FileResponse(
+        path,
+        media_type=row.certificate_mime or "application/octet-stream",
+        filename=safe_download_name(row.certificate_filename or "certificate"),
+        content_disposition_type="inline",
+    )
+
+
 @router.get("/resumes/{resume_id}/file")
 def download_resume(resume_id: int, admin: Account = Depends(require_admin), db: Session = Depends(get_db)):
     row = db.get(Resume, resume_id)
@@ -453,7 +476,38 @@ def tracer_record(submission_id: int, admin: Account = Depends(require_admin), d
     )
     if not row:
         raise HTTPException(status_code=404, detail="Tracer record not found.")
-    return _tracer_payload(row)
+    payload = _tracer_payload(row)
+    payload["further_studies"] = serialize_studies(db, row.account_id)
+    payload["profile_activity"] = serialize_activity(db, row.account_id)
+    return payload
+
+
+@router.post("/tracer/{submission_id}")
+def update_tracer_record(
+    submission_id: int,
+    payload: GtsPayload,
+    admin: Account = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    row = (
+        db.query(TracerSubmission)
+        .options(joinedload(TracerSubmission.account))
+        .filter(TracerSubmission.id == submission_id)
+        .first()
+    )
+    if not row or not row.account:
+        raise HTTPException(status_code=404, detail="Tracer record not found.")
+    data = payload.model_dump()
+    extra = data.pop("extra_answers", {}) or {}
+    schema = get_published_schema(db)
+    validate_required_answers(schema, data, extra)
+    submission = persist_tracer_submission(db, row.account, data, extra_answers=extra, resume_id=data.get("resume_id"))
+    db.commit()
+    db.refresh(submission)
+    updated = _tracer_payload(submission)
+    updated["further_studies"] = serialize_studies(db, submission.account_id)
+    updated["profile_activity"] = serialize_activity(db, submission.account_id)
+    return updated
 
 
 @router.get("/questions")
@@ -667,7 +721,8 @@ def reports(admin: Account = Depends(require_admin), db: Session = Depends(get_d
     related = 0
     employed = 0
     for row in latest_rows:
-        data = row.data_json or {}
+        profile = row.account.profile if row.account else None
+        data = apply_profile_unemployment(row.data_json or {}, profile)
         if data.get("is_currently_employed") == "Yes":
             employed += 1
         if _relatedness(data, row.alignment_status or "") == "related":
@@ -777,7 +832,8 @@ def export_reports(admin: Account = Depends(require_admin), db: Session = Depend
     )
     rows = latest_submissions(db)
     for row in rows:
-        data = row.data_json or {}
+        profile = row.account.profile if row.account else None
+        data = apply_profile_unemployment(row.data_json or {}, profile)
         writer.writerow(
             [
                 csv_safe(row.account.personal_email if row.account else ""),

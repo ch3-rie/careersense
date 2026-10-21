@@ -10,7 +10,7 @@ import {
   LockIcon,
   StarIcon,
 } from "./icons";
-import { Dialog } from "./ui";
+import { Dialog, SectionTitle } from "./ui";
 import { formatLongDate } from "../lib/format";
 import {
   achievementList,
@@ -22,6 +22,13 @@ import {
   nextAchievement,
   profileCompleteBadge,
 } from "../lib/profileCompletion";
+
+function badgeRequirement(item) {
+  if (!item) return "";
+  if (item.earned) return item.description || "";
+  if (item.key === "profile_complete") return "Complete the remaining profile sections.";
+  return item.locked_description || item.description || "";
+}
 
 function AchievementIcon({ name, size = 22 }) {
   if (name === "file") return <FileTextIcon size={size} />;
@@ -60,6 +67,13 @@ function actionControl(section, onEdit, onPhoto, label, buttonClass) {
           : section.key === "alumni_card_holder"
             ? "Open Alumni Card"
             : section.cta || `Update ${String(section.label || "profile").toLowerCase()}`);
+  if (section.route?.includes("#")) {
+    return (
+      <Link className={buttonClass || "btn btn-navy btn-sm"} to={section.route}>
+        {text}
+      </Link>
+    );
+  }
   if (section.route && !section.route.startsWith("/alumni#") && section.route !== "/alumni") {
     return (
       <Link className={buttonClass || "btn btn-navy btn-sm"} to={section.route}>
@@ -78,6 +92,26 @@ function actionControl(section, onEdit, onPhoto, label, buttonClass) {
     <Link className={buttonClass || "btn btn-navy btn-sm"} to={section.route || "/alumni"}>
       {text}
     </Link>
+  );
+}
+
+function BadgeHubShell({ count, busy, children }) {
+  return (
+    <section
+      className="alumni-block badge-hub"
+      id="alumni-badges"
+      aria-label="Alumni Badge Achievements"
+      aria-busy={busy ? "true" : undefined}
+    >
+      <header className="profile-section-head">
+        <SectionTitle
+          title="Alumni Badge Achievements"
+          lead="Official milestones from your alumni record. Earned badges stay earned."
+        />
+        {count ? <p className="alumni-section-meta">{count}</p> : null}
+      </header>
+      {children}
+    </section>
   );
 }
 
@@ -135,7 +169,19 @@ export function ProfileProgress({
   const showBadges = mode === "full" || mode === "achievements";
 
   if (failed) {
-    if (!showCompletion) return null;
+    if (!showCompletion && !showBadges) return null;
+    if (!compact && showBadges) {
+      return (
+        <BadgeHubShell>
+          <p className="muted">Alumni badge achievements are temporarily unavailable.</p>
+          {onRetry ? (
+            <button type="button" className="btn btn-navy btn-sm" onClick={onRetry}>
+              Try Again
+            </button>
+          ) : null}
+        </BadgeHubShell>
+      );
+    }
     return (
       <section className="alumni-complete alumni-progress-error" aria-label="Profile Completion">
         {compact ? (
@@ -158,6 +204,25 @@ export function ProfileProgress({
   }
 
   if (loading) {
+    if (!compact && showBadges) {
+      return (
+        <BadgeHubShell busy>
+          <p className="muted">Loading alumni badge achievements…</p>
+          <div className="badge-hub-grid" aria-hidden="true">
+            {Array.from({ length: 6 }, (_, index) => (
+              <div key={index} className="badge-hub-card is-locked">
+                <span className="badge-hub-card-top">
+                  <span className="achievement-seal" />
+                  <span className="badge-hub-status">Not earned</span>
+                </span>
+                <strong>Loading</strong>
+                <span>Please wait</span>
+              </div>
+            ))}
+          </div>
+        </BadgeHubShell>
+      );
+    }
     return (
       <div className={recordGridClass(compact, showCompletion, showBadges)}>
         {showCompletion ? (
@@ -179,17 +244,17 @@ export function ProfileProgress({
           </section>
         ) : null}
         {showBadges ? (
-          <section className="alumni-achievement-card" aria-label="Achievements">
+          <section className="alumni-achievement-card" aria-label="Alumni Badge Achievements">
             {compact ? (
-              <p className="eyebrow">Achievements</p>
+              <p className="eyebrow">Alumni Badge Achievements</p>
             ) : (
               <header className="profile-section-head">
                 <div>
-                  <h2>Achievements</h2>
+                  <h2>Alumni Badge Achievements</h2>
                 </div>
               </header>
             )}
-            <p className="muted">Loading achievements…</p>
+            <p className="muted">Loading alumni badge achievements…</p>
             <div className="alumni-achievement-grid" aria-hidden="true">
               {Array.from({ length: compact ? 6 : 4 }, (_, index) => (
                 <div key={index} className={`alumni-achievement is-loading${compact ? "" : " is-row"}`}>
@@ -221,6 +286,114 @@ export function ProfileProgress({
       ? "You're almost there. Complete the remaining information to keep your alumni record accurate and up to date."
       : completion.message || "Complete the remaining information to keep your alumni record accurate and up to date.";
   const firstMissing = missing[0];
+  const statusLabel = complete ? "Profile complete" : percent >= 70 ? "Almost complete" : "In progress";
+  const summary = complete
+    ? completion.message || "All applicable alumni information has been completed."
+    : missing.length
+      ? "Finish the sections below to keep your alumni record current."
+      : completion.message || "Complete the remaining information to keep your alumni record current.";
+  const dialog = openItem ? (
+    <Dialog
+      title={openItem.name}
+      compact
+      hideActions
+      footer={
+        openItem.earned ? (
+          <button type="button" className="btn btn-navy" onClick={() => setOpenKey(null)}>
+            Close
+          </button>
+        ) : (
+          <>
+            {modalAction(openItem, firstMissing, onEdit, onPhoto, () => setOpenKey(null))}
+            <button type="button" className="btn btn-outline" onClick={() => setOpenKey(null)}>
+              Close
+            </button>
+          </>
+        )
+      }
+      onClose={() => setOpenKey(null)}
+    >
+      <div className="alumni-badge-dialog">
+        <span className={`achievement-seal achievement-seal-lg${openItem.earned ? " is-earned" : ""}`} aria-hidden="true">
+          {openItem.earned ? <AchievementIcon name={openItem.icon} size={28} /> : <LockIcon size={24} />}
+        </span>
+        <p className="eyebrow">{openItem.earned ? "Earned" : "To earn this badge"}</p>
+        <p>{openItem.earned ? openItem.description : badgeRequirement(openItem)}</p>
+        {openItem.earned && openItem.awarded_at ? <p className="muted">{formatLongDate(openItem.awarded_at)}</p> : null}
+        {openItem.earned && openItem.detail ? <p className="muted">{openItem.detail}</p> : null}
+      </div>
+    </Dialog>
+  ) : null;
+
+  if (!compact) {
+    const countLabel = achievements.length
+      ? `${earnedCount} of ${achievements.length} earned`
+      : "Temporarily unavailable";
+    return (
+      <>
+        <BadgeHubShell count={countLabel}>
+          <div className="badge-hub-progress">
+            <CompletionRing percent={percent} complete={complete} size={96} />
+            <div className="badge-hub-progress-copy">
+              <p className="badge-hub-status-line">
+                <strong>{statusLabel}</strong>
+              </p>
+              <p className="muted">{summary}</p>
+            </div>
+          </div>
+
+          {!complete && missing.length ? (
+            <div className="badge-hub-needed">
+              <p id="badge-still-needed">Still needed</p>
+              <ul aria-labelledby="badge-still-needed">
+                {missing.map((section) => (
+                  <li key={section.key || section.label}>
+                    <span>
+                      <strong>{section.label || "Additional information"}</strong>
+                      {section.detail && section.detail !== section.label ? <span>{section.detail}</span> : null}
+                    </span>
+                    {actionControl(section, onEdit, onPhoto, undefined, "btn btn-outline btn-sm")}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {achievements.length ? (
+            <div className="badge-hub-grid">
+              {achievements.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={`badge-hub-card${item.earned ? " is-earned" : " is-locked"}`}
+                  onClick={() => setOpenKey(item.key)}
+                  aria-label={
+                    item.earned
+                      ? `${item.name}, earned ${item.awarded_at ? formatLongDate(item.awarded_at) : ""}`.trim()
+                      : `${item.name}, not earned. ${badgeRequirement(item)}`
+                  }
+                >
+                  <span className="badge-hub-card-top">
+                    <span className={`achievement-seal${item.earned ? " is-earned" : ""}`} aria-hidden="true">
+                      <AchievementIcon name={item.icon} size={18} />
+                      {item.earned ? null : <span className="achievement-lock"><LockIcon size={12} /></span>}
+                    </span>
+                    <span className="badge-hub-status">{item.earned ? "Earned" : "Not earned"}</span>
+                  </span>
+                  <strong>{item.name}</strong>
+                  <span className="badge-hub-req">{badgeRequirement(item)}</span>
+                  {item.earned && item.awarded_at ? <span className="badge-hub-date">{formatLongDate(item.awarded_at)}</span> : null}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="muted">Alumni badge achievements could not be loaded.</p>
+          )}
+        </BadgeHubShell>
+        {dialog}
+      </>
+    );
+  }
 
   return (
     <div className={recordGridClass(compact, showCompletion, showBadges)}>
@@ -262,7 +435,7 @@ export function ProfileProgress({
                   {complete ? (
                     showBadges && mode === "full" ? (
                       <button type="button" className="btn btn-outline btn-sm" onClick={() => setOpenKey(badge.key)}>
-                        View achievement
+                        View badge
                       </button>
                     ) : null
                   ) : (
@@ -274,7 +447,7 @@ export function ProfileProgress({
                   {complete ? (
                     showBadges && mode === "full" ? (
                       <button type="button" className="btn btn-outline btn-sm" onClick={() => setOpenKey(badge.key)}>
-                        View achievement
+                        View badge
                       </button>
                     ) : null
                   ) : (
@@ -288,20 +461,20 @@ export function ProfileProgress({
       ) : null}
 
       {showBadges ? (
-        <section className="alumni-achievement-card" aria-label="Achievements" id="achievements">
+        <section className="alumni-achievement-card" aria-label="Alumni Badge Achievements" id="alumni-badges">
           {compact ? (
             <div className="alumni-achievement-head">
-              <h2 className="alumni-subhead">Achievements</h2>
+              <h2 className="alumni-subhead">Alumni Badge Achievements</h2>
               <p className="alumni-achievement-count">
                 {achievements.length
                   ? `${earnedCount} of ${achievements.length} earned`
-                  : "Achievements are temporarily unavailable."}
+                  : "Alumni badge achievements are temporarily unavailable."}
               </p>
             </div>
           ) : (
             <header className="profile-section-head">
               <div>
-                <h2>Achievements</h2>
+                <h2>Alumni Badge Achievements</h2>
               </div>
               <p className="alumni-section-meta">
                 {achievements.length
@@ -309,6 +482,11 @@ export function ProfileProgress({
                   : "Temporarily unavailable"}
               </p>
             </header>
+          )}
+          {compact ? null : (
+            <p className="alumni-section-lead">
+              These badges are earned from your profile completion. Finish the remaining sections in the completion panel to unlock a locked badge. Each locked badge lists what is still required.
+            </p>
           )}
           {next && !complete ? (
             <p className="alumni-section-lead">
@@ -339,7 +517,7 @@ export function ProfileProgress({
                     <span className="muted">
                       {item.earned
                         ? `Earned ${formatLongDate(item.awarded_at)}`
-                        : "Locked"}
+                        : item.locked_description || "Locked"}
                     </span>
                   </span>
                   {compact ? null : item.earned ? <span className="job-now">Earned</span> : null}
@@ -347,52 +525,12 @@ export function ProfileProgress({
               ))}
             </div>
           ) : (
-            <p className="muted">Achievements could not be loaded.</p>
+            <p className="muted">Alumni badge achievements could not be loaded.</p>
           )}
         </section>
       ) : null}
 
-      {openItem ? (
-        <Dialog
-          title={openItem.name}
-          description={openItem.earned ? openItem.description : openItem.locked_description || openItem.description}
-          compact
-          hideActions
-          footer={
-            openItem.earned ? (
-              <button type="button" className="btn btn-navy" onClick={() => setOpenKey(null)}>
-                Close
-              </button>
-            ) : (
-              <>
-                {modalAction(openItem, firstMissing, onEdit, onPhoto, () => setOpenKey(null))}
-                <button type="button" className="btn btn-outline" onClick={() => setOpenKey(null)}>
-                  Close
-                </button>
-              </>
-            )
-          }
-          onClose={() => setOpenKey(null)}
-        >
-          <div className="alumni-badge-dialog">
-            <span className={`achievement-seal achievement-seal-lg${openItem.earned ? " is-earned" : ""}`} aria-hidden="true">
-              {openItem.earned ? <AchievementIcon name={openItem.icon} size={28} /> : <LockIcon size={24} />}
-            </span>
-            {openItem.earned ? (
-              <>
-                <p className="eyebrow">Earned</p>
-                <p className="muted">{formatLongDate(openItem.awarded_at)}</p>
-                {openItem.detail ? <p className="muted">{openItem.detail}</p> : null}
-              </>
-            ) : (
-              <>
-                <p className="eyebrow">Current progress</p>
-                <p className="muted">Profile completion: {percent}%</p>
-              </>
-            )}
-          </div>
-        </Dialog>
-      ) : null}
+      {dialog}
     </div>
   );
 }

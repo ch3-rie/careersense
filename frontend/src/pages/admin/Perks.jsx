@@ -2,11 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { EyeIcon, GiftIcon, PencilIcon, PlusIcon, TrashIcon } from "../../components/icons";
 import { PortalShell } from "../../components/Layout";
 import { RowActions } from "../../components/RowActions";
+import { DateField } from "../../components/DateField";
+import { FileDrop } from "../../components/FileDrop";
 import { Alert, Badge, Dialog, Empty, Field, LoadError, PageHeader, PageSkeleton } from "../../components/ui";
 import { api } from "../../lib/api";
 import { safeHttpUrl } from "../../lib/safeUrl";
 import { formatDate } from "../../lib/format";
 import { filterAdminPerks } from "../../lib/perkFilters";
+import { PHOTO_ACCEPT, imageFileError } from "../../lib/profilePhoto";
 
 const EMPTY = {
   name: "",
@@ -321,16 +324,26 @@ export default function AdminPerks() {
               <textarea name="how_to_claim" defaultValue={editor.how_to_claim || ""} rows={5} />
             </Field>
             <div className="inline-fields">
-              <Field label="Valid From"><input type="date" name="valid_from" defaultValue={editor.valid_from || ""} /></Field>
-              <Field label="Valid Until"><input type="date" name="valid_to" defaultValue={editor.valid_to || ""} /></Field>
+              <Field label="Valid From"><DateField name="valid_from" defaultValue={editor.valid_from || ""} /></Field>
+              <Field label="Valid Until"><DateField name="valid_to" defaultValue={editor.valid_to || ""} /></Field>
             </div>
             <div className="inline-fields">
               <Field label="Contact Information"><input name="contact" defaultValue={editor.contact || ""} /></Field>
               <Field label="Website"><input name="website" defaultValue={editor.website || ""} placeholder="https://" /></Field>
             </div>
-            <Field label="Image/Logo">
-              <input type="file" name="image" accept="image/png,image/jpeg,image/webp" />
-            </Field>
+            <FileDrop
+              key={editor.id || "new"}
+              name="image"
+              accept={PHOTO_ACCEPT}
+              validate={imageFileError}
+              disabled={busy}
+              compact
+              currentName={editor.has_image ? "Current image" : ""}
+              label="Image or logo"
+              formats="JPG, PNG, or WebP"
+              maxSize="Maximum 5 MB"
+              description={editor.has_image ? "Optional. Choose a new image only if you want to replace the current one." : "Optional. Add a logo if you have one."}
+            />
             <label className="check">
               <input type="checkbox" name="requires_active_card" defaultChecked={Boolean(editor.requires_active_card)} />
               Requires an Angelenean Alumni Card

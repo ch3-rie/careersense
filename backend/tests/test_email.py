@@ -41,6 +41,24 @@ def test_health_reports_email_configuration(client):
     assert body["email_scheduler"] is False
 
 
+def test_production_health_includes_email_configured(client, monkeypatch):
+    from app import main
+
+    monkeypatch.setattr(main, "settings", SimpleNamespace(is_production=True, environment="production"))
+    monkeypatch.setattr(
+        main,
+        "email_health",
+        lambda: {"email_enabled": True, "email_configured": True, "email_provider": "resend"},
+    )
+    body = client.get("/api/health").json()
+    assert body["ok"] is True
+    assert body["environment"] == "production"
+    assert body["email_enabled"] is True
+    assert body["email_configured"] is True
+    assert "email_provider" not in body
+    assert "gemini_configured" not in body
+
+
 def test_disabled_email_does_not_report_success(monkeypatch):
     from app.services.email import service as email_service
 

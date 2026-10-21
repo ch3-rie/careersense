@@ -161,6 +161,36 @@ def save_cover_photo(account_id: int, data: bytes) -> tuple[Path, str]:
     return save_profile_photo(account_id, data, prefix="cover-")
 
 
+def save_certificate_file(account_id: int, data: bytes, filename: str) -> tuple[Path, str, str]:
+    """Store a certificate or badge. Accepts PDF, JPG, PNG, or WebP."""
+    settings = get_settings()
+    if not data:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The uploaded file is empty.")
+    max_bytes = settings.max_upload_mb * 1024 * 1024
+    if len(data) > max_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Certificate must be {settings.max_upload_mb} MB or smaller.",
+        )
+    original = safe_download_name(filename or "certificate")
+    if data.startswith(b"%PDF"):
+        mime, suffix = "application/pdf", ".pdf"
+    else:
+        try:
+            kind = detect_photo_kind(data)
+        except HTTPException as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Upload a PDF, JPG, PNG, or WebP certificate or badge.",
+            ) from exc
+        mime, suffix = PHOTO_TYPES[kind]
+    dest_dir = settings.upload_path / "certificates" / str(account_id)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    stored = dest_dir / f"{uuid4().hex}{suffix}"
+    stored.write_bytes(data)
+    return stored, mime, original
+
+
 def save_perk_image(perk_id: int, data: bytes) -> tuple[Path, str]:
     settings = get_settings()
     kind = detect_photo_kind(data)

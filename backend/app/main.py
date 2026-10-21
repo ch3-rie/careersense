@@ -148,6 +148,7 @@ async def unhandled_exception(request: Request, exc: Exception):
 
 app.include_router(auth.router)
 app.include_router(alumni.router)
+app.include_router(alumni.public_router)
 app.include_router(admin.router)
 app.include_router(admin_cards.router)
 app.include_router(admin_survey.router)
@@ -172,6 +173,7 @@ def health():
     }
     if settings.is_production:
         payload["email_enabled"] = bool(mail.get("email_enabled"))
+        payload["email_configured"] = bool(mail.get("email_configured"))
         return payload
     return {
         **payload,

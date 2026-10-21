@@ -346,7 +346,7 @@ def default_gts_schema() -> dict[str, Any]:
             {
                 "id": "studies",
                 "key": "studies",
-                "name": "Further Studies",
+                "name": "Further Studies / Degrees Earned",
                 "description": "Programs you started after your bachelor's degree.",
                 "subsections": [
                     {
@@ -374,6 +374,7 @@ def default_gts_schema() -> dict[str, Any]:
                                     "item_label": "Program",
                                     "fields": [
                                         {"id": "school", "label": "Institution", "type": "short_answer", "placeholder": "Enter the school or university", "required": True},
+                                        {"id": "institution_address", "label": "Address of Institution", "type": "short_answer", "placeholder": "Enter the school or institution address"},
                                         {"id": "course_degree", "label": "Program", "type": "short_answer", "placeholder": "Enter the program or degree", "required": True},
                                         {"id": "year_enrolled", "label": "Year enrolled", "type": "short_answer", "placeholder": "Enter the year enrolled"},
                                         {"id": "scholarship", "label": "Scholarship", "type": "short_answer", "placeholder": "Enter scholarship, if any"},
@@ -603,14 +604,31 @@ def apply_study_field_requirements(schema: dict[str, Any] | None) -> bool:
     """Program and institution are required on each further-study row the graduate keeps."""
     data = schema if isinstance(schema, dict) else {}
     changed = False
+    for section in data.get("sections") or []:
+        if (section.get("key") or section.get("id")) == "studies" and section.get("name") == "Further Studies":
+            section["name"] = "Further Studies / Degrees Earned"
+            changed = True
     for question in flatten_questions(data):
         if question.get("id") != "further_studies" or question.get("type") != "repeatable_group":
             continue
         repeatable = question.setdefault("repeatable", {})
-        for field in repeatable.get("fields") or []:
+        fields = repeatable.setdefault("fields", [])
+        for field in fields:
             if field.get("id") in {"course_degree", "school"} and not field.get("required"):
                 field["required"] = True
                 changed = True
+        if not any(field.get("id") == "institution_address" for field in fields):
+            school_index = next((index for index, field in enumerate(fields) if field.get("id") == "school"), -1)
+            fields.insert(
+                school_index + 1,
+                {
+                    "id": "institution_address",
+                    "label": "Address of Institution",
+                    "type": "short_answer",
+                    "placeholder": "Enter the school or institution address",
+                },
+            )
+            changed = True
     return changed
 
 

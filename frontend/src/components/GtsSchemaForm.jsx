@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlignmentHint, SubmitConfirm } from "./AuthFlow";
+import { DateField } from "./DateField";
 import { Alert, CheckGroup, Field, RadioChoiceList, TabList } from "./ui";
 import {
   emptyFormFromSchema,
@@ -13,6 +14,7 @@ import {
   setFormValue,
 } from "../lib/surveySchema";
 import { resumeGuidance } from "../lib/resumeGuidance";
+import { omitQuestions } from "../lib/surveySchema";
 import { showToast } from "../lib/toasts";
 
 function T(value) {
@@ -147,7 +149,7 @@ function controlFor(question, value, onChange, disabled, error, required) {
     );
   }
   if (type === "date") {
-    return <input type="date" value={value || ""} onChange={(e) => onChange(e.target.value)} disabled={disabled} />;
+    return <DateField value={value || ""} placeholder={placeholder || undefined} onChange={(e) => onChange(e.target.value)} disabled={disabled} />;
   }
   if (type === "number") {
     return (
@@ -169,7 +171,7 @@ function controlFor(question, value, onChange, disabled, error, required) {
 }
 
 export default function GtsSchemaForm({
-  schema,
+  schema: sourceSchema,
   initial,
   onSubmit,
   submitLabel = "Submit",
@@ -182,7 +184,12 @@ export default function GtsSchemaForm({
   alignmentHint,
   variant,
   resume = null,
+  hideQuestionIds = [],
 }) {
+  const schema = useMemo(
+    () => omitQuestions(sourceSchema, hideQuestionIds),
+    [sourceSchema, hideQuestionIds],
+  );
   const [tab, setTab] = useState(schema?.sections?.[0]?.key || schema?.sections?.[0]?.id || "general");
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
@@ -358,6 +365,7 @@ export default function GtsSchemaForm({
       volunteering_rating: form.volunteering_rating === "" ? null : Number(form.volunteering_rating),
       skills,
     };
+    for (const questionId of hideQuestionIds) delete payload[questionId];
     if (form.is_currently_employed === "Yes" && form.present_job_is_first !== "No") {
       payload.current_occupation = form.first_occ || "";
       payload.current_employer = form.first_emp || "";
@@ -516,7 +524,7 @@ export default function GtsSchemaForm({
               ...prev,
               further_studies: [
                 ...(prev.further_studies || []),
-                { course_degree: "", school: "", year_enrolled: "", scholarship: "", is_graduated: "No" },
+                { course_degree: "", school: "", institution_address: "", year_enrolled: "", scholarship: "", is_graduated: "No" },
               ],
             }))}
           >

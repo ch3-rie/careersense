@@ -7,15 +7,26 @@ export const PHOTO_INVALID = "Please choose a JPG, PNG, or WebP image up to 5 MB
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/jpg", "image/pjpeg", "image/png", "image/webp"]);
 const ALLOWED_EXT = /\.(jpe?g|png|webp)$/i;
 
+function photoTypeAllowed(file) {
+  const type = String(file?.type || "").toLowerCase();
+  const name = String(file?.name || "");
+  if (ALLOWED_TYPES.has(type)) return true;
+  return (!type || type === "application/octet-stream") && ALLOWED_EXT.test(name);
+}
+
 export function validatePhotoFile(file) {
   if (!file || typeof file.size !== "number" || file.size <= 0 || file.size > PHOTO_MAX_BYTES) {
     return PHOTO_INVALID;
   }
-  const type = String(file.type || "").toLowerCase();
-  const name = String(file.name || "");
-  if (ALLOWED_TYPES.has(type)) return "";
-  if ((!type || type === "application/octet-stream") && ALLOWED_EXT.test(name)) return "";
+  if (photoTypeAllowed(file)) return "";
   return PHOTO_INVALID;
+}
+
+export function imageFileError(file) {
+  if (!file || typeof file.size !== "number" || file.size <= 0) return "The uploaded file is empty.";
+  if (file.size > PHOTO_MAX_BYTES) return "Image must be 5 MB or smaller.";
+  if (!photoTypeAllowed(file)) return "Please choose a JPG, PNG, or WebP image.";
+  return "";
 }
 
 export function coverVisible(width, height, zoom) {

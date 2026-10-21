@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { MonthCalendar, dateFromIso, formatCalendarDate } from "../../components/AacCalendar";
+import { MonthCalendar, dateFromIso, formatCalendarDate, isoFromDate } from "../../components/AacCalendar";
+import { DateField } from "../../components/DateField";
 import { Link } from "react-router-dom";
 import {
   AlumniCardPreview,
@@ -250,7 +251,7 @@ export default function AlumniCardPage() {
                 ) : null}
                 {card.gts_completed === false && (card.status === "NotYetApplied" || card.status === "ForRenewal") ? (
                   <p className="profile-note">
-                    Submit the <Link to="/alumni/resume">Graduate Tracer Survey</Link> first. The alumni card is available after that, whether you are employed, unemployed, or continuing your studies.
+                    The official tracer record is maintained by AAPS. The alumni card is available after that survey is on file, whether you are employed, unemployed, or continuing your studies.
                   </p>
                 ) : null}
                 {claimed ? (
@@ -297,17 +298,22 @@ export default function AlumniCardPage() {
                                   aria-label={field.label}
                                   onChange={(event) => setForm({ ...form, mailing_address: event.target.value })}
                                 />
+                              ) : field.key === "birthday" ? (
+                                <DateField
+                                  value={form.birthday}
+                                  max={isoFromDate(new Date())}
+                                  placeholder={PLACEHOLDERS.birthday}
+                                  aria-label={field.label}
+                                  onChange={(event) => setForm({ ...form, birthday: event.target.value })}
+                                />
                               ) : (
                                 <input
-                                  type={field.key === "birthday" ? "date" : "text"}
-                                  value={field.key === "birthday" ? form.birthday : form.phone}
-                                  placeholder={PLACEHOLDERS[field.key]}
-                                  maxLength={field.key === "phone" ? 40 : undefined}
+                                  type="text"
+                                  value={form.phone}
+                                  placeholder={PLACEHOLDERS.phone}
+                                  maxLength={40}
                                   aria-label={field.label}
-                                  onChange={(event) => setForm({
-                                    ...form,
-                                    [field.key === "birthday" ? "birthday" : "phone"]: event.target.value,
-                                  })}
+                                  onChange={(event) => setForm({ ...form, phone: event.target.value })}
                                 />
                               )
                             ) : (

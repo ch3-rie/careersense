@@ -219,6 +219,21 @@ export function parseSkills(text) {
   return result;
 }
 
+export const ALUMNI_HIDDEN_QUESTIONS = ["primary_guardian", "guardian_degree_completed"];
+
+export function omitQuestions(schema, hiddenIds = []) {
+  const hidden = new Set(hiddenIds || []);
+  if (!schema || !hidden.size) return schema;
+  const sections = (schema.sections || []).map((section) => ({
+    ...section,
+    subsections: (section.subsections || []).map((sub) => ({
+      ...sub,
+      questions: (sub.questions || []).filter((question) => !hidden.has(question.id) && !hidden.has(question.field_key)),
+    })).filter((sub) => (sub.questions || []).length),
+  })).filter((section) => (section.subsections || []).some((sub) => (sub.questions || []).length));
+  return { ...schema, sections };
+}
+
 export function emptyFormFromSchema(schema, initial = {}) {
   const form = {
     first_name: "",
@@ -282,6 +297,7 @@ export function emptyFormFromSchema(schema, initial = {}) {
     further_studies: (initial?.further_studies || initial?.further_studies_raw || []).map((row) => ({
       course_degree: row.course_degree || row["Course/Degree"] || "",
       school: row.school || row.School || "",
+      institution_address: row.institution_address || row["Address of Institution"] || "",
       year_enrolled: row.year_enrolled || row["Year of First Enrollment"] || "",
       scholarship: row.scholarship || row.Scholarship || "",
       is_graduated: row.is_graduated || row.Graduated || "No",

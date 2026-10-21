@@ -79,6 +79,68 @@ def test_job_timeline_crud(client):
     assert added["id"] not in remaining_ids
 
 
+def test_job_salary_range_is_optional(client):
+    data = login(client, "liza.torres@gmail.com", "Alumni@2026")
+    headers = auth_header(data["access_token"])
+    created = client.post(
+        "/api/alumni/jobs",
+        headers=headers,
+        json={
+            "job_title": "Salary Optional Analyst",
+            "company": "North Luzon Systems Corp.",
+            "is_current": True,
+        },
+    )
+    assert created.status_code == 200, created.text
+    added = next(row for row in created.json()["jobs"] if row["job_title"] == "Salary Optional Analyst")
+    assert added["salary_range"] == ""
+
+    band = "₱13,800 to ₱27,599"
+    updated = client.put(
+        f"/api/alumni/jobs/{added['id']}",
+        headers=headers,
+        json={
+            "job_title": "Salary Optional Analyst",
+            "company": "North Luzon Systems Corp.",
+            "is_current": True,
+            "salary_range": band,
+        },
+    )
+    assert updated.status_code == 200, updated.text
+    edited = next(row for row in updated.json()["jobs"] if row["id"] == added["id"])
+    assert edited["salary_range"] == band
+
+    cleared = client.put(
+        f"/api/alumni/jobs/{added['id']}",
+        headers=headers,
+        json={
+            "job_title": "Salary Optional Analyst",
+            "company": "North Luzon Systems Corp.",
+            "is_current": True,
+            "salary_range": "",
+        },
+    )
+    assert cleared.status_code == 200, cleared.text
+    blank = next(row for row in cleared.json()["jobs"] if row["id"] == added["id"])
+    assert blank["salary_range"] == ""
+
+    invalid = client.post(
+        "/api/alumni/jobs",
+        headers=headers,
+        json={
+            "job_title": "Salary Optional Analyst",
+            "company": "North Luzon Systems Corp.",
+            "is_current": True,
+            "salary_range": "One million",
+        },
+    )
+    assert invalid.status_code == 422
+
+    deleted = client.delete(f"/api/alumni/jobs/{added['id']}", headers=headers)
+    assert deleted.status_code == 200
+    assert added["id"] not in [row["id"] for row in deleted.json()["jobs"]]
+
+
 def test_job_validation(client):
     data = login(client, "maria.reyes@gmail.com", "Alumni@2026")
     headers = auth_header(data["access_token"])

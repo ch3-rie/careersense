@@ -1,0 +1,37 @@
+@startuml
+!include style.puml
+title Figure 5. Use Case Diagram for the Resume and Graduate Tracer Survey
+
+actor Alumni as alumni
+
+rectangle "CareerSense" {
+  usecase "Upload a new\nresume" as UC15
+  usecase "Update and\nsubmit GTS" as UC16
+  usecase "View career\nalignment" as UC17
+  usecase "Parse resume" as UC40
+  usecase "Compute career\nalignment" as UC42
+  usecase "View achievements\nand completion" as UC20
+  usecase "Award achievements" as UC44
+
+  UC17 -[hidden]right- UC16
+  UC16 -[hidden]right- UC15
+}
+
+actor "Resume Parser" as parser
+
+alumni --> UC15
+alumni --> UC16
+alumni --> UC17
+
+UC15 ..> UC40 : <<include>>
+UC16 ..> UC42 : <<include>>
+UC16 ..> UC17 : <<include>>
+UC16 ..> UC20 : <<include>>
+UC44 .left.> UC16 : <<extend>>\n[tracer milestone is new]
+UC40 --> parser
+
+legend right
+  The parser is Gemini when a key is set, and the local parser otherwise.
+  Alignment is stored on the tracer submission.
+endlegend
+@enduml

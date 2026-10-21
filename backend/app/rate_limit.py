@@ -37,6 +37,7 @@ register_limiter = SlidingWindowLimiter(limit=6, window_seconds=10 * 60)
 password_limiter = SlidingWindowLimiter(limit=8, window_seconds=15 * 60)
 forgot_limiter = SlidingWindowLimiter(limit=8, window_seconds=10 * 60)
 pin_limiter = SlidingWindowLimiter(limit=20, window_seconds=10 * 60)
+qr_lookup_limiter = SlidingWindowLimiter(limit=30, window_seconds=10 * 60)
 
 _force_enabled: Optional[bool] = None
 

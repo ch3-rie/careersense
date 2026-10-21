@@ -1,0 +1,40 @@
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam dpi 170
+skinparam defaultFontName Arial
+skinparam defaultFontSize 14
+skinparam roundcorner 0
+skinparam nodesep 16
+skinparam ranksep 22
+skinparam ArrowThickness 1
+skinparam usecaseBorderThickness 1
+skinparam packageBorderThickness 1.2
+skinparam actor {
+  BackgroundColor white
+  BorderColor #222222
+  FontColor #222222
+}
+skinparam usecase {
+  BackgroundColor white
+  BorderColor #222222
+  FontColor #222222
+}
+skinparam rectangle {
+  BackgroundColor white
+  BorderColor #222222
+  FontColor #222222
+  FontSize 16
+  FontStyle bold
+}
+skinparam arrow {
+  Color #222222
+  FontColor #222222
+  FontSize 12
+}
+skinparam legend {
+  BackgroundColor white
+  BorderColor #222222
+  FontColor #222222
+  FontSize 12
+}
+left to right direction

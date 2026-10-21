@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CareerSense wireframes</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #d9d9d9;
+      color: #222;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .index {
+      width: 1080px;
+      max-width: calc(100% - 24px);
+      margin: 20px auto 0;
+      background: #fff;
+      border: 1px solid #222;
+      padding: 14px 16px;
+      font-size: 14px;
+    }
+    .index a { color: #222; margin-right: 12px; }
+    .sheet {
+      width: 1080px;
+      max-width: calc(100% - 24px);
+      margin: 28px auto;
+      background: #fff;
+      border: 1px solid #222;
+    }
+    .cap {
+      margin: 0;
+      padding: 10px 16px;
+      border-bottom: 1px solid #222;
+      font-size: 14px;
+      background: #f3f3f3;
+    }
+    .frame { min-height: 720px; background: #fff; }
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+      padding: 0 24px;
+      border-bottom: 1px solid #222;
+    }
+    .brand { font-weight: 700; letter-spacing: 0.02em; }
+    .nav { display: flex; gap: 18px; align-items: center; font-size: 14px; }
+    .btn {
+      display: inline-block;
+      border: 1px solid #222;
+      padding: 8px 14px;
+      background: #fff;
+      font-size: 14px;
+    }
+    .btn.solid { background: #222; color: #fff; }
+    .hero { display: grid; grid-template-columns: 1.4fr 0.8fr; gap: 28px; padding: 36px 40px 20px; }
+    h1 { margin: 8px 0 12px; font-size: 32px; line-height: 1.2; }
+    h2 { margin: 0 0 8px; font-size: 22px; }
+    h3 { margin: 0 0 8px; font-size: 16px; }
+    p { margin: 0 0 10px; font-size: 14px; line-height: 1.45; }
+    .kicker { font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .box { border: 1px solid #222; padding: 16px; background: #fff; }
+    .muted { background: #f6f6f6; }
+    .grid3, .grid4, .metrics { display: grid; gap: 14px; padding: 8px 40px 28px; }
+    .grid3 { grid-template-columns: repeat(3, 1fr); }
+    .grid4 { grid-template-columns: repeat(4, 1fr); }
+    .metrics { grid-template-columns: repeat(4, 1fr); padding-top: 20px; }
+    .foot { border-top: 1px solid #222; padding: 14px 24px; font-size: 12px; }
+    .center { min-height: 664px; display: grid; place-items: center; padding: 32px; }
+    .card { width: 420px; border: 1px solid #222; padding: 24px; }
+    label { display: block; font-size: 13px; margin: 12px 0 4px; }
+    .field, .area, .drop {
+      border: 1px solid #222;
+      background: #fafafa;
+      height: 36px;
+    }
+    .area { height: 72px; }
+    .drop { height: 88px; display: grid; place-items: center; font-size: 13px; border-style: dashed; }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .shell { display: grid; grid-template-columns: 220px 1fr; min-height: 720px; }
+    .side { border-right: 1px solid #222; padding: 16px 0; }
+    .side .brand { padding: 0 16px 14px; }
+    .group { font-size: 11px; text-transform: uppercase; color: #555; padding: 10px 16px 4px; }
+    .item { padding: 8px 16px; font-size: 14px; }
+    .item.on { background: #222; color: #fff; }
+    .main { padding: 20px 24px 28px; }
+    .bar { height: 10px; background: #e5e5e5; border: 1px solid #222; }
+    .bar > span { display: block; height: 100%; width: 72%; background: #222; }
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip { border: 1px solid #222; padding: 6px 8px; font-size: 12px; }
+    .chip.on { background: #222; color: #fff; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { border: 1px solid #222; padding: 8px 10px; text-align: left; }
+    th { background: #f3f3f3; }
+    .split { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 16px; }
+    .tabs { display: flex; gap: 0; margin-bottom: 14px; }
+    .tab { border: 1px solid #222; padding: 8px 12px; font-size: 13px; margin-right: -1px; }
+    .tab.on { background: #222; color: #fff; }
+    .chart { height: 180px; border: 1px solid #222; display: flex; align-items: flex-end; gap: 18px; padding: 16px; }
+    .col { width: 36px; background: #222; }
+    .note { font-size: 12px; color: #444; }
+    .steps { display: flex; gap: 8px; margin-bottom: 16px; }
+    .step { flex: 1; border: 1px solid #222; padding: 8px; font-size: 12px; text-align: center; }
+    .step.on { background: #222; color: #fff; }
+    ol { margin: 8px 0 0; padding-left: 18px; font-size: 14px; }
+    .check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; margin-top: 12px; }
+    .sq { width: 14px; height: 14px; border: 1px solid #222; flex: none; margin-top: 1px; }
+  </style>
+</head>
+<body>
+
+<nav class="index">
+  <strong>Screens: </strong>
+  <a href="#landing">Landing</a>
+  <a href="#login">Sign in</a>
+  <a href="#register">Register</a>
+  <a href="#gts">Survey</a>
+  <a href="#pending">Pending</a>
+  <a href="#rejected">Rejected</a>
+  <a href="#reset">Reset password</a>
+  <a href="#alumni-home">Alumni home</a>
+  <a href="#card">Card</a>
+  <a href="#perks">Perks</a>
+  <a href="#tracer">Tracer</a>
+  <a href="#admin">Dashboard</a>
+  <a href="#approvals">Approvals</a>
+  <a href="#review">Review</a>
+  <a href="#reports">Reports</a>
+  <a href="#registry">Registry</a>
+</nav>
+
+<section class="sheet" id="landing">
+  <p class="cap">Wireframe 1. Landing page</p>
+  <div class="frame">
+    <header class="top">
+      <div class="brand">CareerSense</div>
+      <div class="nav">
+        <span>Features</span><span>How it works</span>
+        <span class="btn">Sign in</span>
+        <span class="btn solid">Upload resume</span>
+      </div>
+    </header>
+    <div class="hero">
+      <div>
+        <div class="kicker">Alumni Affairs and Placement Services</div>
+        <h1>Know where AUF graduates build their careers.</h1>
+        <p>Upload a resume, review the tracer form, and send your career record to the alumni office.</p>
+        <div class="nav">
+          <span class="btn solid">Upload resume</span>
+          <span class="btn">Sign in</span>
+        </div>
+      </div>
+      <div class="box">
+        <strong>How a record is created</strong>
+        <ol>
+          <li>Upload a resume.</li>
+          <li>Review the tracer survey.</li>
+          <li>OAAPS checks the graduate record.</li>
+          <li>Approved alumni open the portal.</li>
+        </ol>
+      </div>
+    </div>
+    <div class="grid3">
+      <article class="box"><h3>1. Resume capture</h3><p>Upload a PDF, DOCX, or TXT file.</p></article>
+      <article class="box"><h3>2. Review before submit</h3><p>Correct the extracted fields.</p></article>
+      <article class="box"><h3>3. Career alignment</h3><p>Jobs are matched to occupation codes.</p></article>
+    </div>
+    <footer class="foot">Angeles University Foundation · Personal data is processed under the Data Privacy Act.</footer>
+  </div>
+</section>
+
+<section class="sheet" id="login">
+  <p class="cap">Wireframe 2. Sign in</p>
+  <div class="frame">
+    <header class="top"><div class="brand">CareerSense</div><div class="nav"><span>Upload resume</span></div></header>
+    <div class="center">
+      <div class="card">
+        <h2>Sign in</h2>
+        <p>Use your graduate or administrator email.</p>
+        <label>Email</label><div class="field"></div>
+        <label>Password</label><div class="field"></div>
+        <p class="note" style="margin-top:10px">Forgot password?</p>
+        <p style="margin-top:16px"><span class="btn solid">Sign in</span></p>
+        <p class="note">New graduate? Upload a resume to register.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="register">
+  <p class="cap">Wireframe 3. Start registration</p>
+  <div class="frame">
+    <header class="top"><div class="brand">CareerSense</div><div class="nav"><span>Sign in</span></div></header>
+    <div class="center">
+      <div class="card" style="width:480px">
+        <h2>Create your account</h2>
+        <p>This step saves a draft. The account is created after the survey.</p>
+        <label>Email</label><div class="field"></div>
+        <label>Password</label><div class="field"></div>
+        <label>Confirm password</label><div class="field"></div>
+        <label>Resume</label>
+        <div class="drop">Drop a PDF, DOCX, or TXT file · max 10 MB</div>
+        <div class="check"><span class="sq"></span><span>I consent to the processing of my personal data.</span></div>
+        <p style="margin-top:16px"><span class="btn solid">Continue</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="gts">
+  <p class="cap">Wireframe 4. Review and submit the tracer survey</p>
+  <div class="frame">
+    <header class="top"><div class="brand">CareerSense</div><span class="note">Draft · no account yet</span></header>
+    <div class="main">
+      <h2>Check your Graduate Tracer Survey</h2>
+      <p>Correct anything the resume parser missed, then submit.</p>
+      <div class="tabs">
+        <span class="tab on">General</span>
+        <span class="tab">Employment</span>
+        <span class="tab">Further studies</span>
+        <span class="tab">Feedback</span>
+      </div>
+      <div class="split">
+        <div class="box">
+          <label>Full name</label><div class="field"></div>
+          <label>Degree</label><div class="field"></div>
+          <label>Year graduated</label><div class="field"></div>
+          <label>Current job title</label><div class="field"></div>
+        </div>
+        <div class="box muted">
+          <h3>From your resume</h3>
+          <p>Education, jobs, and skills extracted from the file.</p>
+          <p class="note">University match: found / not found</p>
+        </div>
+      </div>
+      <p style="margin-top:16px"><span class="btn solid">Submit survey</span></p>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="pending">
+  <p class="cap">Wireframe 5. Pending account</p>
+  <div class="frame">
+    <header class="top"><div class="brand">CareerSense</div><span class="btn">Sign out</span></header>
+    <div class="center">
+      <div class="card">
+        <div class="kicker">Account status</div>
+        <h2>Waiting for approval</h2>
+        <p>OAAPS still needs to check your graduate record. You can sign in, but the alumni portal stays closed.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="rejected">
+  <p class="cap">Wireframe 6. Rejected account</p>
+  <div class="frame">
+    <header class="top"><div class="brand">CareerSense</div><span class="btn">Sign out</span></header>
+    <div class="center">
+      <div class="card">
+        <div class="kicker">Account status</div>
+        <h2>Registration was not approved</h2>
+        <div class="box muted"><strong>Reason from OAAPS</strong><p style="margin-top:8px">Submitted documents did not match the graduate record.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="reset">
+  <p class="cap">Wireframe 7. Reset password</p>
+  <div class="frame">
+    <header class="top"><div class="brand">CareerSense</div><span>Sign in</span></header>
+    <div class="center">
+      <div class="card">
+        <h2>Forgot password</h2>
+        <p>We will email a 6-digit PIN that lasts 10 minutes.</p>
+        <label>Email</label><div class="field"></div>
+        <p style="margin-top:16px"><span class="btn solid">Send PIN</span></p>
+        <label>PIN</label><div class="field"></div>
+        <label>New password</label><div class="field"></div>
+        <p style="margin-top:16px"><span class="btn">Set new password</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="alumni-home">
+  <p class="cap">Wireframe 8. Alumni home</p>
+  <div class="frame">
+    <div class="shell">
+      <aside class="side">
+        <div class="brand">CareerSense</div>
+        <div class="group">Home</div>
+        <div class="item on">Home</div>
+        <div class="group">Services</div>
+        <div class="item">Alumni Card</div>
+        <div class="item">Perks & Discounts</div>
+        <div class="group">My Record</div>
+        <div class="item">Resume & Tracer</div>
+        <div class="group">Account</div>
+        <div class="item">Account</div>
+      </aside>
+      <div class="main">
+        <div class="row"><h2>Maria Reyes</h2><span class="btn">Edit profile</span></div>
+        <p class="note">BS Information Technology · Class of 2022</p>
+        <p>Profile completion</p>
+        <div class="bar"><span></span></div>
+        <p class="note">72%</p>
+        <h3 style="margin-top:18px">Achievements</h3>
+        <div class="chips">
+          <span class="chip on">Profile</span>
+          <span class="chip on">Resume</span>
+          <span class="chip on">Tracer</span>
+          <span class="chip on">Career</span>
+          <span class="chip">Card</span>
+          <span class="chip">CareerSense Alumni</span>
+        </div>
+        <div class="split" style="margin-top:18px">
+          <div class="box">
+            <h3>Work history</h3>
+            <p>Software Engineer · Present</p>
+            <p>Junior Software Developer · 2022–2024</p>
+            <p class="note">Alignment: Aligned · PSOC 2512</p>
+          </div>
+          <div class="box muted">
+            <h3>Notices</h3>
+            <p>OAAPS asked you to update your phone number and city.</p>
+            <span class="btn">View</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="card">
+  <p class="cap">Wireframe 9. Alumni card</p>
+  <div class="frame">
+    <div class="shell">
+      <aside class="side">
+        <div class="brand">CareerSense</div>
+        <div class="item">Home</div>
+        <div class="item on">Alumni Card</div>
+        <div class="item">Perks & Discounts</div>
+        <div class="item">Resume & Tracer</div>
+        <div class="item">Account</div>
+      </aside>
+      <div class="main">
+        <h2>Alumni card</h2>
+        <div class="steps">
+          <div class="step">Not yet applied</div>
+          <div class="step on">For verification</div>
+          <div class="step">Approved</div>
+          <div class="step">Ready for pickup</div>
+          <div class="step">Claimed</div>
+        </div>
+        <div class="split">
+          <div class="box">
+            <label>Birthday</label><div class="field"></div>
+            <label>Phone</label><div class="field"></div>
+            <label>City</label><div class="field"></div>
+            <label>Mailing address</label><div class="field"></div>
+            <p style="margin-top:14px"><span class="btn solid">Submit application</span></p>
+          </div>
+          <div class="box muted">
+            <h3>Card preview</h3>
+            <p>AUF alumni card</p>
+            <p class="note">Number appears after the card is claimed.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="perks">
+  <p class="cap">Wireframe 10. Perks and discounts</p>
+  <div class="frame">
+    <div class="shell">
+      <aside class="side">
+        <div class="brand">CareerSense</div>
+        <div class="item">Home</div>
+        <div class="item">Alumni Card</div>
+        <div class="item on">Perks & Discounts</div>
+        <div class="item">Resume & Tracer</div>
+        <div class="item">Account</div>
+      </aside>
+      <div class="main">
+        <h2>Perks and discounts</h2>
+        <div class="grid3" style="padding:16px 0 0">
+          <article class="box"><h3>Partner cafe</h3><p>15% off</p><span class="btn solid">Claim</span></article>
+          <article class="box"><h3>Library access</h3><p>Requires an alumni card</p><span class="btn">Locked</span></article>
+          <article class="box muted"><h3>Career fair</h3><p>This offer has ended</p></article>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="tracer">
+  <p class="cap">Wireframe 11. Resume and tracer</p>
+  <div class="frame">
+    <div class="shell">
+      <aside class="side">
+        <div class="brand">CareerSense</div>
+        <div class="item">Home</div>
+        <div class="item">Alumni Card</div>
+        <div class="item">Perks & Discounts</div>
+        <div class="item on">Resume & Tracer</div>
+        <div class="item">Account</div>
+      </aside>
+      <div class="main">
+        <div class="row"><h2>Resume and tracer</h2><span class="chip on">Aligned · 2512</span></div>
+        <div class="tabs">
+          <span class="tab on">General</span>
+          <span class="tab">Employment</span>
+          <span class="tab">Further studies</span>
+          <span class="tab">Feedback</span>
+        </div>
+        <div class="split">
+          <div class="box">
+            <label>Occupation</label><div class="field"></div>
+            <label>Employer</label><div class="field"></div>
+            <label>Skills</label><div class="area"></div>
+            <p style="margin-top:14px"><span class="btn solid">Save survey</span></p>
+          </div>
+          <div class="box muted">
+            <h3>Uploaded resume</h3>
+            <div class="drop">Replace file</div>
+            <p class="note" style="margin-top:8px">Parser: local or Gemini</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="admin">
+  <p class="cap">Wireframe 12. Administrator dashboard</p>
+  <div class="frame">
+    <div class="shell">
+      <aside class="side">
+        <div class="brand">CareerSense</div>
+        <div class="group">Home</div>
+        <div class="item on">Dashboard</div>
+        <div class="group">Operations</div>
+        <div class="item">Approvals</div>
+        <div class="item">Alumni Cards</div>
+        <div class="item">Records</div>
+        <div class="item">Registry</div>
+        <div class="item">Reports</div>
+        <div class="group">Setup</div>
+        <div class="item">Survey</div>
+        <div class="item">Perks</div>
+        <div class="item">SOC Mapping</div>
+        <div class="item">Users</div>
+      </aside>
+      <div class="main">
+        <h2>OAAPS dashboard</h2>
+        <div class="metrics" style="padding:12px 0">
+          <div class="box"><div class="note">Pending approvals</div><h2>4</h2></div>
+          <div class="box"><div class="note">Tracer submissions</div><h2>128</h2></div>
+          <div class="box"><div class="note">Approved alumni</div><h2>96</h2></div>
+          <div class="box"><div class="note">Share aligned</div><h2>71%</h2></div>
+        </div>
+        <div class="box">
+          <h3>Alignment</h3>
+          <div class="chart">
+            <div class="col" style="height:80%"></div>
+            <div class="col" style="height:35%"></div>
+            <div class="col" style="height:20%"></div>
+          </div>
+          <p class="note">Aligned · Misaligned · Unknown</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="approvals">
+  <p class="cap">Wireframe 13. Registration approvals</p>
+  <div class="frame">
+    <div class="shell">
+      <aside class="side">
+        <div class="brand">CareerSense</div>
+        <div class="item">Dashboard</div>
+        <div class="item on">Approvals</div>
+        <div class="item">Records</div>
+        <div class="item">Reports</div>
+      </aside>
+      <div class="main">
+        <h2>Approvals</h2>
+        <p>Applications waiting for a decision.</p>
+        <table>
+          <tr><th>Name</th><th>Email</th><th>Match</th><th>Status</th><th></th></tr>
+          <tr><td>Juan Dela Cruz</td><td>juan.delacruz@gmail.com</td><td>Found</td><td>Pending</td><td>Open</td></tr>
+          <tr><td>Carlos Mendoza</td><td>carlos.mendoza@gmail.com</td><td>Found</td><td>Pending</td><td>Open</td></tr>
+          <tr><td>Unmatched applicant</td><td>tester.unmatched@example.com</td><td>None</td><td>Pending</td><td>Open</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="review">
+  <p class="cap">Wireframe 14. Review one registration</p>
+  <div class="frame">
+    <div class="shell">
+      <aside class="side">
+        <div class="brand">CareerSense</div>
+        <div class="item on">Approvals</div>
+      </aside>
+      <div class="main">
+        <h2>Juan Dela Cruz</h2>
+        <p class="note">Pending · student no. 2020-0002</p>
+        <div class="split">
+          <div class="box">
+            <h3>Survey and resume</h3>
+            <p>Degree, job, and extracted resume text.</p>
+            <span class="btn">Download resume</span>
+            <p style="margin-top:12px"><span class="btn">Verify identity</span></p>
+          </div>
+          <div class="box">
+            <h3>Decision</h3>
+            <p><span class="btn solid">Approve</span></p>
+            <label>Rejection reason</label>
+            <div class="area"></div>
+            <p style="margin-top:12px"><span class="btn">Reject</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="reports">
+  <p class="cap">Wireframe 15. Reports</p>
+  <div class="frame">
+    <div class="shell">
+      <aside class="side">
+        <div class="brand">CareerSense</div>
+        <div class="item">Dashboard</div>
+        <div class="item">Records</div>
+        <div class="item on">Reports</div>
+      </aside>
+      <div class="main">
+        <div class="row">
+          <h2>Reports</h2>
+          <div class="nav"><span class="btn">Export CSV</span><span class="btn solid">Export OAAPS document</span></div>
+        </div>
+        <div class="row" style="margin:12px 0">
+          <div style="flex:1"><label>Year</label><div class="field"></div></div>
+          <div style="flex:1"><label>College</label><div class="field"></div></div>
+        </div>
+        <div class="metrics" style="padding:0">
+          <div class="box"><div class="note">Graduates</div><h2>128</h2></div>
+          <div class="box"><div class="note">Employed</div><h2>101</h2></div>
+          <div class="box"><div class="note">Aligned</div><h2>71%</h2></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="registry">
+  <p class="cap">Wireframe 16. Graduate registry</p>
+  <div class="frame">
+    <div class="shell">
+      <aside class="side">
+        <div class="brand">CareerSense</div>
+        <div class="item">Records</div>
+        <div class="item on">Registry</div>
+      </aside>
+      <div class="main">
+        <h2>Graduate registry</h2>
+        <p>Official list used to match a new registration.</p>
+        <label>Search name or student number</label>
+        <div class="field"></div>
+        <table style="margin-top:14px">
+          <tr><th>Student no.</th><th>Name</th><th>Degree</th><th>Year</th></tr>
+          <tr><td>2022-0001</td><td>Maria Reyes</td><td>BS Information Technology</td><td>2022</td></tr>
+          <tr><td>2021-0088</td><td>Carlos Mendoza</td><td>BS Computer Science</td><td>2021</td></tr>
+        </table>
+        <h3 style="margin-top:18px">Add a graduate</h3>
+        <div class="grid4" style="padding:0">
+          <div><label>Student no.</label><div class="field"></div></div>
+          <div><label>Name</label><div class="field"></div></div>
+          <div><label>Degree</label><div class="field"></div></div>
+          <div><label>Year</label><div class="field"></div></div>
+        </div>
+        <p style="margin-top:12px"><span class="btn solid">Save record</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

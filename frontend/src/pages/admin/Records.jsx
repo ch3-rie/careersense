@@ -18,6 +18,7 @@ export default function AdminRecords() {
   const [page, setPage] = useState(1);
   const [data, setData] = useState(null);
   const [openId, setOpenId] = useState(null);
+  const [detail, setDetail] = useState(null);
   const [error, setError] = useState("");
   const [labels, setLabels] = useState({});
   const [busy, setBusy] = useState(false);
@@ -66,7 +67,26 @@ export default function AdminRecords() {
     alignment: (row) => String(row.alignment || "").toLowerCase(),
     submitted: (row) => String(row.submitted_at || ""),
   });
-  const selected = rows.find((row) => row.id === openId) || data?.items?.find((row) => row.id === openId);
+  useEffect(() => {
+    if (!openId) {
+      setDetail(null);
+      return undefined;
+    }
+    let cancelled = false;
+    api(`/api/admin/tracer/${openId}`)
+      .then((row) => {
+        if (!cancelled) setDetail(row);
+      })
+      .catch(() => {
+        if (!cancelled) setDetail(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [openId]);
+
+  const listed = rows.find((row) => row.id === openId) || data?.items?.find((row) => row.id === openId);
+  const selected = detail && detail.id === openId ? detail : listed;
   const courseOptions = coursesForCollege(catalog, college);
   const filtersActive = Boolean(email.trim() || college || course || alignment !== "All");
 

@@ -143,6 +143,41 @@ def ensure_runtime_schema(bind=None) -> None:
             ("bio", "TEXT"),
             ("address", "VARCHAR(240)"),
             ("birth_date", "DATE"),
+            ("no_employment_reason", "TEXT"),
+            ("unemployment_reason", "VARCHAR(40)"),
+            ("unemployment_details", "TEXT"),
+            ("employment_answer_before", "VARCHAR(8)"),
+            ("resume_document", "JSONB" if bind.dialect.name == "postgresql" else "JSON"),
+        ],
+    )
+    inspector = inspect(bind)
+    profile_cols = _column_names(inspector, "alumni_profiles")
+    if profile_cols and "currently_unemployed" not in profile_cols:
+        dialect = bind.dialect.name
+        default = "FALSE" if dialect == "postgresql" else "0"
+        with bind.begin() as conn:
+            conn.execute(
+                text(
+                    f"ALTER TABLE alumni_profiles ADD COLUMN currently_unemployed BOOLEAN DEFAULT {default}"
+                )
+            )
+        logger.info("Added alumni_profiles.currently_unemployed")
+    _ensure_columns(
+        bind,
+        "further_studies",
+        [
+            ("institution_address", "VARCHAR(240)"),
+        ],
+    )
+    _ensure_columns(
+        bind,
+        "alumni_certifications",
+        [
+            ("awarded_on", "VARCHAR(20)"),
+            ("verification_url", "VARCHAR(500)"),
+            ("certificate_path", "VARCHAR(500)"),
+            ("certificate_mime", "VARCHAR(120)"),
+            ("certificate_filename", "VARCHAR(255)"),
         ],
     )
     _ensure_columns(
@@ -151,6 +186,7 @@ def ensure_runtime_schema(bind=None) -> None:
         [
             ("industry", "VARCHAR(120)"),
             ("location", "VARCHAR(120)"),
+            ("salary_range", "VARCHAR(80)"),
             ("description", "TEXT"),
         ],
     )

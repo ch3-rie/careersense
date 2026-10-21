@@ -115,7 +115,7 @@ export function sectionLabel(key) {
     {
       general: "General information",
       employment: "Employment",
-      studies: "Further studies",
+      studies: "Further Studies / Degrees Earned",
       feedback: "Institutional feedback",
     }[key] || key
   );

@@ -1,0 +1,30 @@
+@startuml
+!include style.puml
+title Figure 8. Use Case Diagram for Registry, Tracer Records, and Reports
+
+actor Administrator as admin
+
+rectangle "CareerSense" {
+  usecase "View operations\ndashboard" as UC22
+  usecase "Search and view\ntracer records" as UC27
+  usecase "Maintain graduate\nregistry" as UC28
+  usecase "Generate and\nexport reports" as UC29
+  usecase "Filter report\nresults" as UC29a
+  usecase "Export CSV" as UC29b
+  usecase "Export OAAPS\ndocument" as UC29c
+}
+
+admin --> UC22
+admin --> UC27
+admin --> UC28
+admin --> UC29
+
+UC29a .up.> UC29 : <<extend>>\n[year or college selected]
+UC29b .up.> UC29 : <<extend>>\n[CSV is requested]
+UC29c .up.> UC29 : <<extend>>\n[OAAPS document is requested]
+
+legend right
+  The registry is the official list used to match a graduate at registration.
+  An export does not change the stored submissions.
+endlegend
+@enduml

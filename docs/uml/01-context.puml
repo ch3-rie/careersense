@@ -1,0 +1,44 @@
+@startuml
+!include style.puml
+title Figure 1. Context Use Case Diagram
+
+actor Guest as guest
+actor Alumni as alumni
+actor Administrator as admin
+
+rectangle "CareerSense" {
+  usecase "Register for an\nalumni account" as UC_REG
+  usecase "Sign in and\nrecover access" as UC_AUTH
+  usecase "Maintain the\ncareer record" as UC_RECORD
+  usecase "Use alumni card\nand perks" as UC_SERVICES
+  usecase "Decide registration\napplications" as UC_APPROVE
+  usecase "Report tracer\nresults" as UC_REPORT
+  usecase "Process cards and\nprofile follow-up" as UC_FOLLOW
+  usecase "Configure the\ntracer system" as UC_CONFIG
+}
+
+actor "Resume Parser" as parser
+actor "Email Service" as email
+
+guest --> UC_REG
+guest --> UC_AUTH
+alumni --> UC_AUTH
+alumni --> UC_RECORD
+alumni --> UC_SERVICES
+admin --> UC_APPROVE
+admin --> UC_REPORT
+admin --> UC_FOLLOW
+admin --> UC_CONFIG
+admin --> UC_AUTH
+
+UC_REG --> parser
+UC_AUTH --> email
+UC_APPROVE --> email
+UC_FOLLOW --> email
+
+legend right
+  Figures 2 to 10 decompose these use cases.
+  An arrow into an oval means the actor starts it.
+  An arrow out to Resume Parser or Email Service means the use case calls that actor.
+endlegend
+@enduml

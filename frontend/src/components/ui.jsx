@@ -1,6 +1,7 @@
 import { Children, cloneElement, isValidElement, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
+import { DateField } from "./DateField";
 import { AlertTriangleIcon, CheckCircleIcon, CheckIcon, ExternalLinkIcon, InfoIcon, XIcon } from "./icons";
 import { dismissToast, subscribeToasts, toastDuration } from "../lib/toasts";
 
@@ -147,7 +148,12 @@ export function GuideList({ title = "What you can do next", items }) {
 }
 
 function isControl(child) {
-  return isValidElement(child) && (child.type === "input" || child.type === "select" || child.type === "textarea");
+  return isValidElement(child) && (
+    child.type === "input"
+    || child.type === "select"
+    || child.type === "textarea"
+    || child.type === DateField
+  );
 }
 
 const SKIP_PLACEHOLDER = new Set(["checkbox", "radio", "file", "hidden", "date", "datetime-local", "month", "time"]);
@@ -244,7 +250,9 @@ export function Field({ label, hint, note, children, required, error }) {
           "aria-invalid": error ? true : undefined,
           "aria-describedby": describedBy,
         };
-        if (!child.props.placeholder && child.type !== "select" && !SKIP_PLACEHOLDER.has(type)) {
+        if (child.type === DateField) {
+          if (!child.props.placeholder) extras.placeholder = child.props.mode === "year" ? "Select year" : "Select Date";
+        } else if (!child.props.placeholder && child.type !== "select" && !SKIP_PLACEHOLDER.has(type)) {
           extras.placeholder = suggestPlaceholder(plainLabel(label), type, child.type);
         }
         const cloned = cloneElement(child, extras);
@@ -256,6 +264,16 @@ export function Field({ label, hint, note, children, required, error }) {
       {hint ? <span className="hint" id={`${id}-hint`}>{hint}</span> : null}
       {error ? <span className="field-error" id={`${id}-error`}>{error}</span> : null}
       {note ? <ResumeNote id={`${id}-note`}>{note}</ResumeNote> : null}
+    </div>
+  );
+}
+
+export function SectionTitle({ index, title, as: Heading = "h2", lead }) {
+  return (
+    <div>
+      {index ? <span className="profile-section-index" aria-hidden="true">{index}</span> : null}
+      <Heading>{title}</Heading>
+      {lead ? <p className="profile-section-lead">{lead}</p> : null}
     </div>
   );
 }
@@ -559,6 +577,7 @@ export function Dialog({
       const top = dialogStack[dialogStack.length - 1];
       if (top !== entry) return;
       if (event.key === "Escape") {
+        if (document.querySelector(".date-popover")) return;
         event.preventDefault();
         event.stopImmediatePropagation();
         requestClose();
@@ -647,7 +666,7 @@ function lockPageScroll() {
     const scrollX = window.scrollX;
     const scrollY = window.scrollY;
     function allowScroll(target) {
-      return Boolean(target?.closest?.(".dialog, .review-sheet, .drawer"));
+      return Boolean(target?.closest?.(".dialog, .review-sheet, .drawer, .date-popover"));
     }
     function onWheel(event) {
       if (allowScroll(event.target)) return;

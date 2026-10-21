@@ -14,7 +14,7 @@ from app.models import (
     TracerSubmission,
 )
 from app.services.alignment import alignment_score, analyze_career_alignment
-from app.services.employment import apply_current_employment
+from app.services.employment import apply_current_employment, apply_survey_unemployment
 from app.services.jobs import sync_job_timeline_from_gts
 from app.services.validation import normalize_skills, require_owned_resume, validate_employed_job_title
 from app.survey_default import flatten_questions
@@ -96,10 +96,19 @@ def persist_tracer_submission(
     profile.country_residence = survey_data.get("country", "Philippines") or "Philippines"
     profile.degree = survey_data.get("degree", "") or profile.degree
     profile.year_graduated = survey_data.get("year_graduated", "") or profile.year_graduated
-    profile.guardian_type = survey_data.get("primary_guardian") or ""
-    profile.guardian_degree_completed = _to_bool(survey_data.get("guardian_degree_completed"))
+    if survey_data.get("primary_guardian") is not None:
+        profile.guardian_type = survey_data.get("primary_guardian") or ""
+    if survey_data.get("guardian_degree_completed") is not None:
+        profile.guardian_degree_completed = _to_bool(survey_data.get("guardian_degree_completed"))
+    apply_survey_unemployment(profile, survey_data)
     db.add(profile)
 
+    previous_studies = db.query(FurtherStudy).filter(FurtherStudy.account_id == account.id).all()
+    preserved_addresses: dict[tuple[str, str], str] = {}
+    for row in previous_studies:
+        key = ((row.course_degree or "").strip().lower(), (row.school or "").strip().lower())
+        if row.institution_address and key not in preserved_addresses:
+            preserved_addresses[key] = row.institution_address
     db.query(FurtherStudy).filter(FurtherStudy.account_id == account.id).delete()
     db.flush()
     studies = survey_data.get("further_studies") or []
@@ -111,14 +120,18 @@ def persist_tracer_submission(
             school = _study_field(item, "school", "School")
             year = _study_field(item, "year_enrolled", "Year of First Enrollment")
             scholarship = _study_field(item, "scholarship", "Scholarship")
+            address = _study_field(item, "institution_address", "Address of Institution")[:240]
+            if not address:
+                address = preserved_addresses.get((course.strip().lower(), school.strip().lower()), "")
             graduated = item.get("is_graduated", item.get("Graduated"))
-            if not any([course, school, year, scholarship]):
+            if not any([course, school, year, scholarship, address]):
                 continue
             db.add(
                 FurtherStudy(
                     account_id=account.id,
                     course_degree=course,
                     school=school,
+                    institution_address=address,
                     year_enrolled=str(year),
                     scholarship=scholarship,
                     is_graduated=_to_bool(graduated),

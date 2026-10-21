@@ -16,6 +16,7 @@ import {
   TrashIcon,
 } from "../../components/icons";
 import { PortalShell } from "../../components/Layout";
+import { DateField } from "../../components/DateField";
 import { Alert, Badge, Dialog, Empty, Field, LoadError, PageHeader, PageSkeleton } from "../../components/ui";
 import { api } from "../../lib/api";
 import { formatDateTime, questionTypeLabel } from "../../lib/format";
@@ -846,8 +847,8 @@ export default function AdminSurvey() {
               <textarea name="confirmation_message" defaultValue={draft.confirmation_message || ""} />
             </Field>
             <div className="inline-fields">
-              <Field label="Start date"><input type="date" name="start_date" defaultValue={draft.start_date || ""} /></Field>
-              <Field label="End date"><input type="date" name="end_date" defaultValue={draft.end_date || ""} /></Field>
+              <Field label="Start date"><DateField name="start_date" defaultValue={draft.start_date || ""} /></Field>
+              <Field label="End date"><DateField name="end_date" defaultValue={draft.end_date || ""} /></Field>
             </div>
             <label className="check">
               <input type="checkbox" name="accepting_responses" defaultChecked={draft.accepting_responses !== false} />

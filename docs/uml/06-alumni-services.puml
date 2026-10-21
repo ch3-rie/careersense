@@ -1,0 +1,28 @@
+@startuml
+!include style.puml
+title Figure 6. Use Case Diagram for the Alumni Card and Perks
+
+actor Alumni as alumni
+
+rectangle "CareerSense" {
+  usecase "Apply for\nalumni card" as UC18
+  usecase "Browse and\nclaim perks" as UC19
+  usecase "Read notifications" as UC21
+  usecase "Enforce alumni-card\nrequirement" as UC19a
+  usecase "Award achievements" as UC44
+
+  UC21 -[hidden]right- UC19
+  UC19 -[hidden]right- UC18
+}
+
+alumni --> UC18
+alumni --> UC19
+alumni --> UC21
+
+UC19a .left.> UC19 : <<extend>>\n[perk requires a card]
+UC44 .left.> UC18 : <<extend>>\n[card status = Claimed]
+
+legend right
+  Alumni Card Holder is awarded only when the card status is Claimed.
+endlegend
+@enduml

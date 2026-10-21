@@ -22,12 +22,14 @@ import AdminProfileUpdates from "./pages/admin/ProfileUpdates";
 import AdminUsers from "./pages/admin/Users";
 import AlumniAccount from "./pages/alumni/Account";
 import AlumniCardPage from "./pages/alumni/Card";
+import AlumniQrPage from "./pages/alumni/Qr";
 import AlumniDashboard from "./pages/alumni/Dashboard";
 import AlumniPerksPage from "./pages/alumni/Perks";
 import AlumniResume from "./pages/alumni/Resume";
 import LandingPage from "./pages/public/Landing";
 import LoginPage from "./pages/public/Login";
 import ForgotPasswordPage, { ResetPasswordPage, VerifyResetPinPage } from "./pages/public/ForgotPassword";
+import VerifyQrPage from "./pages/public/VerifyQr";
 import PendingPage from "./pages/public/Pending";
 import RegisterPage from "./pages/public/Register";
 import RejectedPage from "./pages/public/Rejected";
@@ -83,11 +85,13 @@ export default function App() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/forgot-password/verify" element={<VerifyResetPinPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/verify/qr/:token" element={<VerifyQrPage />} />
       <Route path="/register" element={<RegisterGate><RegisterPage /></RegisterGate>} />
       <Route path="/pending" element={<Guard role="Alumni" allowStatus={["Pending"]}><PendingPage /></Guard>} />
       <Route path="/rejected" element={<Guard role="Alumni" allowStatus={["Rejected"]}><RejectedPage /></Guard>} />
 
       <Route path="/alumni" element={<Guard role="Alumni" allowStatus={["Active"]}><AlumniDashboard /></Guard>} />
+      <Route path="/alumni/qr" element={<Guard role="Alumni" allowStatus={["Active"]}><AlumniQrPage /></Guard>} />
       <Route path="/alumni/card" element={<Guard role="Alumni" allowStatus={["Active"]}><AlumniCardPage /></Guard>} />
       <Route path="/alumni/perks" element={<Guard role="Alumni" allowStatus={["Active"]}><AlumniPerksPage /></Guard>} />
       <Route path="/alumni/resume" element={<Guard role="Alumni" allowStatus={["Active"]}><AlumniResume /></Guard>} />

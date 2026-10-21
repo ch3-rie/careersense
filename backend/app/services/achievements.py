@@ -40,7 +40,7 @@ CORE_ACHIEVEMENT_KEYS = (
 MILESTONE_KEY = CAREERSENSE_ALUMNI_KEY
 CATALOG_KEYS = CORE_ACHIEVEMENT_KEYS + (MILESTONE_KEY,)
 
-NOTIFICATION_TITLE = "Achievement unlocked"
+NOTIFICATION_TITLE = "Alumni Badge Achievements"
 NOTIFICATION_CATEGORY = "achievement"
 
 # Reserved for later cycles without changing persistence:
@@ -52,7 +52,7 @@ ACHIEVEMENTS: dict[str, dict[str, Any]] = {
         "key": PROFILE_COMPLETE_KEY,
         "name": "Profile Complete",
         "description": "All applicable alumni information has been completed.",
-        "locked_description": "Complete all applicable alumni information to earn this achievement.",
+        "locked_description": "Complete all applicable alumni information to earn this badge.",
         "icon": "check",
         "category": "core",
         "route": "/alumni",
@@ -65,7 +65,7 @@ ACHIEVEMENTS: dict[str, dict[str, Any]] = {
         "description": "Your resume information has been reviewed and verified.",
         "locked_description": (
             "Upload a resume, review the extracted information, and submit the "
-            "Graduate Tracer Survey to earn this achievement."
+            "Graduate Tracer Survey to earn this badge."
         ),
         "icon": "file",
         "category": "core",
@@ -78,7 +78,7 @@ ACHIEVEMENTS: dict[str, dict[str, Any]] = {
         "description": "Your Graduate Tracer Survey has been successfully submitted.",
         "locked_description": (
             "Submit the current Graduate Tracer Survey with all required answers "
-            "to earn this achievement."
+            "to earn this badge."
         ),
         "icon": "clipboard",
         "category": "core",
@@ -89,7 +89,7 @@ ACHIEVEMENTS: dict[str, dict[str, Any]] = {
         "key": CAREER_UPDATED_KEY,
         "name": "Career Updated",
         "description": "Your current employment information is up to date.",
-        "locked_description": "Complete your current employment information to earn this achievement.",
+        "locked_description": "Complete your current employment information to earn this badge.",
         "icon": "briefcase",
         "category": "core",
         "route": "/alumni/resume",
@@ -99,7 +99,7 @@ ACHIEVEMENTS: dict[str, dict[str, Any]] = {
         "key": ALUMNI_CARD_HOLDER_KEY,
         "name": "Alumni Card Holder",
         "description": "Your official Angelenean Alumni Card has been claimed.",
-        "locked_description": "Claim your official Angelenean Alumni Card to earn this achievement.",
+        "locked_description": "Claim your official Angelenean Alumni Card to earn this badge.",
         "icon": "id-card",
         "category": "core",
         "route": "/alumni/card",
@@ -109,11 +109,11 @@ ACHIEVEMENTS: dict[str, dict[str, Any]] = {
         "key": CAREERSENSE_ALUMNI_KEY,
         "name": "CareerSense Alumni",
         "description": "Your CareerSense alumni profile and services are fully set up.",
-        "locked_description": "Earn the five core CareerSense achievements to unlock this milestone.",
+        "locked_description": "Earn the five core alumni badges to unlock this milestone.",
         "icon": "star",
         "category": "milestone",
-        "route": "/alumni",
-        "cta": "View achievements",
+        "route": "/alumni#alumni-badges",
+        "cta": "Open Alumni Badge Achievements",
     },
 }
 

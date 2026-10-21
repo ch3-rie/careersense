@@ -1,0 +1,32 @@
+@startuml
+!include style.puml
+title Figure 2. Use Case Diagram for Registration
+
+actor Guest as guest
+
+rectangle "CareerSense" {
+  usecase "Start registration" as UC02
+  usecase "Complete registration\nand submit GTS" as UC03
+  usecase "Give privacy\nconsent" as UC02a
+  usecase "Upload resume" as UC02b
+  usecase "Parse resume" as UC40
+  usecase "Match university\nrecord" as UC41
+  usecase "Compute career\nalignment" as UC42
+}
+
+actor "Resume Parser" as parser
+
+guest --> UC02
+guest --> UC03
+UC02 ..> UC02a : <<include>>
+UC02 ..> UC02b : <<include>>
+UC02 ..> UC40 : <<include>>
+UC02 ..> UC41 : <<include>>
+UC03 ..> UC42 : <<include>>
+UC40 --> parser
+
+legend right
+  <<include>> always runs, and the arrow points at the included use case.
+  Start registration keeps a draft. Submitting the GTS creates the Pending account.
+endlegend
+@enduml

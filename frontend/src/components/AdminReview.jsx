@@ -11,8 +11,10 @@ import {
   LockIcon,
   XIcon,
 } from "./icons";
-import { Badge, Empty, ExpandDetails, Field, TabList } from "./ui";
+import { Alert, Badge, Empty, ExpandDetails, Field, TabList } from "./ui";
 import { api, downloadAuthorized } from "../lib/api";
+import { safeHttpUrl } from "../lib/safeUrl";
+import { friendlyError } from "../lib/userMessages";
 import {
   displayValue,
   formatLongDate,
@@ -305,6 +307,7 @@ function StudiesSection({ studies, defaultOpen = false, plain = false }) {
           <InfoGrid
             items={[
               { label: "School", value: displayValue(row.school || row.School) },
+              { label: "Address of Institution", value: displayValue(row.institution_address || row["Address of Institution"]) },
               { label: "Year enrolled", value: displayValue(row.year_enrolled || row["Year of First Enrollment"]) },
               { label: "Scholarship", value: displayValue(row.scholarship || row.Scholarship) },
               { label: "Graduated", value: displayValue(row.is_graduated ?? row.Graduated) },
@@ -319,7 +322,7 @@ function StudiesSection({ studies, defaultOpen = false, plain = false }) {
   if (plain) return body;
   return (
     <ExpandDetails
-      summary="Further Studies"
+      summary="Further Studies / Degrees Earned"
       hint={countLabel}
       showLabel="Show"
       hideLabel="Hide"
@@ -327,6 +330,145 @@ function StudiesSection({ studies, defaultOpen = false, plain = false }) {
     >
       {body}
     </ExpandDetails>
+  );
+}
+
+function ActivityCards({ rows, empty, render }) {
+  if (!rows.length) return <p className="muted">{empty}</p>;
+  return <div className="activity-stack">{rows.map(render)}</div>;
+}
+
+export function ProfileActivityReview({ activity }) {
+  const [error, setError] = useState("");
+  if (!activity) return null;
+  const jobs = activity.jobs || [];
+  const seminars = activity.seminars || [];
+  const certifications = activity.certifications || [];
+  const awards = activity.awards || [];
+  const unemployed = Boolean(activity.currently_unemployed);
+  const reasonLabel = String(activity.unemployment_reason_label || "").trim();
+  const reasonDetails = String(activity.unemployment_details || "").trim();
+  const reason = String(activity.no_employment_reason || "").trim();
+
+  async function viewCertificate(row) {
+    setError("");
+    try {
+      const blob = await api(`/api/admin/certifications/${row.id}/file`, { blob: true, toast: false });
+      const url = URL.createObjectURL(blob);
+      const opened = window.open(url, "_blank", "noopener,noreferrer");
+      if (!opened) downloadAuthorized(`/api/admin/certifications/${row.id}/file`, row.certificate_filename || "certificate");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err) {
+      setError(friendlyError(err, "We couldn't open this certificate."));
+    }
+  }
+
+  return (
+    <div className="activity-review">
+      <Alert type="error">{error}</Alert>
+      <section className="review-block">
+        <h3>Employment History</h3>
+        {unemployed || jobs.length ? (
+          <div className="activity-stack">
+            {unemployed ? (
+              <article className="study-mini">
+                <strong>Unemployed</strong>
+                <InfoGrid
+                  items={[
+                    { label: "Reason", value: displayValue(reasonLabel || "Not recorded") },
+                    { label: "Details", value: displayValue(reasonDetails) },
+                  ]}
+                />
+              </article>
+            ) : null}
+            {jobs.map((row) => (
+              <article className="study-mini" key={row.id}>
+                <strong>{row.job_title}</strong>
+                <InfoGrid
+                  items={[
+                    { label: "Company", value: displayValue(row.company) },
+                    { label: "Location", value: displayValue(row.location) },
+                    { label: "Industry", value: displayValue(row.industry) },
+                    { label: "Current", value: unemployed ? (row.is_current ? "Kept on file, not counted while unemployed" : "No") : (row.is_current ? "Yes" : "No") },
+                    { label: "Salary range", value: displayValue(row.salary_range) },
+                  ]}
+                />
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="muted">{reason || "No employment history recorded."}</p>
+        )}
+      </section>
+      <section className="review-block">
+        <h3>Seminars Attended</h3>
+        <ActivityCards
+          rows={seminars}
+          empty="No seminars recorded."
+          render={(row) => (
+            <article className="study-mini" key={row.id}>
+              <strong>{row.title}</strong>
+              <InfoGrid
+                items={[
+                  { label: "Location of Seminar", value: displayValue(row.location) },
+                  { label: "Date or year", value: displayValue(row.held_on) },
+                  { label: "Organizer", value: displayValue(row.organizer) },
+                ]}
+              />
+            </article>
+          )}
+        />
+      </section>
+      <section className="review-block">
+        <h3>Certifications</h3>
+        <ActivityCards
+          rows={certifications}
+          empty="No certifications recorded."
+          render={(row) => {
+            const verify = safeHttpUrl(row.verification_url);
+            return (
+              <article className="study-mini" key={row.id}>
+                <strong>{row.name}</strong>
+                <InfoGrid
+                  items={[
+                    { label: "Awarding body", value: displayValue(row.awarding_body) },
+                    { label: "Date or year awarded", value: displayValue(row.awarded_on) },
+                    {
+                      label: "Verification",
+                      value: verify ? <a href={verify} target="_blank" rel="noopener noreferrer">Open verification link</a> : "—",
+                    },
+                  ]}
+                />
+                {row.has_certificate ? (
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => viewCertificate(row)}>
+                    View certificate
+                  </button>
+                ) : null}
+              </article>
+            );
+          }}
+        />
+      </section>
+      <section className="review-block">
+        <h3>Awards / Achievements Received</h3>
+        <ActivityCards
+          rows={awards}
+          empty="No awards or achievements recorded."
+          render={(row) => (
+            <article className="study-mini" key={row.id}>
+              <strong>{row.title}</strong>
+              <InfoGrid
+                items={[
+                  { label: "Awarded by", value: displayValue(row.issuer) },
+                  { label: "Date or year", value: displayValue(row.awarded_on) },
+                  { label: "Description", value: displayValue(row.description) },
+                ]}
+              />
+            </article>
+          )}
+        />
+      </section>
+    </div>
   );
 }
 
@@ -424,6 +566,8 @@ function surveyItems(record, { hideIdentity = false } = {}) {
         { label: "Country of residence", value: displayValue(data.country) },
         { label: "Degree", value: displayValue(data.degree) },
         { label: "Year graduated", value: displayValue(data.year_graduated) },
+        { label: "Primary guardian", value: displayValue(data.primary_guardian) },
+        { label: "Guardian completed college", value: displayValue(data.guardian_degree_completed) },
       ];
   return [
     ...identity,
@@ -473,6 +617,12 @@ export function TracerDetailView({
         <QaList compact items={employmentItems(record)} />
       </section>
       {showAlignment ? <AlignmentHero record={record} /> : null}
+      {Array.isArray(record.further_studies) ? (
+        <section className="review-block">
+          <h3>Further Studies / Degrees Earned</h3>
+          <StudiesSection studies={record.further_studies} plain />
+        </section>
+      ) : null}
       <section className="review-block">
         <h3>Graduate Tracer Survey</h3>
         <QaList compact items={surveyItems(record, { hideIdentity })} />
@@ -491,6 +641,7 @@ export function TracerDetailView({
           {submission}
         </section>
       )}
+      {record.profile_activity ? <ProfileActivityReview activity={record.profile_activity} /> : null}
     </div>
   );
 }
@@ -620,6 +771,7 @@ export function ApprovalReviewContent({
         <div role="tabpanel" id="panel-review-identity" className="review-tab-panel">
           <IdentitySections detail={detail} verify={verify} />
           <StudiesSection studies={detail.further_studies} />
+          <ProfileActivityReview activity={detail.profile_activity} />
           <ResumeStack resumes={detail.resumes} onDownload={onDownloadResume} />
         </div>
       )}
@@ -740,7 +892,7 @@ export function ApprovalDetailView({
             )}
           </section>
           <section className="detail-section">
-            <h2>Further Studies</h2>
+            <h2>Further Studies / Degrees Earned</h2>
             <StudiesSection studies={detail.further_studies} plain />
           </section>
           <section className="detail-section">
@@ -828,6 +980,18 @@ export function TracerRecordLayout({ record, questionLabels, compact = false }) 
             <section className="detail-section">
               <h2>Supplementary Questions</h2>
               <QaList compact items={extras} />
+            </section>
+          ) : null}
+          {Array.isArray(record.further_studies) ? (
+            <section className="detail-section">
+              <h2>Further Studies / Degrees Earned</h2>
+              <StudiesSection studies={record.further_studies} plain />
+            </section>
+          ) : null}
+          {record.profile_activity ? (
+            <section className="detail-section">
+              <h2>Alumni Profile Records</h2>
+              <ProfileActivityReview activity={record.profile_activity} />
             </section>
           ) : null}
           <section className="detail-section">

@@ -15,6 +15,7 @@ import OaapsReport from "../../components/OaapsReport";
 import EmploymentAnalytics, { programsForCollege } from "../../components/EmploymentAnalytics";
 import { Panel } from "../../components/RecordViews";
 import { PortalShell } from "../../components/Layout";
+import { DateField } from "../../components/DateField";
 import { Alert, Field, LoadError, PageSkeleton } from "../../components/ui";
 import { api, downloadAuthorized } from "../../lib/api";
 
@@ -255,10 +256,10 @@ export default function AdminReports() {
           <form className="admin-reports-filters" onSubmit={generateReport}>
             <div className="admin-reports-filter-grid">
               <Field label="Reporting Period: From">
-                <input type="date" value={filters.period_from} onChange={(e) => setFilters({ ...filters, period_from: e.target.value })} />
+                <DateField value={filters.period_from} onChange={(e) => setFilters({ ...filters, period_from: e.target.value })} />
               </Field>
               <Field label="Reporting Period: To">
-                <input type="date" value={filters.period_to} onChange={(e) => setFilters({ ...filters, period_to: e.target.value })} />
+                <DateField value={filters.period_to} onChange={(e) => setFilters({ ...filters, period_to: e.target.value })} />
               </Field>
               <Field label="Graduating Batch / Year">
                 <select aria-label="Filter the productivity report by graduating batch" value={filters.year} onChange={(e) => chooseYear(e.target.value)}>

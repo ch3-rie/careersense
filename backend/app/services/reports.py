@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload, subqueryload
 
 from app.constants import UNEMPLOYMENT_REASONS
 from app.models import Account, TracerSubmission, UniversityRecord
-from app.services.employment import is_no, is_yes, resolve_current_employment
+from app.services.employment import apply_profile_unemployment, is_no, is_yes, resolve_current_employment
 
 SEEKING_REASON = "Looking for a job, but cannot find one"
 SELF_EMPLOYED = "Self-Employed"
@@ -205,6 +205,7 @@ def _person_context(row: TracerSubmission) -> dict[str, Any]:
     data = row.data_json or {}
     record = account.university_record if account else None
     profile = account.profile if account else None
+    data = apply_profile_unemployment(data, profile)
     college = _text(record.college if record else "")
     program = _text(
         (record.degree if record else "")
@@ -250,7 +251,8 @@ def _record_matches(record: UniversityRecord, college: str, program: str, year: 
 
 
 def classify_graduate(row: TracerSubmission) -> dict[str, Any]:
-    data = row.data_json or {}
+    profile = row.account.profile if row.account else None
+    data = apply_profile_unemployment(row.data_json or {}, profile)
     studies = _studies(row.account, data)
     currently_employed = _yes(data.get("is_currently_employed"))
     status = _current_employment_status(data)
@@ -399,7 +401,8 @@ def employment_analytics(
     for row in _latest_tracer_rows(db):
         if not _matches_filters(_academic_context(row), college, program, year):
             continue
-        data = row.data_json or {}
+        profile = row.account.profile if row.account else None
+        data = apply_profile_unemployment(row.data_json or {}, profile)
         answer = data.get("is_currently_employed")
         if is_yes(answer):
             employed += 1

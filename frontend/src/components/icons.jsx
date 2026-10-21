@@ -27,6 +27,17 @@ export function UserIcon(props) {
   );
 }
 
+export function QrCodeIcon(props) {
+  return (
+    <Icon {...props}>
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="1" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1" />
+      <path d="M14 14h2v2h-2zM18 14h2.5M14 18h2M18 18h2.5v2.5M14 21h2" />
+    </Icon>
+  );
+}
+
 export function CreditCardIcon(props) {
   return (
     <Icon {...props}>

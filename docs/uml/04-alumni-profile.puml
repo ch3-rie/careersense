@@ -1,0 +1,35 @@
+@startuml
+!include style.puml
+title Figure 4. Use Case Diagram for the Alumni Profile
+
+actor Alumni as alumni
+
+rectangle "CareerSense" {
+  usecase "View alumni home" as UC11
+  usecase "Maintain profile" as UC12
+  usecase "Maintain employment\nhistory" as UC13
+  usecase "Maintain further\nstudies" as UC14
+  usecase "View achievements\nand completion" as UC20
+  usecase "Award achievements" as UC44
+
+  UC14 -[hidden]right- UC13
+  UC13 -[hidden]right- UC12
+  UC12 -[hidden]right- UC11
+}
+
+alumni --> UC11
+alumni --> UC12
+alumni --> UC13
+alumni --> UC14
+
+UC12 ..> UC20 : <<include>>
+UC13 ..> UC20 : <<include>>
+UC14 ..> UC20 : <<include>>
+UC44 .left.> UC12 : <<extend>>\n[Profile Complete is new]
+UC44 .left.> UC13 : <<extend>>\n[Career Updated is new]
+
+legend right
+  Only an Active alumni account can start these use cases.
+  An earned achievement stays on the record.
+endlegend
+@enduml

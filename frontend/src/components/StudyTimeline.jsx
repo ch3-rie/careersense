@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Alert, Dialog, Empty, Field } from "./ui";
+import { DateField } from "./DateField";
+import { Alert, Dialog, Empty, Field, SectionTitle } from "./ui";
 import { PencilIcon, PlusIcon, TrashIcon } from "./icons";
 import { api } from "../lib/api";
 import { showToast } from "../lib/toasts";
@@ -8,6 +9,7 @@ import { friendlyError } from "../lib/userMessages";
 const EMPTY_FORM = {
   course_degree: "",
   school: "",
+  institution_address: "",
   year_enrolled: "",
   scholarship: "",
   status: "",
@@ -45,7 +47,7 @@ function isGraduatedFromStatus(status) {
   return null;
 }
 
-export function StudyTimeline({ studies, onStudiesChange }) {
+export function StudyTimeline({ studies, onStudiesChange, embedded = false, index, lead, degreeRecord = null }) {
   const [items, setItems] = useState(studies || []);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editing, setEditing] = useState(null);
@@ -76,6 +78,7 @@ export function StudyTimeline({ studies, onStudiesChange }) {
     setForm({
       course_degree: row.course_degree || "",
       school: row.school || "",
+      institution_address: row.institution_address || "",
       year_enrolled: row.year_enrolled || "",
       scholarship: row.scholarship || "",
       status: statusFromRow(row),
@@ -107,6 +110,7 @@ export function StudyTimeline({ studies, onStudiesChange }) {
       const body = {
         course_degree: course,
         school,
+        institution_address: form.institution_address.trim(),
         year_enrolled: year,
         scholarship: form.scholarship.trim(),
         is_graduated: isGraduatedFromStatus(form.status),
@@ -144,11 +148,14 @@ export function StudyTimeline({ studies, onStudiesChange }) {
   }
 
   return (
-    <section className="alumni-block study-timeline-panel" id="further-studies" aria-label="Further Studies">
+    <section className={`alumni-block study-timeline-panel${embedded ? " is-embedded" : ""}`} id="further-studies" aria-label="Further Studies / Degrees Earned">
       <header className="profile-section-head">
-        <div>
-          <h2>Further Studies</h2>
-        </div>
+        <SectionTitle
+          index={embedded ? undefined : index}
+          as={embedded ? "h3" : "h2"}
+          title="Further Studies / Degrees Earned"
+          lead={embedded ? undefined : (lead || "Your AUF bachelor’s degree stays on this record. Add later programs below.")}
+        />
         <div className="panel-actions">
           <button type="button" className="btn btn-navy btn-sm" onClick={openAdd}>
             <PlusIcon size={16} />
@@ -157,21 +164,23 @@ export function StudyTimeline({ studies, onStudiesChange }) {
         </div>
       </header>
       <Alert type="error">{!formOpen && !removing ? error : null}</Alert>
+      {degreeRecord ? (
+        <article className="profile-degree-earned">
+          <p className="eyebrow">Bachelor’s degree earned</p>
+          <strong>{degreeRecord.degree || "Degree not on file"}</strong>
+          {degreeRecord.college ? <p>{degreeRecord.college}</p> : null}
+          <p className="job-when">{degreeRecord.yearGraduated ? `Graduated ${degreeRecord.yearGraduated}` : "Graduation year not on file"}</p>
+        </article>
+      ) : null}
       {!items.length ? (
         <Empty
           compact
-          title="No further studies have been added yet."
-          action={(
-            <button type="button" className="btn btn-navy btn-sm" onClick={openAdd}>
-              <PlusIcon size={16} />
-              Add further study
-            </button>
-          )}
+          title="No further studies or degrees recorded yet"
         >
-          Graduate or professional programs after your AUF bachelor’s degree appear here.
+          Add a later degree or program when you are ready.
         </Empty>
       ) : (
-        <ol className="job-timeline" aria-label="Further Studies, current and most recent first">
+        <ol className="job-timeline" aria-label="Further Studies / Degrees Earned, current and most recent first">
           {displayItems.map((row) => {
             const when = studyPeriod(row);
             const current = row.is_graduated === false;
@@ -181,15 +190,14 @@ export function StudyTimeline({ studies, onStudiesChange }) {
                 <article className="job-card">
                   <div className="job-card-top">
                     <div className="job-card-copy">
-                      <strong>{row.course_degree || "Program"}</strong>
-                      {row.school ? <p className="job-company">{row.school}</p> : null}
                       {when || current ? (
                         <p className="job-when">
                           {when ? <time>{when}</time> : null}
                           {current ? <span className="job-now">Current</span> : null}
                         </p>
                       ) : null}
-                      {row.scholarship ? <p className="job-meta">{row.scholarship}</p> : null}
+                      <strong>{row.course_degree || "Program"}</strong>
+                      {row.school ? <p className="job-company">{row.school}</p> : null}
                     </div>
                     <div className="job-card-actions">
                       <button
@@ -212,6 +220,12 @@ export function StudyTimeline({ studies, onStudiesChange }) {
                       </button>
                     </div>
                   </div>
+                  {row.institution_address || row.scholarship ? (
+                    <ul className="timeline-facts">
+                      {row.institution_address ? <li>{row.institution_address}</li> : null}
+                      {row.scholarship ? <li>{row.scholarship}</li> : null}
+                    </ul>
+                  ) : null}
                 </article>
               </li>
             );
@@ -223,48 +237,65 @@ export function StudyTimeline({ studies, onStudiesChange }) {
           title={editing === "new" ? "Add further study" : "Edit further study"}
           confirmLabel="Save"
           busy={busy}
+          wide
           onConfirm={saveStudy}
           onClose={closeForm}
         >
           <Alert type="error">{error}</Alert>
-          <Field label="Program" required>
-            <input
-              value={form.course_degree}
-              onChange={(e) => setForm({ ...form, course_degree: e.target.value })}
-              maxLength={200}
-            />
-          </Field>
-          <Field label="Institution" required>
-            <input
-              value={form.school}
-              onChange={(e) => setForm({ ...form, school: e.target.value })}
-              maxLength={200}
-            />
-          </Field>
-          <div className="inline-fields">
-            <Field label="Year enrolled" hint="Four-digit year, if known.">
+          <fieldset className="profile-edit-group">
+            <legend>Program</legend>
+            <div className="inline-fields">
+              <Field label="Program" required>
+                <input
+                  value={form.course_degree}
+                  onChange={(e) => setForm({ ...form, course_degree: e.target.value })}
+                  maxLength={200}
+                />
+              </Field>
+              <Field label="Institution" required>
+                <input
+                  value={form.school}
+                  onChange={(e) => setForm({ ...form, school: e.target.value })}
+                  maxLength={200}
+                />
+              </Field>
+            </div>
+            <Field label="Address of Institution" hint="Optional. Street or campus address of the school.">
               <input
-                value={form.year_enrolled}
-                onChange={(e) => setForm({ ...form, year_enrolled: e.target.value })}
-                inputMode="numeric"
-                maxLength={4}
+                value={form.institution_address}
+                onChange={(e) => setForm({ ...form, institution_address: e.target.value })}
+                maxLength={240}
               />
             </Field>
-            <Field label="Status">
-              <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                <option value="">Not specified</option>
-                <option value="enrolled">Currently enrolled</option>
-                <option value="completed">Completed</option>
-              </select>
+          </fieldset>
+          <fieldset className="profile-edit-group">
+            <legend>Enrollment</legend>
+            <div className="inline-fields">
+              <Field label="Year enrolled" hint="Four-digit year, if known.">
+                <DateField
+                  mode="year"
+                  min="1950"
+                  max={String(new Date().getFullYear() + 8)}
+                  value={form.year_enrolled}
+                  onChange={(e) => setForm({ ...form, year_enrolled: e.target.value })}
+                />
+              </Field>
+              <Field label="Status">
+                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                  <option value="">Not specified</option>
+                  <option value="enrolled">Currently enrolled</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </Field>
+            </div>
+            <Field label="Scholarship" hint="Optional.">
+              <input
+                value={form.scholarship}
+                onChange={(e) => setForm({ ...form, scholarship: e.target.value })}
+                maxLength={200}
+              />
             </Field>
-          </div>
-          <Field label="Scholarship" hint="Optional.">
-            <input
-              value={form.scholarship}
-              onChange={(e) => setForm({ ...form, scholarship: e.target.value })}
-              maxLength={200}
-            />
-          </Field>
+          </fieldset>
         </Dialog>
       ) : null}
       {removing ? (

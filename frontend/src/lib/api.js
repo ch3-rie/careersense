@@ -45,7 +45,8 @@ function isPublicAuthPath(path) {
     clean === "/api/auth/register" ||
     clean === "/api/auth/register/complete" ||
     clean.startsWith("/api/auth/forgot-password") ||
-    clean === "/api/auth/reset-password"
+    clean === "/api/auth/reset-password" ||
+    clean.startsWith("/api/public/")
   );
 }
 

@@ -4,6 +4,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
+from app.constants import SALARY_OPTIONS
+
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -201,15 +203,54 @@ class JobIn(BaseModel):
     is_current: bool = False
     industry: str = Field(default="", max_length=120)
     location: str = Field(default="", max_length=120)
+    salary_range: str = Field(default="", max_length=80)
     description: str = Field(default="", max_length=800)
+
+    @field_validator("salary_range", mode="before")
+    @classmethod
+    def optional_salary_range(cls, value: object) -> str:
+        if value is None:
+            return ""
+        cleaned = str(value).strip()
+        if cleaned and cleaned not in SALARY_OPTIONS:
+            raise ValueError("Select a salary range or leave it blank.")
+        return cleaned
 
 
 class StudyIn(BaseModel):
     course_degree: str = Field(min_length=1, max_length=200)
     school: str = Field(min_length=1, max_length=200)
+    institution_address: str = Field(default="", max_length=240)
     year_enrolled: str = Field(default="", max_length=8)
     scholarship: str = Field(default="", max_length=200)
     is_graduated: Optional[bool] = None
+
+
+class EmploymentStatusIn(BaseModel):
+    currently_unemployed: bool = False
+    unemployment_reason: str = Field(default="", max_length=40)
+    unemployment_details: str = Field(default="", max_length=500)
+
+
+class SeminarIn(BaseModel):
+    title: str = Field(default="", max_length=200)
+    location: str = Field(default="", max_length=200)
+    held_on: str = Field(default="", max_length=20)
+    organizer: str = Field(default="", max_length=200)
+
+
+class CertificationIn(BaseModel):
+    name: str = Field(default="", max_length=200)
+    awarded_on: str = Field(default="", max_length=20)
+    awarding_body: str = Field(default="", max_length=200)
+    verification_url: str = Field(default="", max_length=500)
+
+
+class AwardIn(BaseModel):
+    title: str = Field(default="", max_length=200)
+    issuer: str = Field(default="", max_length=200)
+    awarded_on: str = Field(default="", max_length=20)
+    description: str = Field(default="", max_length=800)
 
 
 class ProfileUpdateIn(BaseModel):

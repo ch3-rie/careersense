@@ -10,11 +10,38 @@ export function formatFileSize(bytes) {
 }
 
 export function fileKindLabel(name = "") {
-  const lower = String(name).toLowerCase();
-  if (lower.endsWith(".pdf")) return "PDF";
-  if (lower.endsWith(".docx")) return "DOCX";
-  if (lower.endsWith(".txt")) return "TXT";
-  return "File";
+  const ext = String(name).split(".").pop()?.toLowerCase();
+  const labels = {
+    pdf: "PDF",
+    docx: "DOCX",
+    txt: "TXT",
+    jpg: "JPG",
+    jpeg: "JPG",
+    png: "PNG",
+    webp: "WebP",
+  };
+  return labels[ext] || "File";
+}
+
+export function resumeFileError(file) {
+  if (!file) return "";
+  const name = String(file.name || "").toLowerCase();
+  if (!/\.(pdf|docx|txt)$/.test(name)) return "Please upload a PDF, DOCX, or TXT resume.";
+  if (!file.size) return "The uploaded file is empty.";
+  if (file.size > MAX_RESUME_BYTES) return "Resume must be 10 MB or smaller.";
+  return "";
+}
+
+export const CERTIFICATE_ACCEPT = ".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp";
+const CERTIFICATE_MAX_BYTES = MAX_RESUME_BYTES;
+
+export function certificateFileError(file) {
+  if (!file) return "";
+  const name = String(file.name || "").toLowerCase();
+  if (!/\.(pdf|png|jpe?g|webp)$/.test(name)) return "Upload a PDF, JPG, PNG, or WebP certificate or badge.";
+  if (!file.size) return "The uploaded file is empty.";
+  if (file.size > CERTIFICATE_MAX_BYTES) return "Certificate must be 10 MB or smaller.";
+  return "";
 }
 
 export function passwordChecks(value) {
