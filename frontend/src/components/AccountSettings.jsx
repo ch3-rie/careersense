@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ForgotStepper, PasswordHints, PasswordMatch, PinInput } from "./AuthFlow";
 import { PortalShell } from "./Layout";
 import { Panel } from "./RecordViews";
-import { Alert, Field } from "./ui";
+import { Alert, Dialog, Field } from "./ui";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { formatDate } from "../lib/format";
@@ -19,24 +19,44 @@ import { friendlyError, passwordIsValid } from "../lib/userMessages";
 
 export default function AccountSettings({ role }) {
   const navigate = useNavigate();
-  const { login, logout, user, refreshUser } = useAuth();
+  const { login, logout, user, refreshUser, loading } = useAuth();
   const alumni = role === "Alumni";
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [pw, setPw] = useState({ current_password: "", new_password: "", confirm: "" });
   const [fieldError, setFieldError] = useState("");
   const [office, setOffice] = useState(null);
+  const [officeState, setOfficeState] = useState(alumni ? "loading" : "idle");
   const [helpTopic, setHelpTopic] = useState("");
+
+  function loadOffice() {
+    if (!alumni) return;
+    setOfficeState("loading");
+    api("/api/alumni/office")
+      .then((payload) => {
+        setOffice(payload);
+        setOfficeState("ready");
+      })
+      .catch(() => {
+        setOffice(null);
+        setOfficeState("error");
+      });
+  }
 
   useEffect(() => {
     if (!alumni) return undefined;
     let cancelled = false;
+    setOfficeState("loading");
     api("/api/alumni/office")
       .then((payload) => {
-        if (!cancelled) setOffice(payload);
+        if (cancelled) return;
+        setOffice(payload);
+        setOfficeState("ready");
       })
       .catch(() => {
-        if (!cancelled) setOffice(null);
+        if (cancelled) return;
+        setOffice(null);
+        setOfficeState("error");
       });
     return () => {
       cancelled = true;
@@ -87,23 +107,124 @@ export default function AccountSettings({ role }) {
     user?.created_at ? ["Member since", formatDate(user.created_at)] : null,
   ].filter(Boolean);
 
+  if (alumni && loading && !user) {
+    return (
+      <PortalShell role={role}>
+        <div className="account-page" aria-busy="true" aria-label="Loading account settings">
+          <div className="card account-skel-card"><div className="skeleton account-skel-block" /></div>
+          <div className="card account-skel-card"><div className="skeleton account-skel-block is-tall" /></div>
+          <div className="account-grid">
+            <div className="card account-skel-card"><div className="skeleton account-skel-block" /></div>
+            <div className="card account-skel-card"><div className="skeleton account-skel-block" /></div>
+          </div>
+        </div>
+      </PortalShell>
+    );
+  }
+
+  const statusLabel = user?.status || "—";
+
   return (
     <PortalShell role={role}>
+      {alumni ? (
+        <div className="account-page">
+          <Alert type="error">{error}</Alert>
+          {user?.must_change_password ? (
+            <Alert type="info" title="Complete Your Password Setup">
+              A temporary password was issued for this account. Use the PIN sent to your registered email to verify your identity, then choose a new password.
+            </Alert>
+          ) : null}
+          <Panel
+            className="account-panel"
+            title="Account information"
+            description="Your sign-in email and student ID come from the graduate registry. These details are read-only and cannot be changed here."
+          >
+            <dl className="account-facts">
+              <div>
+                <dt>Email</dt>
+                <dd>{user?.personal_email || "—"}</dd>
+              </div>
+              <div>
+                <dt>Student ID</dt>
+                <dd>{user?.linked_student_id || "—"}</dd>
+              </div>
+              <div>
+                <dt>Account status</dt>
+                <dd>
+                  <span className={`account-status${String(statusLabel).toLowerCase() === "active" ? " is-active" : ""}`}>{statusLabel}</span>
+                </dd>
+              </div>
+              <div>
+                <dt>Role</dt>
+                <dd>Alumni</dd>
+              </div>
+              <div>
+                <dt>Member since</dt>
+                <dd>{user?.created_at ? formatDate(user.created_at) : "—"}</dd>
+              </div>
+            </dl>
+          </Panel>
+          <Panel
+            title="Password recovery"
+            description="Reset your password with a verification PIN sent to your registered email. Your current password is not required."
+          >
+            <AlumniPasswordRecovery email={user?.personal_email || ""} onSignIn={() => {
+              logout();
+              navigate("/login", { replace: true, state: { notice: "Password updated successfully. Sign in with your new password." } });
+            }} />
+          </Panel>
+          <section className="account-assist" aria-label="Account assistance">
+            <div className="account-grid">
+              <Panel
+                className="account-help"
+                title="Lost access to your email?"
+                description="A lost sign-in email is restored by OAAPS."
+              >
+                <div className="account-help-body">
+                  <p>The sign-in email cannot be changed in CareerSense. Contact OAAPS, and the office will confirm your university record before restoring access.</p>
+                  <button type="button" className="btn btn-outline" onClick={() => setHelpTopic("email")}>Contact OAAPS</button>
+                </div>
+              </Panel>
+              <Panel
+                className="account-help"
+                title="Account deletion assistance"
+                description="Alumni accounts are not deleted from CareerSense."
+              >
+                <div className="account-help-body">
+                  <p>Accounts are not deleted or deactivated on this page. Contact the Office of Alumni Affairs and Placement Services (OAAPS) to request help.</p>
+                  <p className="muted">Opening the contact details does not delete or deactivate your account.</p>
+                  <button type="button" className="btn btn-outline" onClick={() => setHelpTopic("delete")}>Contact OAAPS</button>
+                </div>
+              </Panel>
+            </div>
+          </section>
+          {helpTopic ? (
+            <Dialog
+              title="Office of Alumni Affairs and Placement Services (OAAPS)"
+              description={helpTopic === "delete" ? "Viewing these instructions does not delete or deactivate your account." : "OAAPS confirms your alumni record before restoring access to a sign-in email."}
+              hideActions
+              onClose={() => setHelpTopic("")}
+              footer={(
+                <button type="button" className="btn btn-outline" onClick={() => setHelpTopic("")}>Close</button>
+              )}
+            >
+              <OfficeDetails office={office} state={officeState} onRetry={loadOffice} />
+            </Dialog>
+          ) : null}
+        </div>
+      ) : (
+        <>
       <Alert type="error">{error}</Alert>
       {user?.must_change_password ? (
         <Alert type="info" title="Change your password">
-          {alumni
-            ? "A temporary password was issued for this account. Use the PIN sent to your registered email, then choose a new password."
-            : "A temporary password was issued for this account. Set a new password before continuing."}
+          A temporary password was issued for this account. Set a new password before continuing.
         </Alert>
       ) : null}
 
       <Panel
         className="account-panel"
         title="Account information"
-        description={alumni
-          ? "Your sign-in email and student ID come from the graduate registry. Profile and career details stay on Home."
-          : "This email is the sign-in for your administrator account and cannot be changed here."}
+        description="This email is the sign-in for your administrator account and cannot be changed here."
       >
         <dl className="aac-facts">
           {facts.map(([label, value]) => (
@@ -114,67 +235,28 @@ export default function AccountSettings({ role }) {
           ))}
         </dl>
       </Panel>
-
-      {alumni ? (
-        <Panel
-          title="Password recovery"
-          description="Recover your password with a PIN sent to your registered email. Verify the PIN, then choose a new password. Your current password is not required."
-        >
-          <AlumniPasswordRecovery email={user?.personal_email || ""} onSignIn={() => {
-            logout();
-            navigate("/login", { replace: true, state: { notice: "Password updated successfully. Sign in with your new password." } });
-          }} />
-        </Panel>
-      ) : (
-        <Panel
-          title="Security"
-          description="Use a password with at least 8 characters, including letters and numbers."
-        >
-          <form className="account-security" id="change-password" onSubmit={changePassword}>
-            <Field label="Current password" required>
-              <input type="password" autoComplete="current-password" value={pw.current_password} onChange={(event) => setPw({ ...pw, current_password: event.target.value })} required />
-            </Field>
-            <Field label="New password" required error={fieldError}>
-              <input type="password" autoComplete="new-password" minLength={8} value={pw.new_password} onChange={(event) => setPw({ ...pw, new_password: event.target.value })} required />
-            </Field>
-            <Field label="Confirm new password" required>
-              <input type="password" autoComplete="new-password" value={pw.confirm} onChange={(event) => setPw({ ...pw, confirm: event.target.value })} required />
-            </Field>
-            <PasswordHints value={pw.new_password} />
-            <PasswordMatch password={pw.new_password} confirm={pw.confirm} />
-            <button className="btn btn-navy" disabled={busy}>{busy ? "Updating…" : "Update password"}</button>
-            <p className="security-note">Changing your password will require other active sessions to sign in again.</p>
-          </form>
-        </Panel>
+      <Panel
+        title="Security"
+        description="Use a password with at least 8 characters, including letters and numbers."
+      >
+        <form className="account-security" id="change-password" onSubmit={changePassword}>
+          <Field label="Current password" required>
+            <input type="password" autoComplete="current-password" value={pw.current_password} onChange={(event) => setPw({ ...pw, current_password: event.target.value })} required />
+          </Field>
+          <Field label="New password" required error={fieldError}>
+            <input type="password" autoComplete="new-password" minLength={8} value={pw.new_password} onChange={(event) => setPw({ ...pw, new_password: event.target.value })} required />
+          </Field>
+          <Field label="Confirm new password" required>
+            <input type="password" autoComplete="new-password" value={pw.confirm} onChange={(event) => setPw({ ...pw, confirm: event.target.value })} required />
+          </Field>
+          <PasswordHints value={pw.new_password} />
+          <PasswordMatch password={pw.new_password} confirm={pw.confirm} />
+          <button className="btn btn-navy" disabled={busy}>{busy ? "Updating…" : "Update password"}</button>
+          <p className="security-note">Changing your password will require other active sessions to sign in again.</p>
+        </form>
+      </Panel>
+        </>
       )}
-
-      {alumni ? (
-        <div className="account-grid">
-          <Panel
-            className="account-help"
-            title="Delete account"
-            description="Alumni accounts are not deleted from CareerSense."
-          >
-            <div className="account-help-body">
-              <p>To delete your account, contact the Office of Alumni Affairs and Placement Services (OAAPS). This page does not delete or deactivate your account.</p>
-              <button type="button" className="btn btn-outline" onClick={() => setHelpTopic("delete")}>Contact OAAPS</button>
-            </div>
-            {helpTopic === "delete" ? <OfficeContact office={office} note="Viewing these instructions does not delete or deactivate your account." onClose={() => setHelpTopic("")} /> : null}
-          </Panel>
-          <Panel
-            className="account-help"
-            title="Email address recovery"
-            description="A lost sign-in email is restored by OAAPS."
-          >
-            <div className="account-help-body">
-              <p>If you cannot access the email address registered on your account, contact OAAPS. The office confirms your alumni record before any change. CareerSense does not offer a self-service email change or email recovery.</p>
-              <button type="button" className="btn btn-outline" onClick={() => setHelpTopic("email")}>Contact OAAPS</button>
-            </div>
-            {helpTopic === "email" ? <OfficeContact office={office} onClose={() => setHelpTopic("")} /> : null}
-          </Panel>
-        </div>
-      ) : null}
-
     </PortalShell>
   );
 }
@@ -215,7 +297,9 @@ function AlumniPasswordRecovery({ email, onSignIn }) {
   const errorRef = useRef(null);
   const expiresLeft = useCountdown(step === "pin" ? session.expiresAt : 0);
   const resendLeft = useCountdown(step === "pin" ? session.resendAt : 0);
+  const resetLeft = useCountdown(step === "password" ? session.expiresAt : 0);
   const expired = step === "pin" && Boolean(session.expiresAt) && expiresLeft <= 0;
+  const resetExpired = step === "password" && Boolean(session.expiresAt) && resetLeft <= 0;
 
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ block: "nearest" });
@@ -280,7 +364,7 @@ function AlumniPasswordRecovery({ email, onSignIn }) {
 
   async function savePassword(event) {
     event.preventDefault();
-    if (busy) return;
+    if (busy || resetExpired) return;
     if (password !== confirm) {
       setError("Passwords do not match.");
       return;
@@ -312,7 +396,9 @@ function AlumniPasswordRecovery({ email, onSignIn }) {
       {step === "send" ? (
         <form onSubmit={sendPin} aria-busy={busy}>
           <p>A 6-digit PIN is sent to your registered email. Enter that PIN before it expires, then choose a new password.</p>
-          <p className="muted pin-email">Registered email: {registered || "No email is stored on this account."}</p>
+          <Field label="Registered email">
+            <input value={registered || "—"} readOnly aria-readonly="true" />
+          </Field>
           <Alert type="error" alertRef={errorRef}>{error}</Alert>
           <button className="btn btn-navy" disabled={busy || !registered}>{busy ? "Sending PIN…" : "Send PIN"}</button>
         </form>
@@ -349,18 +435,21 @@ function AlumniPasswordRecovery({ email, onSignIn }) {
       ) : null}
       {step === "password" ? (
         <form onSubmit={savePassword} aria-busy={busy}>
-          <Alert type="info">{verified || "Email verified successfully. You can now create a new password."}</Alert>
+          {resetExpired ? (
+            <Alert type="warn">Your password reset session is no longer valid. Please start again.</Alert>
+          ) : (
+            <Alert type="info">{verified || "Email verified successfully. You can now create a new password."}</Alert>
+          )}
+          {!resetExpired ? (
+            <p className="pin-countdown" role="status" aria-live="polite">Reset session expires in <span>{formatCountdown(resetLeft)}</span></p>
+          ) : null}
           <Alert type="error" alertRef={errorRef}>{error}</Alert>
-          <Field label="New password" required>
-            <input type="password" autoComplete="new-password" minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} required />
-          </Field>
+          <SecretField label="New password" autoComplete="new-password" value={password} onChange={setPassword} disabled={resetExpired || busy} />
           <PasswordHints value={password} />
-          <Field label="Confirm new password" required>
-            <input type="password" autoComplete="new-password" minLength={8} value={confirm} onChange={(event) => setConfirm(event.target.value)} required />
-          </Field>
+          <SecretField label="Confirm new password" autoComplete="new-password" value={confirm} onChange={setConfirm} disabled={resetExpired || busy} />
           <PasswordMatch password={password} confirm={confirm} />
           <div className="account-recovery-actions">
-            <button className="btn btn-navy" disabled={busy}>{busy ? "Updating…" : "Reset password"}</button>
+            <button className="btn btn-navy" disabled={busy || resetExpired}>{busy ? "Updating…" : "Reset password"}</button>
             <button type="button" className="btn btn-text" onClick={restart}>Start again</button>
           </div>
         </form>
@@ -377,20 +466,58 @@ function AlumniPasswordRecovery({ email, onSignIn }) {
   );
 }
 
-function OfficeContact({ office, note, onClose }) {
+function SecretField({ label, value, onChange, autoComplete, disabled }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <Field label={label} required>
+      <div className="account-secret">
+        <input
+          type={visible ? "text" : "password"}
+          autoComplete={autoComplete}
+          minLength={8}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          required
+          disabled={disabled}
+        />
+        <button
+          type="button"
+          className="account-secret-toggle"
+          aria-label={visible ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+          onClick={() => setVisible((current) => !current)}
+          disabled={disabled}
+        >
+          {visible ? "Hide" : "Show"}
+        </button>
+      </div>
+    </Field>
+  );
+}
+
+function OfficeDetails({ office, state, onRetry }) {
+  const location = String(office?.location || "").trim();
+  const hours = String(office?.hours || "").trim();
+  const phone = String(office?.phone || "").trim();
+  const email = String(office?.email || "").trim();
+  const hasDetails = Boolean(location || hours || phone || email);
   return (
     <div className="account-office">
-      <div className="account-office-head">
-        <p><strong>{office?.name || "Office of Alumni Affairs and Placement Services (OAAPS)"}</strong></p>
-        <button type="button" className="btn btn-outline btn-sm" onClick={onClose}>Close</button>
-      </div>
-      <dl>
-        {office?.location ? <div><dt>Visit</dt><dd>{office.location}</dd></div> : null}
-        {office?.hours ? <div><dt>Hours</dt><dd>{office.hours}</dd></div> : null}
-        {office?.phone ? <div><dt>Phone</dt><dd>{office.phone}</dd></div> : null}
-        {office?.email ? <div><dt>Email</dt><dd><a href={`mailto:${office.email}`}>{office.email}</a></dd></div> : null}
-      </dl>
-      {note ? <p className="muted">{note}</p> : null}
+      {state === "loading" ? <p>Loading office details…</p> : null}
+      {state === "error" ? (
+        <div className="account-office-missing">
+          <p>Contact information is currently unavailable.</p>
+          <button type="button" className="btn btn-outline btn-sm" onClick={onRetry}>Try again</button>
+        </div>
+      ) : null}
+      {state === "ready" && hasDetails ? (
+        <dl className="account-office-list">
+          {location ? <div><dt>Office location</dt><dd>{location}</dd></div> : null}
+          {hours ? <div><dt>Office hours</dt><dd>{hours}</dd></div> : null}
+          {phone ? <div><dt>Phone</dt><dd><a href={`tel:${phone}`}>{phone}</a></dd></div> : null}
+          {email ? <div><dt>Email</dt><dd><a href={`mailto:${email}`}>{email}</a></dd></div> : null}
+        </dl>
+      ) : null}
+      {state === "ready" && !hasDetails ? <p>Contact information is currently unavailable.</p> : null}
     </div>
   );
 }

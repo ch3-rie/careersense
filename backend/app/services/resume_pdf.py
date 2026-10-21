@@ -23,6 +23,7 @@ from app.services.parser_extract import (
 
 NAVY = (11 / 255, 46 / 255, 89 / 255)
 GOLD = (181 / 255, 138 / 255, 58 / 255)
+RULE = (0.847, 0.863, 0.91)
 INK = (0.16, 0.18, 0.22)
 MUTED = (0.33, 0.36, 0.42)
 PAGE_W = 595
@@ -195,13 +196,13 @@ class _ResumeDoc:
             parts.append(chunk)
         return parts
 
-    def _wrap(self, text: str, font: str, size: float) -> list[str]:
+    def _wrap(self, text: str, font: str, size: float, width: float | None = None) -> list[str]:
         words = _text(text).split(" ")
         if not words or words == [""]:
             return []
         lines: list[str] = []
         current = ""
-        limit = self._width()
+        limit = self._width() if width is None else width
         for word in words:
             for piece in self._pieces(word, font, size, limit):
                 trial = piece if not current else f"{current} {piece}"
@@ -219,30 +220,48 @@ class _ResumeDoc:
         if self.y + height > PAGE_H - MARGIN_BOTTOM:
             self._new_page()
 
-    def _line(self, text: str, *, size: float, font: str, color: tuple[float, float, float], gap: float = 3) -> None:
+    def _line(
+        self,
+        text: str,
+        *,
+        size: float,
+        font: str,
+        color: tuple[float, float, float],
+        gap: float = 3,
+        align: str = "left",
+        width: float | None = None,
+        x: float | None = None,
+    ) -> None:
         clean = _text(text)
         if not clean:
             return
-        for line in self._wrap(clean, font, size):
+        origin = MARGIN_X if x is None else x
+        limit = self._width() if width is None else width
+        for line in self._wrap(clean, font, size, limit):
             self._ensure(size + gap + 2)
-            self.page.insert_text((MARGIN_X, self.y + size), line, fontsize=size, fontname=font, color=color)
+            line_x = origin
+            if align == "center":
+                line_width = fitz.get_text_length(line, fontname=font, fontsize=size)
+                line_x = MARGIN_X + max(0, (self._width() - line_width) / 2)
+            self.page.insert_text((line_x, self.y + size), line, fontsize=size, fontname=font, color=color)
             self.y += size + gap
 
-    def heading(self, name: str, contact: str) -> None:
-        self._line(name or "Alumni", size=22, font="tibo", color=NAVY, gap=6)
+    def heading(self, name: str, contact: str, *, centered: bool = False, rule: tuple[float, float, float] = GOLD) -> None:
+        align = "center" if centered else "left"
+        self._line(name or "Alumni", size=22, font="tibo", color=NAVY, gap=6, align=align)
         if contact:
-            self._line(contact, size=10, font="helv", color=MUTED, gap=8)
+            self._line(contact, size=10, font="helv", color=MUTED, gap=8, align=align)
         self._ensure(10)
         rule_y = self.y + 2
         self.page.draw_line(
             fitz.Point(MARGIN_X, rule_y),
             fitz.Point(PAGE_W - MARGIN_X, rule_y),
-            color=GOLD,
-            width=1.4,
+            color=rule,
+            width=1.2,
         )
         self.y = rule_y + 16
 
-    def section(self, title: str) -> None:
+    def section(self, title: str, *, rule: tuple[float, float, float] = GOLD) -> None:
         self._ensure(78)
         self.y += 8
         self._line(title.upper(), size=11, font="hebo", color=NAVY, gap=4)
@@ -251,13 +270,29 @@ class _ResumeDoc:
         self.page.draw_line(
             fitz.Point(MARGIN_X, rule_y),
             fitz.Point(PAGE_W - MARGIN_X, rule_y),
-            color=GOLD,
+            color=rule,
             width=0.6,
         )
         self.y = rule_y + 12
 
     def body(self, text: str) -> None:
         self._line(text, size=10.5, font="helv", color=INK, gap=3)
+
+    def bullets(self, lines: list[str]) -> None:
+        size = 10.5
+        gap = 3
+        indent = 14
+        for item in lines:
+            clean = _text(item)
+            if not clean:
+                continue
+            wrapped = self._wrap(clean, "helv", size, self._width() - indent)
+            for index, line in enumerate(wrapped):
+                self._ensure(size + gap + 2)
+                if index == 0:
+                    self.page.draw_circle(fitz.Point(MARGIN_X + 3, self.y + size - 3), 1.15, color=INK, fill=INK, width=0)
+                self.page.insert_text((MARGIN_X + indent, self.y + size), line, fontsize=size, fontname="helv", color=INK)
+                self.y += size + gap
 
     def muted(self, text: str) -> None:
         self._line(text, size=10, font="heit", color=MUTED, gap=2)
@@ -277,12 +312,33 @@ class _ResumeDoc:
         return payload
 
 
-def _contact_line(profile: dict[str, Any]) -> str:
+def _contact_line(profile: dict[str, Any], *, sep: str = " | ") -> str:
     address = _join(
         [profile.get("address") or "", profile.get("city") or "", profile.get("country") or ""],
         ", ",
     )
-    return _join([profile.get("phone") or "", profile.get("email") or "", address])
+    return _join([profile.get("phone") or "", profile.get("email") or "", address], sep)
+
+
+def _block_text(value: Any) -> str:
+    raw = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    lines = [_text(line) for line in raw.split("\n")]
+    while lines and not lines[0]:
+        lines.pop(0)
+    while lines and not lines[-1]:
+        lines.pop()
+    return "\n".join(line for line in lines if line)
+
+
+def _write_detail(doc: _ResumeDoc, value: Any, *, bullets: bool = False) -> None:
+    block = _block_text(value)
+    lines = [line for line in block.split("\n") if line]
+    if not lines:
+        return
+    if bullets and len(lines) > 1:
+        doc.bullets(lines)
+        return
+    doc.body(" ".join(lines))
 
 
 def _pair_entries(rows: list) -> list[tuple[str, str]]:
@@ -355,12 +411,17 @@ def _job_entries(profile: dict[str, Any]) -> list[dict[str, str]]:
         start = _month_year(row.get("start_date"))
         end = "Present" if row.get("is_current") else _month_year(row.get("end_date"))
         dates = _text(row.get("dates")) or _join([start, end] if start or end else [], " - ")
-        meta = _join([dates, row.get("duration") or "", row.get("location") or "", row.get("industry") or ""])
+        if profile.get("document_layout"):
+            meta = _join([dates, _text(row.get("location"))], " · ")
+            description = _block_text(row.get("description"))
+        else:
+            meta = _join([dates, row.get("duration") or "", row.get("location") or "", row.get("industry") or ""])
+            description = _text(row.get("description"))
         prepared.append({
             "title": title or company,
             "company": company if title else "",
             "meta": meta,
-            "description": _text(row.get("description")),
+            "description": description,
         })
     return prepared
 
@@ -965,10 +1026,6 @@ def merge_resume_content(profile: dict[str, Any], uploads: list[dict] | None = N
 
 def build_resume_pdf(profile: dict[str, Any]) -> bytes:
     """Build a resume from consolidated profile and upload data. Empty sections are omitted."""
-    doc = _ResumeDoc()
-    name = _text(profile.get("name")) or "Alumni"
-    doc.heading(name, _contact_line(profile))
-
     bio = _text(profile.get("bio"))
     education = _education_entries(profile)
     further = _pair_entries(profile.get("further_study_entries") or []) if isinstance(profile.get("further_study_entries"), list) else []
@@ -987,29 +1044,69 @@ def build_resume_pdf(profile: dict[str, Any]) -> bytes:
     seminar_title = "Seminars and training" if document_layout else "Seminars"
     award_title = "Awards and achievements" if document_layout else "Awards"
     certification_title = "Certifications and licenses" if document_layout else "Certifications"
+    rule = RULE if document_layout else GOLD
 
-    if bio:
-        doc.section("Professional summary")
-        doc.body(bio)
+    doc = _ResumeDoc()
+    name = _text(profile.get("name")) or "Alumni"
+    doc.heading(
+        name,
+        _contact_line(profile, sep=" · " if document_layout else " | "),
+        centered=document_layout,
+        rule=NAVY if document_layout else GOLD,
+    )
 
-    if education:
-        doc.section(education_title)
-        for title, detail in education:
-            doc.strong(title)
-            if detail:
+    def write_summary() -> None:
+        if bio:
+            doc.section("Professional summary", rule=rule)
+            doc.body(bio)
+
+    def write_study_rows(title: str, rows: list) -> None:
+        visible = [row for row in rows if isinstance(row, dict) and _entry_has_content(row)]
+        if not visible:
+            return
+        doc.section(title, rule=rule)
+        for row in visible:
+            program = _text(row.get("program"))
+            institution = _text(row.get("institution"))
+            detail = _text(row.get("detail"))
+            heading = program or institution or detail
+            if not heading:
+                continue
+            doc.strong(heading)
+            if institution and program:
+                doc.body(institution)
+            if detail and detail != heading:
                 doc.muted(detail)
             doc.spacer(6)
 
-    if further:
-        doc.section(further_title)
-        for title, detail in further:
-            doc.strong(title)
-            if detail:
-                doc.muted(detail)
-            doc.spacer(6)
+    def write_education() -> None:
+        if document_layout:
+            write_study_rows(education_title, profile.get("education_entries") or [])
+            return
+        if education:
+            doc.section(education_title, rule=rule)
+            for title, detail in education:
+                doc.strong(title)
+                if detail:
+                    doc.muted(detail)
+                doc.spacer(6)
 
-    if jobs:
-        doc.section(experience_title)
+    def write_further() -> None:
+        if document_layout:
+            write_study_rows(further_title, profile.get("further_study_entries") or [])
+            return
+        if further:
+            doc.section(further_title, rule=rule)
+            for title, detail in further:
+                doc.strong(title)
+                if detail:
+                    doc.muted(detail)
+                doc.spacer(6)
+
+    def write_jobs() -> None:
+        if not jobs:
+            return
+        doc.section(experience_title, rule=rule)
         for job in jobs:
             doc.strong(job["title"])
             if job["company"]:
@@ -1017,52 +1114,76 @@ def build_resume_pdf(profile: dict[str, Any]) -> bytes:
             if job["meta"]:
                 doc.muted(job["meta"])
             if job["description"]:
-                doc.body(job["description"])
+                _write_detail(doc, job["description"], bullets=document_layout)
             doc.spacer(6)
 
-    if projects:
-        doc.section("Projects")
+    def write_projects() -> None:
+        if not projects:
+            return
+        doc.section("Projects", rule=rule)
         for project in projects:
             doc.body(project)
             doc.spacer(4)
 
-    if skills:
-        doc.section("Skills")
-        doc.body(", ".join(skills))
+    def write_skills() -> None:
+        if skills:
+            doc.section("Skills", rule=rule)
+            doc.body(", ".join(skills))
 
-    if languages:
-        doc.section("Languages")
-        doc.body(", ".join(languages))
+    def write_languages() -> None:
+        if languages:
+            doc.section("Languages", rule=rule)
+            doc.body(", ".join(languages))
 
-    if certifications:
-        doc.section(certification_title)
+    def write_certifications() -> None:
+        if not certifications:
+            return
+        doc.section(certification_title, rule=rule)
         for row in certifications:
             doc.strong(_text(row.get("name")))
-            doc.muted(_text(row.get("detail")) or _join([row.get("awarding_body") or "", _month_year(row.get("awarded_on"))]))
+            detail = _text(row.get("detail")) or _join([row.get("awarding_body") or "", _month_year(row.get("awarded_on"))])
+            if detail:
+                doc.muted(detail)
             doc.spacer(6)
 
-    if seminars:
-        doc.section(seminar_title)
+    def write_seminars() -> None:
+        if not seminars:
+            return
+        doc.section(seminar_title, rule=rule)
         for row in seminars:
             doc.strong(_text(row.get("title")))
-            doc.muted(_text(row.get("detail")) or _join([row.get("organizer") or "", row.get("location") or "", _month_year(row.get("held_on"))]))
+            detail = _text(row.get("detail")) or _join([row.get("organizer") or "", row.get("location") or "", _month_year(row.get("held_on"))])
+            if detail:
+                doc.muted(detail)
             doc.spacer(6)
 
-    if awards:
-        doc.section(award_title)
+    def write_awards() -> None:
+        if not awards:
+            return
+        doc.section(award_title, rule=rule)
         for row in awards:
             doc.strong(_text(row.get("title")))
             detail = _text(row.get("detail")) or _join([row.get("issuer") or "", _month_year(row.get("awarded_on"))])
             if detail:
                 doc.muted(detail)
-            if _text(row.get("description")):
-                doc.body(row.get("description") or "")
+            if _block_text(row.get("description")):
+                _write_detail(doc, row.get("description"), bullets=document_layout)
             doc.spacer(6)
+
+    writers = (
+        [write_summary, write_jobs, write_education, write_further, write_skills, write_certifications, write_seminars, write_awards, write_projects, write_languages]
+        if document_layout
+        else [write_summary, write_education, write_further, write_jobs, write_projects, write_skills, write_languages, write_certifications, write_seminars, write_awards]
+    )
+    for write in writers:
+        write()
 
     if not has_body:
         doc.note("Profile sections you add on Home, such as a biography, education, experience, skills, and certifications, will appear here.")
 
     return doc.bytes()
+
+
 
 
 def resume_preview(profile: dict[str, Any]) -> dict[str, Any]:
@@ -1132,6 +1253,16 @@ _DEFAULT_LIMIT = 200
 def _clip_field(value: Any, limit: int) -> str:
     text = re.sub(r"<[^>]+>", "", _plain(value))
     return text[:limit]
+
+
+def _clip_block(value: Any, limit: int) -> str:
+    raw = re.sub(r"<[^>]+>", "", str(value or "")).replace("\r\n", "\n").replace("\r", "\n")
+    lines = [" ".join(line.split()) for line in raw.split("\n")]
+    while lines and not lines[0]:
+        lines.pop(0)
+    while lines and not lines[-1]:
+        lines.pop()
+    return "\n".join(lines)[:limit]
 
 
 def _date_label(row: dict) -> str:
@@ -1260,7 +1391,7 @@ def _clean_entry(kind: str, row: dict) -> dict[str, str]:
     cleaned = {}
     for field in _ENTRY_FIELDS[kind]:
         limit = _FIELD_LIMITS.get(field, _DEFAULT_LIMIT)
-        cleaned[field] = _clip_field(row.get(field), limit)
+        cleaned[field] = _clip_block(row.get(field), limit) if field == "description" else _clip_field(row.get(field), limit)
     return cleaned
 
 
