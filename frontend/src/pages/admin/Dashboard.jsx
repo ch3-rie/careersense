@@ -23,6 +23,27 @@ function trendDate(bar) {
   return match ? match[1] : "";
 }
 
+function trendTickIndexes(count) {
+  const target = count > 7 ? 6 : count;
+  if (count <= target) return new Set(Array.from({ length: count }, (_, index) => index));
+  const last = count - 1;
+  const indexes = new Set();
+  for (let step = 0; step < target; step += 1) {
+    indexes.add(Math.round((step * last) / (target - 1)));
+  }
+  return indexes;
+}
+
+function TrendAxisTick({ x, y, payload, index, show, first, last }) {
+  if (!show?.has(index)) return null;
+  const anchor = index === first ? "start" : index === last ? "end" : "middle";
+  return (
+    <text x={x} y={y} dy={14} textAnchor={anchor} fill="#5b6777" fontSize={12}>
+      {formatChartDate(payload?.value)}
+    </text>
+  );
+}
+
 function DashboardSkeleton() {
   return (
     <div className="admin-dashboard" aria-hidden="true">
@@ -64,7 +85,9 @@ export default function AdminDashboard() {
   const pending = data?.pending_approvals || 0;
   const pendingCards = data?.pending_card_applications || 0;
   const trend = data?.submission_trend || [];
-  const angledLabels = trend.length > 8;
+  const trendTicks = trendTickIndexes(trend.length);
+  const firstTrendTick = trendTicks.size ? Math.min(...trendTicks) : 0;
+  const lastTrendTick = trendTicks.size ? Math.max(...trendTicks) : 0;
 
   return (
     <PortalShell role="Admin">
@@ -155,20 +178,17 @@ export default function AdminDashboard() {
             <Panel title="Submission Trend" description="Tracer submissions grouped by the calendar date they were submitted.">
               {trend.length ? (
                 <div className="chart-panel is-clickable">
-                  <ResponsiveContainer width="100%" height={angledLabels ? 300 : 268}>
+                  <ResponsiveContainer width="100%" height={268}>
                     <BarChart
                       data={trend}
                       barCategoryGap="22%"
-                      margin={{ top: 12, right: 8, left: 0, bottom: angledLabels ? 28 : 4 }}
+                      margin={{ top: 12, right: 12, left: 0, bottom: 4 }}
                     >
                       <XAxis
                         dataKey="date"
-                        tickFormatter={formatChartDate}
                         interval={0}
-                        angle={angledLabels ? -32 : 0}
-                        textAnchor={angledLabels ? "end" : "middle"}
-                        height={angledLabels ? 52 : 32}
-                        tick={{ fontSize: 12, fill: "#5b6777" }}
+                        tick={<TrendAxisTick show={trendTicks} first={firstTrendTick} last={lastTrendTick} />}
+                        height={32}
                         axisLine={false}
                         tickLine={false}
                       />
