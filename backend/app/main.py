@@ -11,7 +11,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import BACKEND_DIR, get_settings
 from app.db import SessionLocal, ensure_runtime_schema
-from app.routers import admin, admin_cards, admin_perks, admin_profile_reminders, admin_profile_updates, admin_survey, admin_users, alumni, auth
+from app.routers import admin, admin_academics, admin_badges, admin_cards, admin_partner_activity, admin_perks, admin_profile_reminders, admin_profile_updates, admin_survey, admin_users, alumni, auth
 from app.seed import seed_if_empty
 from app.services.email import email_health, scheduler_is_enabled
 
@@ -150,9 +150,12 @@ app.include_router(auth.router)
 app.include_router(alumni.router)
 app.include_router(alumni.public_router)
 app.include_router(admin.router)
+app.include_router(admin_academics.router)
 app.include_router(admin_cards.router)
 app.include_router(admin_survey.router)
 app.include_router(admin_perks.router)
+app.include_router(admin_partner_activity.router)
+app.include_router(admin_badges.router)
 app.include_router(admin_users.router)
 app.include_router(admin_profile_updates.router)
 app.include_router(admin_profile_reminders.router)

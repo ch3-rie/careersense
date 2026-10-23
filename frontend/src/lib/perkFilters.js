@@ -5,6 +5,7 @@ export function parsePerkDate(value) {
 }
 
 export function perkIsExpired(row, today = new Date()) {
+  if (row?.valid_until_further_notice) return false;
   if (row?.expired === true) return true;
   const parsed = parsePerkDate(row?.valid_to);
   if (!parsed) return false;
@@ -31,7 +32,7 @@ export function filterAdminPerks(items, { query = "", category = "", status = ""
     const hay = `${row.name} ${row.partner} ${row.discount} ${row.category} ${row.description}`.toLowerCase();
     if (needle && !hay.includes(needle)) return false;
     if (category && row.category !== category) return false;
-    if (status === "active" && !row.active) return false;
+    if (status === "active" && (!row.active || perkIsExpired(row))) return false;
     if (status === "inactive" && row.active) return false;
     if (expiry === "expiring" && !row.expiring_soon) return false;
     if (expiry === "expired" && !perkIsExpired(row)) return false;

@@ -25,7 +25,10 @@ export default function AccountSettings({ role }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [pw, setPw] = useState({ current_password: "", new_password: "", confirm: "" });
+  const [acceptedPassword, setAcceptedPassword] = useState("");
+  const [currentError, setCurrentError] = useState("");
   const [fieldError, setFieldError] = useState("");
+  const newPasswordRef = useRef(null);
   const [office, setOffice] = useState(null);
   const [officeState, setOfficeState] = useState(alumni ? "loading" : "idle");
   const [helpTopic, setHelpTopic] = useState("");
@@ -64,11 +67,48 @@ export default function AccountSettings({ role }) {
     };
   }, [alumni]);
 
+  const currentReady = acceptedPassword !== "" && acceptedPassword === pw.current_password;
+
+  useEffect(() => {
+    if (currentReady) newPasswordRef.current?.focus();
+  }, [currentReady]);
+
+  function updateCurrentPassword(value) {
+    setCurrentError("");
+    setPw((current) => ({
+      ...current,
+      current_password: value,
+      new_password: value === acceptedPassword ? current.new_password : "",
+      confirm: value === acceptedPassword ? current.confirm : "",
+    }));
+  }
+
+  async function confirmCurrentPassword() {
+    setBusy(true);
+    try {
+      await api("/api/auth/verify-current-password", {
+        method: "POST",
+        body: { current_password: pw.current_password },
+      });
+      setAcceptedPassword(pw.current_password);
+    } catch (err) {
+      setAcceptedPassword("");
+      setCurrentError(friendlyError(err, "Current password is incorrect."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function changePassword(event) {
     event.preventDefault();
     if (busy) return;
     setError("");
     setFieldError("");
+    setCurrentError("");
+    if (!currentReady) {
+      await confirmCurrentPassword();
+      return;
+    }
     if (pw.new_password !== pw.confirm) {
       setFieldError("New password confirmation does not match.");
       return;
@@ -92,6 +132,7 @@ export default function AccountSettings({ role }) {
         /* session already updated */
       }
       setPw({ current_password: "", new_password: "", confirm: "" });
+      setAcceptedPassword("");
       showToast("success", data.message || "Password updated.");
     } catch (err) {
       setError(friendlyError(err, "We couldn't update your password. Please check your current password and try again."));
@@ -100,15 +141,7 @@ export default function AccountSettings({ role }) {
     }
   }
 
-  const facts = [
-    ["Email", user?.personal_email || "—"],
-    alumni ? ["Student ID", user?.linked_student_id || "—"] : null,
-    ["Status", user?.status || "—"],
-    ["Role", alumni ? "Alumni" : "Administrator"],
-    user?.created_at ? ["Member since", formatDate(user.created_at)] : null,
-  ].filter(Boolean);
-
-  if (alumni && loading && !user) {
+  if (loading && !user) {
     return (
       <PortalShell role={role}>
         <div className="account-page" aria-busy="true" aria-label="Loading account settings">
@@ -214,49 +247,72 @@ export default function AccountSettings({ role }) {
           ) : null}
         </div>
       ) : (
-        <>
-      <Alert type="error">{error}</Alert>
-      {user?.must_change_password ? (
-        <Alert type="info" title="Change your password">
-          A temporary password was issued for this account. Set a new password before continuing.
-        </Alert>
-      ) : null}
-
-      <Panel
-        className="account-panel"
-        title="Account information"
-        description="This email is the sign-in for your administrator account and cannot be changed here."
-      >
-        <dl className="aac-facts">
-          {facts.map(([label, value]) => (
-            <div key={label}>
-              <dt>{label}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-        </dl>
-      </Panel>
-      <Panel
-        title="Security"
-        description="Use a password with at least 8 characters, including letters and numbers."
-      >
-        <form className="account-security" id="change-password" onSubmit={changePassword}>
-          <Field label="Current password" required>
-            <input type="password" autoComplete="current-password" value={pw.current_password} onChange={(event) => setPw({ ...pw, current_password: event.target.value })} required />
-          </Field>
-          <Field label="New password" required error={fieldError}>
-            <input type="password" autoComplete="new-password" minLength={8} value={pw.new_password} onChange={(event) => setPw({ ...pw, new_password: event.target.value })} required />
-          </Field>
-          <Field label="Confirm new password" required>
-            <input type="password" autoComplete="new-password" value={pw.confirm} onChange={(event) => setPw({ ...pw, confirm: event.target.value })} required />
-          </Field>
-          <PasswordHints value={pw.new_password} />
-          <PasswordMatch password={pw.new_password} confirm={pw.confirm} />
-          <button className="btn btn-navy" disabled={busy}>{busy ? "Updating…" : "Update password"}</button>
-          <p className="security-note">Changing your password will require other active sessions to sign in again.</p>
-        </form>
-      </Panel>
-        </>
+        <div className="account-page">
+          <Alert type="error">{error}</Alert>
+          {user?.must_change_password ? (
+            <Alert type="info" title="Change your password">
+              A temporary password was issued for this account. Set a new password before continuing.
+            </Alert>
+          ) : null}
+          <Panel
+            className="account-panel"
+            title="Account information"
+            description="This email is the sign-in for your administrator account and cannot be changed here."
+          >
+            <dl className="account-facts">
+              <div>
+                <dt>Name</dt>
+                <dd>{[user?.first_name, user?.last_name].filter(Boolean).join(" ") || "—"}</dd>
+              </div>
+              <div>
+                <dt>Email</dt>
+                <dd>{user?.personal_email || "—"}</dd>
+              </div>
+              <div>
+                <dt>Account status</dt>
+                <dd>
+                  <span className={`account-status${String(statusLabel).toLowerCase() === "active" ? " is-active" : ""}`}>{statusLabel}</span>
+                </dd>
+              </div>
+              <div>
+                <dt>Role</dt>
+                <dd>Administrator</dd>
+              </div>
+              <div>
+                <dt>Member since</dt>
+                <dd>{user?.created_at ? formatDate(user.created_at) : "—"}</dd>
+              </div>
+            </dl>
+          </Panel>
+          <Panel
+            title="Security"
+            description="Change the password for this administrator account. Your current password is required."
+          >
+            <form className="account-security" id="change-password" onSubmit={changePassword}>
+              <Field label="Current password" required error={currentError}>
+                <input type="password" autoComplete="current-password" value={pw.current_password} onChange={(event) => updateCurrentPassword(event.target.value)} required />
+              </Field>
+              {currentReady ? (
+                <div className="account-security-pair">
+                  <div>
+                    <Field label="New password" required error={fieldError}>
+                      <input ref={newPasswordRef} type="password" autoComplete="new-password" minLength={8} aria-describedby="new-password-checks" value={pw.new_password} onChange={(event) => setPw({ ...pw, new_password: event.target.value })} required />
+                    </Field>
+                    <PasswordHints id="new-password-checks" value={pw.new_password} />
+                  </div>
+                  <div>
+                    <Field label="Confirm new password" required>
+                      <input type="password" autoComplete="new-password" minLength={8} value={pw.confirm} onChange={(event) => setPw({ ...pw, confirm: event.target.value })} required />
+                    </Field>
+                    <PasswordMatch password={pw.new_password} confirm={pw.confirm} />
+                  </div>
+                </div>
+              ) : null}
+              <button className="btn btn-navy" disabled={busy}>{busy ? (currentReady ? "Updating…" : "Checking…") : (currentReady ? "Update password" : "Continue")}</button>
+              {currentReady ? <p className="security-note">Changing your password will require other active sessions to sign in again.</p> : null}
+            </form>
+          </Panel>
+        </div>
       )}
     </PortalShell>
   );

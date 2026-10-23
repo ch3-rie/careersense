@@ -1,17 +1,25 @@
 import { useEffect, useState } from "react";
-import { StatusBadge } from "../../components/AdminOps";
-import { alignmentLabel, openAdminTab, TracerDetailView } from "../../components/AdminReview";
+import { useSearchParams } from "react-router-dom";
+import { SnapshotBackLink, StatusBadge } from "../../components/AdminOps";
+import { openAdminTab } from "../../components/AdminReview";
 import { ChevronRightIcon, SearchIcon } from "../../components/icons";
+import { recordName, recordStudentNumber, RecordDossier } from "../../components/OfficialTracerRecord";
 import { Panel } from "../../components/RecordViews";
 import { PortalShell } from "../../components/Layout";
 import { Alert, Empty, Field, LoadError, Pager, PageSkeleton, ReviewSheet, SortButton, TableSkeleton, sortBy, toggleSort } from "../../components/ui";
-import { coursesForCollege } from "../../lib/academicFilters";
+import { courseLabel, programChoices } from "../../lib/academicFilters";
 import { api } from "../../lib/api";
-import { formatDate, formatLongDate, questionLabelsFrom } from "../../lib/format";
+import { formatDate, formatLongDate, formatTime, questionLabelsFrom } from "../../lib/format";
 
 export default function AdminRecords() {
+  const [params] = useSearchParams();
+  const from = params.get("from") || "";
   const [email, setEmail] = useState("");
-  const [alignment, setAlignment] = useState("All");
+  const [submittedOn, setSubmittedOn] = useState(params.get("submitted_on") || "");
+  const [alignment, setAlignment] = useState(() => {
+    const value = params.get("alignment") || "All";
+    return ["All", "Aligned", "Misaligned", "Unknown"].includes(value) ? value : "All";
+  });
   const [college, setCollege] = useState("");
   const [course, setCourse] = useState("");
   const [catalog, setCatalog] = useState({ colleges: [], courses: [], pairs: [] });
@@ -21,6 +29,7 @@ export default function AdminRecords() {
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState("");
   const [labels, setLabels] = useState({});
+  const [survey, setSurvey] = useState(null);
   const [busy, setBusy] = useState(false);
   const [sort, setSort] = useState({ key: "submitted", dir: "desc" });
 
@@ -29,6 +38,7 @@ export default function AdminRecords() {
     nextAlignment = alignment,
     nextCollege = college,
     nextCourse = course,
+    nextSubmitted = submittedOn,
     nextPage = 1,
   } = {}) {
     setBusy(true);
@@ -42,6 +52,7 @@ export default function AdminRecords() {
         page: String(nextPage),
         page_size: "12",
       });
+      if (nextSubmitted) params.set("submitted_on", nextSubmitted);
       setData(await api(`/api/admin/tracer?${params}`));
       setPage(nextPage);
     } catch (err) {
@@ -55,15 +66,18 @@ export default function AdminRecords() {
     api("/api/admin/academic-filters")
       .then((result) => setCatalog(result))
       .catch(() => {});
-    load({ nextEmail: "", nextAlignment: "All", nextCollege: "", nextCourse: "", nextPage: 1 });
+    load({ nextPage: 1 });
     api("/api/auth/options")
-      .then((opts) => setLabels(questionLabelsFrom(opts.supplementary_questions)))
+      .then((opts) => {
+        setLabels(questionLabelsFrom(opts.supplementary_questions));
+        setSurvey(opts.survey || null);
+      })
       .catch(() => {});
   }, []);
 
   const rows = sortBy(data?.items || [], sort, {
-    email: (row) => String(row.email || "").toLowerCase(),
-    job: (row) => String(row.job_title || "").toLowerCase(),
+    name: (row) => recordName(row).toLowerCase(),
+    student: (row) => recordStudentNumber(row).toLowerCase(),
     alignment: (row) => String(row.alignment || "").toLowerCase(),
     submitted: (row) => String(row.submitted_at || ""),
   });
@@ -87,11 +101,11 @@ export default function AdminRecords() {
 
   const listed = rows.find((row) => row.id === openId) || data?.items?.find((row) => row.id === openId);
   const selected = detail && detail.id === openId ? detail : listed;
-  const courseOptions = coursesForCollege(catalog, college);
-  const filtersActive = Boolean(email.trim() || college || course || alignment !== "All");
+  const courseChoices = programChoices(catalog, college);
+  const filtersActive = Boolean(email.trim() || college || course || alignment !== "All" || submittedOn);
 
   function chooseCollege(value) {
-    const allowed = coursesForCollege(catalog, value);
+    const allowed = programChoices(catalog, value).map((item) => item.course);
     const nextCourse = allowed.includes(course) ? course : "";
     setCollege(value);
     setCourse(nextCourse);
@@ -113,15 +127,17 @@ export default function AdminRecords() {
     setAlignment("All");
     setCollege("");
     setCourse("");
-    load({ nextEmail: "", nextAlignment: "All", nextCollege: "", nextCourse: "", nextPage: 1 });
+    setSubmittedOn("");
+    load({ nextEmail: "", nextAlignment: "All", nextCollege: "", nextCourse: "", nextSubmitted: "", nextPage: 1 });
   }
 
   if (!data && !error) return <PortalShell role="Admin"><PageSkeleton /></PortalShell>;
 
   return (
     <PortalShell role="Admin">
+      <SnapshotBackLink from={from} />
       <Alert type="error">{error && data ? error : null}</Alert>
-      <Panel title="Submitted records">
+      <Panel className="submitted-records" title="Submitted records" description={submittedOn ? `Submissions from ${submittedOn}.` : ""}>
         <form
           className="filter-bar"
           onSubmit={(event) => {
@@ -129,8 +145,16 @@ export default function AdminRecords() {
             load({ nextPage: 1 });
           }}
         >
-          <Field label="Search email">
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Search email" />
+          <Field label="Search">
+            <div className="search-field">
+              <SearchIcon size={16} />
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Name, student number, or email"
+                aria-label="Search by name, student number, or email"
+              />
+            </div>
           </Field>
           <Field label="College">
             <select aria-label="Filter records by college" value={college} onChange={(e) => chooseCollege(e.target.value)}>
@@ -139,9 +163,9 @@ export default function AdminRecords() {
             </select>
           </Field>
           <Field label="Course">
-            <select aria-label="Filter records by course" value={courseOptions.includes(course) ? course : ""} onChange={(e) => chooseCourse(e.target.value)}>
+            <select aria-label="Filter records by course" value={courseChoices.some((item) => item.course === course) ? course : ""} onChange={(e) => chooseCourse(e.target.value)}>
               <option value="">All Courses</option>
-              {courseOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+              {courseChoices.map((item) => <option key={`${item.college}-${item.course}`} value={item.course}>{courseLabel(item)}</option>)}
             </select>
           </Field>
           <Field label="Alignment">
@@ -152,10 +176,7 @@ export default function AdminRecords() {
               <option>Unknown</option>
             </select>
           </Field>
-          <button className="btn btn-navy" disabled={busy} type="submit">
-            <SearchIcon size={16} />
-            {busy ? "Searching…" : "Apply Filters"}
-          </button>
+          <button className="btn btn-navy" disabled={busy} type="submit">Search</button>
           {filtersActive ? (
             <button className="btn btn-outline" type="button" onClick={clearFilters}>Clear Filters</button>
           ) : null}
@@ -179,22 +200,27 @@ export default function AdminRecords() {
               <table className="data stack">
                 <thead>
                   <tr>
-                    <th><SortButton column="email" sort={sort} onSort={(key) => setSort((prev) => toggleSort(prev, key))}>Email</SortButton></th>
-                    <th><SortButton column="job" sort={sort} onSort={(key) => setSort((prev) => toggleSort(prev, key))}>Job Title</SortButton></th>
-                    <th>Employer</th>
+                    <th><SortButton column="name" sort={sort} onSort={(key) => setSort((prev) => toggleSort(prev, key))}>Alumnus</SortButton></th>
+                    <th><SortButton column="student" sort={sort} onSort={(key) => setSort((prev) => toggleSort(prev, key))}>Student number</SortButton></th>
+                    <th><SortButton column="submitted" sort={sort} onSort={(key) => setSort((prev) => toggleSort(prev, key))}>Submitted date</SortButton></th>
+                    <th>Submitted time</th>
                     <th><SortButton column="alignment" sort={sort} onSort={(key) => setSort((prev) => toggleSort(prev, key))}>Alignment</SortButton></th>
-                    <th><SortButton column="submitted" sort={sort} onSort={(key) => setSort((prev) => toggleSort(prev, key))}>Submitted</SortButton></th>
                     <th>View</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((row) => (
                     <tr key={row.id} className={openId === row.id ? "is-open" : ""}>
-                      <td className="cell-email" data-label="Email">{row.email}</td>
-                      <td className="cell-title" data-label="Job Title">{row.job_title || "—"}</td>
-                      <td className="cell-title" data-label="Employer">{row.employer || "—"}</td>
+                      <td className="cell-person" data-label="Alumnus">
+                        <div className="record-person">
+                          <strong>{recordName(row) || "—"}</strong>
+                          <span>{row.email || "—"}</span>
+                        </div>
+                      </td>
+                      <td data-label="Student number">{recordStudentNumber(row) || "—"}</td>
+                      <td data-label="Submitted date">{formatDate(row.submitted_at)}</td>
+                      <td data-label="Submitted time">{formatTime(row.submitted_at)}</td>
                       <td data-label="Alignment"><StatusBadge kind="alignment" value={row.alignment} /></td>
-                      <td data-label="Submitted">{formatDate(row.submitted_at)}</td>
                       <td className="cell-actions">
                         <button className="btn btn-outline btn-sm" type="button" onClick={() => setOpenId(row.id)}>
                           View
@@ -213,14 +239,14 @@ export default function AdminRecords() {
 
       {selected ? (
         <ReviewSheet
-          title="Tracer Record"
+          title={recordName(selected) || "Tracer Record"}
           subtitle={selected.email}
-          meta={`Submitted: ${formatLongDate(selected.submitted_at)} · Alignment: ${alignmentLabel(selected.alignment)}`}
+          meta={`${recordStudentNumber(selected) || "No student number"} · ${formatLongDate(selected.submitted_at)} · ${formatTime(selected.submitted_at)}`}
           onClose={() => setOpenId(null)}
           onOpenTab={() => openAdminTab(`/admin/records/${selected.id}`)}
           wide
         >
-          <TracerDetailView record={selected} questionLabels={labels} compact hideEmail />
+          <RecordDossier record={selected} schema={survey} questionLabels={labels} surveyLayout />
         </ReviewSheet>
       ) : null}
     </PortalShell>

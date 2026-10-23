@@ -198,18 +198,25 @@ def evaluate_careersense_alumni(earned_keys: Iterable[str]) -> bool:
     return all(key in have for key in CORE_ACHIEVEMENT_KEYS)
 
 
-def requirement_met(key: str, snapshot: dict, progress: dict[str, Any], earned_keys: Iterable[str]) -> bool:
-    if key == PROFILE_COMPLETE_KEY:
+def requirement_met(
+    key: str,
+    snapshot: dict,
+    progress: dict[str, Any],
+    earned_keys: Iterable[str],
+    criteria: str | None = None,
+) -> bool:
+    rule = criteria or key
+    if rule == PROFILE_COMPLETE_KEY:
         return evaluate_profile_complete(snapshot, progress)
-    if key == RESUME_READY_KEY:
+    if rule == RESUME_READY_KEY:
         return evaluate_resume_ready(snapshot, progress)
-    if key == TRACER_COMPLETED_KEY:
+    if rule == TRACER_COMPLETED_KEY:
         return evaluate_tracer_completed(snapshot, progress)
-    if key == CAREER_UPDATED_KEY:
+    if rule == CAREER_UPDATED_KEY:
         return evaluate_career_updated(snapshot, progress)
-    if key == ALUMNI_CARD_HOLDER_KEY:
+    if rule == ALUMNI_CARD_HOLDER_KEY:
         return evaluate_alumni_card_holder(snapshot, progress)
-    if key == CAREERSENSE_ALUMNI_KEY:
+    if rule == CAREERSENSE_ALUMNI_KEY:
         return evaluate_careersense_alumni(earned_keys)
     return False
 
@@ -231,8 +238,11 @@ def serialize_achievement(
     snapshot: dict | None = None,
     progress: dict[str, Any] | None = None,
     earned_keys: Iterable[str] | None = None,
+    *,
+    definition: dict[str, Any] | None = None,
+    names: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    definition = catalog_entry(key)
+    definition = definition or catalog_entry(key)
     snapshot = snapshot or {}
     progress = progress or {}
     earned = row is not None
@@ -245,8 +255,12 @@ def serialize_achievement(
     locked_hint = definition.get("locked_description") or ""
     if not earned and key == PROFILE_COMPLETE_KEY:
         locked_hint = f"Current progress: profile completion {percent}%."
-    elif not earned and key == CAREERSENSE_ALUMNI_KEY:
-        missing = [catalog_entry(item)["name"] for item in CORE_ACHIEVEMENT_KEYS if item not in set(earned_keys or [])]
+    elif not earned and (key == CAREERSENSE_ALUMNI_KEY or definition.get("criteria_type") == CAREERSENSE_ALUMNI_KEY):
+        missing = [
+            (names or {}).get(item) or catalog_entry(item)["name"]
+            for item in CORE_ACHIEVEMENT_KEYS
+            if item not in set(earned_keys or [])
+        ]
         if missing:
             locked_hint = f"Earn {', '.join(missing)} to unlock this milestone."
     payload = {
@@ -307,6 +321,7 @@ def serialize_catalog(
     progress: dict[str, Any],
     rows: Iterable[AlumniBadge],
     snapshot: dict | None = None,
+    definitions: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     by_key: dict[str, AlumniBadge] = {}
     for row in rows:
@@ -315,11 +330,33 @@ def serialize_catalog(
             continue
         by_key[key] = row
     earned_keys = set(by_key)
+    if definitions is None:
+        ordered = [(key, catalog_entry(key)) for key in CATALOG_KEYS]
+    else:
+        ordered = [(item["key"], item) for item in definitions if item.get("key")]
+    names = {key: definition.get("name") or key for key, definition in ordered}
     items = [
-        serialize_achievement(key, by_key.get(key), snapshot, progress, earned_keys)
-        for key in CATALOG_KEYS
+        serialize_achievement(
+            key,
+            by_key.get(key),
+            snapshot,
+            progress,
+            earned_keys,
+            definition=definition,
+            names=names,
+        )
+        for key, definition in ordered
     ]
-    profile_badge = next(item for item in items if item["key"] == PROFILE_COMPLETE_KEY)
+    profile_badge = next((item for item in items if item["key"] == PROFILE_COMPLETE_KEY), None)
+    if profile_badge is None:
+        profile_badge = serialize_achievement(
+            PROFILE_COMPLETE_KEY,
+            by_key.get(PROFILE_COMPLETE_KEY),
+            snapshot,
+            progress,
+            earned_keys,
+            names=names,
+        )
     payload = dict(progress)
     payload["badge"] = profile_badge
     payload["badges"] = [profile_badge]
@@ -366,7 +403,13 @@ def _notification_exists(db: Session, user: Account, key: str) -> bool:
 def _notify(db: Session, user: Account, key: str) -> None:
     if _notification_exists(db, user, key):
         return
+    from app.models import BadgeDefinition
+
+    stored = db.query(BadgeDefinition).filter(BadgeDefinition.key == key).one_or_none()
     definition = catalog_entry(key)
+    if stored is not None:
+        definition["name"] = stored.name
+        definition["description"] = stored.description or definition.get("description") or ""
     name = definition.get("name") or key
     description = definition.get("description") or ""
     db.add(
@@ -391,8 +434,13 @@ class AchievementService:
     evaluate_careersense_alumni = staticmethod(evaluate_careersense_alumni)
 
     @staticmethod
-    def serialize(progress: dict[str, Any], rows: Iterable[AlumniBadge], snapshot: dict | None = None) -> dict[str, Any]:
-        return serialize_catalog(progress, rows, snapshot)
+    def serialize(
+        progress: dict[str, Any],
+        rows: Iterable[AlumniBadge],
+        snapshot: dict | None = None,
+        definitions: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        return serialize_catalog(progress, rows, snapshot, definitions)
 
     @staticmethod
     def evaluate_all(
@@ -403,34 +451,46 @@ class AchievementService:
         *,
         notify: bool = False,
     ) -> dict[str, Any]:
-        rows = load_badge_rows(db, user)
-        payload = serialize_catalog(progress, rows, snapshot)
-        if user.role != "Alumni" or user.status != "Active":
-            return payload
+        from app.services.badge_admin import load_definition_dicts
 
+        rows = load_badge_rows(db, user)
+        catalog = load_definition_dicts(db)
         earned = {_canonical_key(row.badge_key) for row in rows}
-        pending: list[str] = []
-        for key in CORE_ACHIEVEMENT_KEYS:
+        visible = [item for item in catalog if item.get("active") or item.get("key") in earned]
+        if user.role != "Alumni" or user.status != "Active":
+            return serialize_catalog(progress, rows, snapshot, visible)
+
+        pending: list[tuple[str, str]] = []
+        active = [item for item in catalog if item.get("active")]
+        standard = [item for item in active if item.get("criteria_type") != CAREERSENSE_ALUMNI_KEY]
+        milestones = [item for item in active if item.get("criteria_type") == CAREERSENSE_ALUMNI_KEY]
+        for item in standard:
+            key = item["key"]
             if key in earned:
                 continue
-            if requirement_met(key, snapshot, progress, earned):
-                pending.append(key)
+            if requirement_met(key, snapshot, progress, earned, item.get("criteria_type")):
+                pending.append((key, item.get("criteria_type") or key))
                 earned.add(key)
-        if MILESTONE_KEY not in earned and evaluate_careersense_alumni(earned):
-            pending.append(MILESTONE_KEY)
-            earned.add(MILESTONE_KEY)
+        for item in milestones:
+            key = item["key"]
+            if key in earned:
+                continue
+            if requirement_met(key, snapshot, progress, earned, CAREERSENSE_ALUMNI_KEY):
+                pending.append((key, CAREERSENSE_ALUMNI_KEY))
+                earned.add(key)
         if not pending:
-            return payload
+            visible = [item for item in catalog if item.get("active") or item.get("key") in earned]
+            return serialize_catalog(progress, rows, snapshot, visible)
 
         awarded_at = _now()
         try:
-            for key in pending:
+            for key, criteria in pending:
                 db.add(
                     AlumniBadge(
                         account_id=user.id,
                         badge_key=key,
                         awarded_at=awarded_at,
-                        award_metadata=_award_metadata(key, snapshot),
+                        award_metadata=_award_metadata(key, snapshot) if criteria == TRACER_COMPLETED_KEY or key == TRACER_COMPLETED_KEY else None,
                     )
                 )
                 if notify:
@@ -452,4 +512,7 @@ class AchievementService:
             db.refresh(user)
         except Exception:
             pass
-        return serialize_catalog(progress, load_badge_rows(db, user), snapshot)
+        fresh_rows = load_badge_rows(db, user)
+        fresh_earned = {_canonical_key(row.badge_key) for row in fresh_rows}
+        fresh_visible = [item for item in load_definition_dicts(db) if item.get("active") or item.get("key") in fresh_earned]
+        return serialize_catalog(progress, fresh_rows, snapshot, fresh_visible)

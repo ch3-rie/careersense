@@ -185,6 +185,7 @@ export default function GtsSchemaForm({
   variant,
   resume = null,
   hideQuestionIds = [],
+  browse = false,
 }) {
   const schema = useMemo(
     () => omitQuestions(sourceSchema, hideQuestionIds),
@@ -343,7 +344,7 @@ export default function GtsSchemaForm({
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (preview || readOnly) return;
+    if (preview || readOnly || browse) return;
     const message = validate();
     if (message) {
       setConfirming(false);
@@ -587,7 +588,7 @@ export default function GtsSchemaForm({
     return nodes;
   }
 
-  const formClass = [preview ? "gts-preview-form" : "", variant === "review" ? "gts-review" : ""].filter(Boolean).join(" ");
+  const formClass = [preview ? "gts-preview-form" : "", variant === "review" || browse ? "gts-review" : "", browse ? "gts-browse" : ""].filter(Boolean).join(" ");
 
   return (
     <form className={formClass} onSubmit={handleSubmit}>
@@ -617,7 +618,7 @@ export default function GtsSchemaForm({
       />
 
       {current ? (
-        <div className="gts-panel" role="tabpanel" id={`panel-gts-${current.key || current.id}`}>
+        <div className="gts-panel" role="tabpanel" id={`panel-gts-${current.key || current.id}`} inert={browse ? "" : undefined}>
           {variant === "review" ? (
             <header className="gts-section-banner">
               <p className="eyebrow">{T(`Section ${tabIndex + 1} of ${tabs.length}`)}</p>
@@ -668,7 +669,7 @@ export default function GtsSchemaForm({
                 {T("Continue")}
               </button>
             ) : null}
-            {readOnly ? null : (
+            {readOnly || browse ? null : (
               <button
                 type="submit"
                 className={lastSection ? "btn btn-navy" : "btn btn-outline btn-submit-alt"}

@@ -35,6 +35,87 @@ function formFromSettings(data) {
   };
 }
 
+const RECIPIENT_LABELS = {
+  all_active: "All Active alumni",
+  incomplete: "Active alumni with incomplete profiles",
+  filtered: "Alumni filtered by class year, program, and profile completion",
+  selected: "A hand-picked list of Active alumni",
+};
+
+const FIELD_COPY = {
+  contact: "Name and contact details on the profile.",
+  phone: "Phone number.",
+  city: "City of residence.",
+  country: "Country of residence.",
+  profile_photo: "Profile photo.",
+  education: "Degree and education details.",
+  further_studies: "Studies completed after graduation.",
+  employment: "Current employment information.",
+  current_occupation: "Current job title.",
+  graduate_tracer: "Graduate Tracer Survey.",
+  work_history: "Previous positions.",
+  alumni_card: "Details used for the Alumni Card.",
+  other: "A custom note included with the request.",
+};
+
+const FIELD_GROUPS = [
+  { title: "Contact information", text: "How the alumnus can be reached.", ids: ["contact", "phone", "city", "country"] },
+  { title: "Profile photo and education", text: "Photo, education, and further studies.", ids: ["profile_photo", "education", "further_studies"] },
+  { title: "Employment and Graduate Tracer Survey", text: "Current work and the tracer survey.", ids: ["employment", "current_occupation", "graduate_tracer"] },
+  { title: "Work history", text: "Positions already recorded on the profile.", ids: ["work_history"] },
+  { title: "Alumni Card information", text: "Information shown for the Alumni Card.", ids: ["alumni_card"] },
+  { title: "Other profile information", text: "Anything else that needs a written note.", ids: ["other"] },
+];
+
+export function ProfileFieldOptions({ fields, selected, onToggle, otherValue, onOtherChange, otherInputId }) {
+  const byId = Object.fromEntries((fields || []).map((item) => [item.id, item]));
+  const used = new Set();
+  const groups = FIELD_GROUPS.map((group) => {
+    const items = group.ids.map((id) => byId[id]).filter(Boolean);
+    items.forEach((item) => used.add(item.id));
+    return { ...group, items };
+  }).filter((group) => group.items.length);
+  const extra = (fields || []).filter((item) => !used.has(item.id));
+  if (extra.length) {
+    groups.push({ title: "Additional profile areas", text: "", items: extra });
+  }
+  return (
+    <div className="pur-field-groups">
+      {groups.map((group) => (
+        <fieldset key={group.title} className="pur-field-group">
+          <legend>{group.title}</legend>
+          {group.text ? <p>{group.text}</p> : null}
+          <div className="pur-field-grid">
+            {group.items.map((item) => (
+              <label key={item.id} className={`pur-field check ${selected.includes(item.id) ? "on" : ""}`}>
+                <input type="checkbox" checked={selected.includes(item.id)} onChange={() => onToggle(item.id)} />
+                <span>
+                  <strong>{item.label}</strong>
+                  {FIELD_COPY[item.id] ? <small>{FIELD_COPY[item.id]}</small> : null}
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      ))}
+      {selected.includes("other") ? (
+        <Field
+          label="Other profile information"
+          hint={`${String(otherValue || "").length} / 400. Use at least 3 characters. This note is included in the notification.`}
+        >
+          <input
+            id={otherInputId}
+            value={otherValue}
+            onChange={(event) => onOtherChange(event.target.value)}
+            maxLength={400}
+            placeholder="Please update your current employer and position."
+          />
+        </Field>
+      ) : null}
+    </div>
+  );
+}
+
 function statusTone(status) {
   const value = String(status || "").toLowerCase();
   if (value === "completed" || value === "sent") return "aligned";
@@ -43,7 +124,7 @@ function statusTone(status) {
   return "";
 }
 
-export default function ProfileRemindersPanel() {
+export default function ProfileRemindersPanel({ actions = null }) {
   const [settings, setSettings] = useState(null);
   const [form, setForm] = useState(formFromSettings());
   const [error, setError] = useState("");
@@ -197,7 +278,7 @@ export default function ProfileRemindersPanel() {
   if (!settings) {
     if (!error) return null;
     return (
-      <Panel id="automated-reminders" className="pur-reminder" title="Automated profile reminders">
+      <Panel id="automated-reminders" className="pur-reminder" title="Automated Profile Reminders" actions={actions}>
         <Alert type="error">{error}</Alert>
       </Panel>
     );
@@ -210,101 +291,43 @@ export default function ProfileRemindersPanel() {
     <Panel
       id="automated-reminders"
       className="pur-reminder"
-      title="Automated profile reminders"
-      description="CareerSense can email Active alumni on a schedule you control. Messages use each alumnus’s registered email and never include passwords or PINs."
-      actions={
-        <Badge tone={form.enabled ? "aligned" : "unknown"}>{form.enabled ? "Reminders on" : "Reminders off"}</Badge>
-      }
+      title="Automated Profile Reminders"
+      description="This schedule applies to the entire portal. Messages use each alumnus’s registered email and never include passwords or PINs."
+      actions={actions}
     >
       <Alert type="error">{error}</Alert>
-      {!settings.email_configured ? (
-        <Alert type="warn">
-          Email sending is not configured on this server. Save the reminder schedule now, then set EMAIL_ENABLED=true
-          with a real Resend API key before alumni will receive mail.
-        </Alert>
-      ) : null}
 
-      <div className="pur-reminder-grid">
+      <section className="pur-group" aria-label="Reminder status">
+        <div className="pur-status-row">
+          <Badge tone={form.enabled ? "aligned" : "unknown"}>{form.enabled ? "Reminders on" : "Reminders off"}</Badge>
+        </div>
         <label className={`pur-field check ${form.enabled ? "on" : ""}`}>
           <input
             type="checkbox"
             checked={form.enabled}
             onChange={(event) => setForm({ ...form, enabled: event.target.checked })}
           />
-          <span>Enable automated reminder emails</span>
+          <span>
+            <strong>Enable automated reminder emails</strong>
+            <small>Turn the portal-wide schedule on or off. Saved settings stay in place either way.</small>
+          </span>
         </label>
-        <label className={`pur-field check ${form.skip_if_complete ? "on" : ""}`}>
-          <input
-            type="checkbox"
-            checked={form.skip_if_complete}
-            onChange={(event) => setForm({ ...form, skip_if_complete: event.target.checked })}
-          />
-          <span>Skip alumni who already completed the requested fields</span>
-        </label>
-      </div>
+        {!settings.email_configured ? (
+          <Alert type="warn">
+            Email sending is not configured. You can still save these settings. Alumni will not receive mail until email sending is enabled.
+          </Alert>
+        ) : null}
+      </section>
 
-      <div className="pur-reminder-grid">
-        <Field label="Frequency">
-          <select value={form.frequency} onChange={(event) => setForm({ ...form, frequency: event.target.value })}>
-            {(settings.frequencies || []).map((item) => (
-              <option key={item.id} value={item.id}>{item.label}</option>
+      <section className="pur-group">
+        <h3>Who should receive reminders?</h3>
+        <Field label="Recipients">
+          <select value={form.target_mode} onChange={(event) => setForm({ ...form, target_mode: event.target.value })}>
+            {(settings.target_modes || []).map((item) => (
+              <option key={item.id} value={item.id}>{RECIPIENT_LABELS[item.id] || item.label}</option>
             ))}
           </select>
         </Field>
-        <Field label="Send time (Asia/Manila)">
-          <select value={form.send_hour} onChange={(event) => setForm({ ...form, send_hour: Number(event.target.value) })}>
-            {hours.map((hour) => (
-              <option key={hour} value={hour}>{hourLabel(hour)}</option>
-            ))}
-          </select>
-        </Field>
-        {form.frequency === "weekly" ? (
-          <Field label="Weekday">
-            <select value={form.send_weekday} onChange={(event) => setForm({ ...form, send_weekday: Number(event.target.value) })}>
-              {(settings.weekdays || []).map((item) => (
-                <option key={item.id} value={item.id}>{item.label}</option>
-              ))}
-            </select>
-          </Field>
-        ) : null}
-        {form.frequency === "monthly" ? (
-          <Field label="Day of month">
-            <select value={form.send_day_of_month} onChange={(event) => setForm({ ...form, send_day_of_month: Number(event.target.value) })}>
-              {Array.from({ length: 28 }, (_, index) => index + 1).map((day) => (
-                <option key={day} value={day}>{day}</option>
-              ))}
-            </select>
-          </Field>
-        ) : null}
-        {form.frequency === "interval" ? (
-          <Field label="Every N days">
-            <input
-              type="number"
-              min={1}
-              max={365}
-              value={form.interval_days}
-              onChange={(event) => setForm({ ...form, interval_days: event.target.value })}
-            />
-          </Field>
-        ) : null}
-        <Field label="Minimum days between emails" hint="Prevents duplicate reminder mail to the same alumnus.">
-          <input
-            type="number"
-            min={1}
-            max={365}
-            value={form.min_days_between}
-            onChange={(event) => setForm({ ...form, min_days_between: event.target.value })}
-          />
-        </Field>
-      </div>
-
-      <Field label="Who should receive reminders">
-        <select value={form.target_mode} onChange={(event) => setForm({ ...form, target_mode: event.target.value })}>
-          {(settings.target_modes || []).map((item) => (
-            <option key={item.id} value={item.id}>{item.label}</option>
-          ))}
-        </select>
-      </Field>
 
       {form.target_mode === "filtered" ? (
         <div className="pur-reminder-grid">
@@ -340,7 +363,7 @@ export default function ProfileRemindersPanel() {
             </Field>
             <button className="btn btn-navy" type="submit" disabled={alumniBusy}>Search</button>
           </form>
-          <p className="muted">{selectedAlumni.length} selected · Active alumni only</p>
+          <p className="pur-selected-count"><strong>{selectedAlumni.length}</strong> {selectedAlumni.length === 1 ? "alumnus" : "alumni"} selected · Active alumni only. Selections stay in place when you change pages.</p>
           <div className="table-wrap">
             <table className="data">
               <thead>
@@ -373,36 +396,99 @@ export default function ProfileRemindersPanel() {
           <Pager page={alumniPage} pageSize={alumni?.page_size || 10} total={alumni?.total || 0} onPage={(page) => loadAlumni(page)} />
         </div>
       ) : null}
+        <p className="pur-limit">Each scheduled run processes at most {(settings.max_auto_recipients || 2000).toLocaleString()} alumni and skips accounts without a usable email address.</p>
+      </section>
 
-      <fieldset className="pur-fields">
-        <legend>Information to request</legend>
-        <div className="pur-field-grid">
-          {fieldOptions.map((item) => (
-            <label key={item.id} className={`pur-field check ${form.requested_fields.includes(item.id) ? "on" : ""}`}>
-              <input type="checkbox" checked={form.requested_fields.includes(item.id)} onChange={() => toggleField(item.id)} />
-              <span>{item.label}</span>
-            </label>
-          ))}
-        </div>
-        {form.requested_fields.includes("other") ? (
-          <Field label="Other profile information">
+      <section className="pur-group">
+        <h3>Requested Profile Updates</h3>
+        <ProfileFieldOptions
+          fields={fieldOptions}
+          selected={form.requested_fields}
+          onToggle={toggleField}
+          otherValue={form.other_detail}
+          onOtherChange={(value) => setForm({ ...form, other_detail: value })}
+          otherInputId="reminder-other-detail"
+        />
+      </section>
+
+      <section className="pur-group">
+        <h3>Schedule and Sending Rules</h3>
+        <div className="pur-reminder-grid">
+          <Field label="Frequency">
+            <select value={form.frequency} onChange={(event) => setForm({ ...form, frequency: event.target.value })}>
+              {(settings.frequencies || []).map((item) => (
+                <option key={item.id} value={item.id}>{item.label}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Send time (Asia/Manila)">
+            <select value={form.send_hour} onChange={(event) => setForm({ ...form, send_hour: Number(event.target.value) })}>
+              {hours.map((hour) => (
+                <option key={hour} value={hour}>{hourLabel(hour)}</option>
+              ))}
+            </select>
+          </Field>
+          {form.frequency === "weekly" ? (
+            <Field label="Weekday">
+              <select value={form.send_weekday} onChange={(event) => setForm({ ...form, send_weekday: Number(event.target.value) })}>
+                {(settings.weekdays || []).map((item) => (
+                  <option key={item.id} value={item.id}>{item.label}</option>
+                ))}
+              </select>
+            </Field>
+          ) : null}
+          {form.frequency === "monthly" ? (
+            <Field label="Day of month">
+              <select value={form.send_day_of_month} onChange={(event) => setForm({ ...form, send_day_of_month: Number(event.target.value) })}>
+                {Array.from({ length: 28 }, (_, index) => index + 1).map((day) => (
+                  <option key={day} value={day}>{day}</option>
+                ))}
+              </select>
+            </Field>
+          ) : null}
+          {form.frequency === "interval" ? (
+            <Field label="Every N days">
+              <input
+                type="number"
+                min={1}
+                max={365}
+                value={form.interval_days}
+                onChange={(event) => setForm({ ...form, interval_days: event.target.value })}
+              />
+            </Field>
+          ) : null}
+          <Field label="Minimum days between emails" hint="The same alumnus is not emailed again until this many days have passed. Default is 14 days.">
             <input
-              value={form.other_detail}
-              onChange={(event) => setForm({ ...form, other_detail: event.target.value })}
-              maxLength={400}
+              type="number"
+              min={1}
+              max={365}
+              value={form.min_days_between}
+              onChange={(event) => setForm({ ...form, min_days_between: event.target.value })}
             />
           </Field>
-        ) : null}
-      </fieldset>
+        </div>
+        <label className={`pur-field check ${form.skip_if_complete ? "on" : ""}`}>
+          <input
+            type="checkbox"
+            checked={form.skip_if_complete}
+            onChange={(event) => setForm({ ...form, skip_if_complete: event.target.checked })}
+          />
+          <span>
+            <strong>Skip alumni who already completed the requested fields</strong>
+            <small>Alumni who already filled in every requested field are left out of the next run.</small>
+          </span>
+        </label>
+      </section>
 
-      <div className="form-section">
+      <section className="pur-group">
+        <h3>Message</h3>
         <Field label="Email subject">
           <input value={form.subject} onChange={(event) => setForm({ ...form, subject: event.target.value })} maxLength={200} />
         </Field>
-        <Field label="Email message" hint={`${form.message.length} / 2000`}>
+        <Field label="Email message" hint={`${form.message.length} / 2,000`}>
           <textarea rows={8} value={form.message} onChange={(event) => setForm({ ...form, message: event.target.value })} maxLength={2000} />
         </Field>
-      </div>
+      </section>
 
       <p className="muted">
         Next scheduled run: {settings.next_run_at ? formatDateTime(settings.next_run_at) : "Not scheduled"}
@@ -447,7 +533,7 @@ export default function ProfileRemindersPanel() {
         <Empty title="No automated reminder runs yet">Save a schedule or choose Send now to create the first run.</Empty>
       ) : (
         <div className="table-wrap">
-          <table className="data">
+          <table className="data stack">
             <thead>
               <tr>
                 <th>Started</th>
@@ -461,12 +547,12 @@ export default function ProfileRemindersPanel() {
             <tbody>
               {runs.items.map((row) => (
                 <tr key={row.id}>
-                  <td>{formatDateTime(row.started_at)}</td>
-                  <td>{row.triggered_by === "admin" ? "Admin" : "Schedule"}</td>
-                  <td>{row.sent_count}</td>
-                  <td>{row.skipped_count}</td>
-                  <td>{row.failed_count}</td>
-                  <td><Badge tone={statusTone(row.status)}>{row.status}</Badge></td>
+                  <td data-label="Started">{formatDateTime(row.started_at)}</td>
+                  <td data-label="Trigger">{row.triggered_by === "admin" ? "Admin" : "Schedule"}</td>
+                  <td data-label="Sent">{row.sent_count}</td>
+                  <td data-label="Skipped">{row.skipped_count}</td>
+                  <td data-label="Failed">{row.failed_count}</td>
+                  <td data-label="Status"><Badge tone={statusTone(row.status)}>{row.status}</Badge></td>
                 </tr>
               ))}
             </tbody>

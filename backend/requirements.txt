@@ -17,5 +17,6 @@ psycopg[binary]==3.2.6
 email-validator==2.2.0
 httpx==0.28.1
 alembic==1.15.2
+openpyxl==3.1.5
 pytest==8.3.5
 tzdata==2025.2

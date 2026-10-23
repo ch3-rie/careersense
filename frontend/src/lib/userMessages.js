@@ -19,6 +19,8 @@ export function fileKindLabel(name = "") {
     jpeg: "JPG",
     png: "PNG",
     webp: "WebP",
+    xlsx: "Excel",
+    xlsm: "Excel",
   };
   return labels[ext] || "File";
 }

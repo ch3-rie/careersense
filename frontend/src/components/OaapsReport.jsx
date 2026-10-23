@@ -1,3 +1,7 @@
+import { Link } from "react-router-dom";
+import { directoryPath } from "./AdminOps";
+import { ChevronRightIcon } from "./icons";
+
 function fmtCount(row) {
   if (!row || row.available === false || row.count === null || row.count === undefined) return "—";
   return String(row.count);
@@ -15,6 +19,13 @@ function fmtRate(value) {
   return `${Number(value).toFixed(2)}%`;
 }
 
+function cellLabel(cell) {
+  if (typeof cell === "string" || typeof cell === "number") return String(cell);
+  const nested = cell?.props?.children;
+  if (typeof nested === "string" || typeof nested === "number") return String(nested);
+  return "";
+}
+
 function ReportTable({ columns, rows, numericFrom = 1 }) {
   return (
     <div className="oaaps-table-wrap">
@@ -27,23 +38,66 @@ function ReportTable({ columns, rows, numericFrom = 1 }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, index) => (
-            <tr key={`${row[0]}-${index}`} className={String(row[0]).toUpperCase() === "TOTAL" ? "oaaps-total" : undefined}>
+          {rows.map((row, index) => {
+            const label = cellLabel(row[0]);
+            return (
+            <tr key={`${label}-${index}`} className={label.toUpperCase() === "TOTAL" ? "oaaps-total" : undefined}>
               {row.map((cell, cellIndex) => (
                 <td key={`${columns[cellIndex]}-${cellIndex}`} className={cellIndex >= numericFrom ? "num" : undefined}>
                   {cell}
                 </td>
               ))}
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>
   );
 }
 
-function metricRows(items) {
-  return (items || []).map((row) => [row.indicator, fmtCount(row), fmtPct(row)]);
+function reportLink(report, indicator, scope) {
+  const filters = report?.filters || {};
+  const scoped = scope || {};
+  return directoryPath("reports", {
+    cohort: "productivity",
+    indicator,
+    college: scoped.college !== undefined ? scoped.college : filters.college,
+    program: scoped.program !== undefined ? scoped.program : filters.program,
+    year: scoped.year !== undefined ? scoped.year : filters.year,
+    period_from: filters.period_from,
+    period_to: filters.period_to,
+    award: filters.award,
+    further: filters.further,
+  });
+}
+
+function FigureLink({ report, indicator, scope, children }) {
+  const label = typeof children === "string" || typeof children === "number" ? String(children) : "";
+  const unavailable = label === "—" || label === "Not Available";
+  const accessible = unavailable
+    ? `${indicator}, not available`
+    : label === indicator
+      ? `${indicator}. View students`
+      : `${indicator}: ${label}. View students`;
+  return (
+    <Link
+      className="oaaps-link"
+      to={reportLink(report, indicator, scope)}
+      aria-label={accessible}
+    >
+      {children}
+      {unavailable ? null : <ChevronRightIcon className="oaaps-link-cue no-print" size={12} />}
+    </Link>
+  );
+}
+
+function metricRows(report, items) {
+  return (items || []).map((row) => [
+    <FigureLink report={report} indicator={row.indicator}>{row.indicator}</FigureLink>,
+    <FigureLink report={report} indicator={row.indicator}>{row.available === false ? "—" : fmtCount(row)}</FigureLink>,
+    <FigureLink report={report} indicator={row.indicator}>{fmtPct(row)}</FigureLink>,
+  ]);
 }
 
 export default function OaapsReport({ report }) {
@@ -63,6 +117,7 @@ export default function OaapsReport({ report }) {
         <p className="oaaps-office">Office of Alumni Affairs and Placement Services (OAAPS)</p>
       </header>
 
+      <div className="oaaps-table-wrap">
       <table className="oaaps-meta">
         <tbody>
           <tr>
@@ -76,37 +131,44 @@ export default function OaapsReport({ report }) {
             <td colSpan={3}>{header.college_program}</td>
           </tr>
           <tr>
+            <th>Awards Received</th>
+            <td>{header.awards || "All"}</td>
+            <th>Further Studies</th>
+            <td>{header.further_studies || "All"}</td>
+          </tr>
+          <tr>
             <th>Total Graduates</th>
-            <td>{header.total_graduates}</td>
+            <td><FigureLink report={report} indicator="Total Graduates">{header.total_graduates}</FigureLink></td>
             <th>Number of Graduates Traced</th>
-            <td>{header.graduates_traced}</td>
+            <td><FigureLink report={report} indicator="Graduates Traced">{header.graduates_traced}</FigureLink></td>
           </tr>
           <tr>
             <th>Tracer Study Response Rate</th>
-            <td colSpan={3}>{fmtPct(header.response_rate)}</td>
+            <td colSpan={3}><FigureLink report={report} indicator="Graduates Traced">{fmtPct(header.response_rate)}</FigureLink></td>
           </tr>
         </tbody>
       </table>
+      </div>
 
       <section className="oaaps-section">
         <h3>I. OVERALL GRADUATE PRODUCTIVITY</h3>
         <h4>A. Executive Summary</h4>
-        <ReportTable columns={["Key Indicator", "Total", "Percentage"]} rows={metricRows(report.executive_summary)} />
-        <p className="oaaps-rate">Overall Graduate Productivity Rate: {fmtRate(report.overall_productivity_rate)}</p>
+        <ReportTable columns={["Key Indicator", "Total", "Percentage"]} rows={metricRows(report, report.executive_summary)} />
+        <p className="oaaps-rate">Overall Graduate Productivity Rate: <FigureLink report={report} indicator="Overall Graduate Productivity Rate">{fmtRate(report.overall_productivity_rate)}</FigureLink></p>
         <p className="oaaps-formula">{report.formula}</p>
 
         <h4>B. Graduate Productivity Profile</h4>
         <p className="oaaps-profile">
-          Total Graduates: <strong>{profile.total_graduates}</strong>
-          <span>Traced Graduates: <strong>{profile.traced}</strong></span>
-          <span>Productive Graduates: <strong>{profile.productive}</strong></span>
-          <span>Not Yet Productively Engaged: <strong>{profile.not_yet_engaged}</strong></span>
+          Total Graduates: <FigureLink report={report} indicator="Total Graduates">{profile.total_graduates}</FigureLink>
+          <span>Traced Graduates: <FigureLink report={report} indicator="Traced Graduates">{profile.traced}</FigureLink></span>
+          <span>Productive Graduates: <FigureLink report={report} indicator="Productive Graduates">{profile.productive}</FigureLink></span>
+          <span>Not Yet Productively Engaged: <FigureLink report={report} indicator="Not Yet Productively Engaged">{profile.not_yet_engaged}</FigureLink></span>
         </p>
         <p className="oaaps-subhead">Productivity Distribution:</p>
         <ul className="oaaps-dist">
-          <li>Workforce Integration: {fmtRate(dist.workforce)}</li>
-          <li>Professional Advancement: {fmtRate(dist.professional)}</li>
-          <li>Academic Advancement: {fmtRate(dist.academic)}</li>
+          <li><FigureLink report={report} indicator="Workforce Integration">Workforce Integration: {fmtRate(dist.workforce)}</FigureLink></li>
+          <li><FigureLink report={report} indicator="Professional Advancement">Professional Advancement: {fmtRate(dist.professional)}</FigureLink></li>
+          <li><FigureLink report={report} indicator="Academic Advancement">Academic Advancement: {fmtRate(dist.academic)}</FigureLink></li>
         </ul>
       </section>
 
@@ -116,15 +178,15 @@ export default function OaapsReport({ report }) {
         <h4>A. Employment Status</h4>
         <ReportTable
           columns={["Employment Indicator", "No. of Graduates", "%"]}
-          rows={metricRows(workforce.employment_status)}
+          rows={metricRows(report, workforce.employment_status)}
         />
         <h4>B. Employment Relevance</h4>
-        <ReportTable columns={["Indicator", "No.", "%"]} rows={metricRows(workforce.employment_relevance)} />
+        <ReportTable columns={["Indicator", "No.", "%"]} rows={metricRows(report, workforce.employment_relevance)} />
         <h4>C. Employment Quality</h4>
-        <ReportTable columns={["Indicator", "No.", "%"]} rows={metricRows(workforce.employment_quality)} />
+        <ReportTable columns={["Indicator", "No.", "%"]} rows={metricRows(report, workforce.employment_quality)} />
         <h4>D. Time-to-Employment</h4>
-        <ReportTable columns={["Indicator", "No.", "%"]} rows={metricRows(workforce.time_to_employment)} />
-        <p className="oaaps-rate">Key Workforce Integration Rate: {fmtRate(workforce.key_rate)}</p>
+        <ReportTable columns={["Indicator", "No.", "%"]} rows={metricRows(report, workforce.time_to_employment)} />
+        <p className="oaaps-rate">Key Workforce Integration Rate: <FigureLink report={report} indicator="Workforce Integration">{fmtRate(workforce.key_rate)}</FigureLink></p>
       </section>
 
       <section className="oaaps-section">
@@ -133,10 +195,10 @@ export default function OaapsReport({ report }) {
         <h4>A. Career Progression</h4>
         <ReportTable
           columns={["Indicator", "No. of Graduates", "%"]}
-          rows={metricRows(professional.career_progression)}
+          rows={metricRows(report, professional.career_progression)}
         />
         <h4>B. Professional Credentials and Development</h4>
-        <ReportTable columns={["Indicator", "No.", "%"]} rows={metricRows(professional.credentials)} />
+        <ReportTable columns={["Indicator", "No.", "%"]} rows={metricRows(report, professional.credentials)} />
         <h4>C. Professional Recognition</h4>
         <p className="oaaps-subhead">Top Graduate Achievements:</p>
         <div className="oaaps-table-wrap">
@@ -159,7 +221,7 @@ export default function OaapsReport({ report }) {
             </tbody>
           </table>
         </div>
-        <p className="oaaps-rate">Professional Advancement Rate: {fmtRate(professional.key_rate)}</p>
+        <p className="oaaps-rate">Professional Advancement Rate: <FigureLink report={report} indicator="Professional Advancement">{fmtRate(professional.key_rate)}</FigureLink></p>
       </section>
 
       <section className="oaaps-section">
@@ -168,11 +230,11 @@ export default function OaapsReport({ report }) {
         <h4>A. Further Education</h4>
         <ReportTable
           columns={["Academic Outcome", "No. of Graduates", "%"]}
-          rows={metricRows(academic.further_education)}
+          rows={metricRows(report, academic.further_education)}
         />
         <h4>B. Academic and Research Achievements</h4>
-        <ReportTable columns={["Indicator", "No.", "%"]} rows={metricRows(academic.achievements)} />
-        <p className="oaaps-rate">Academic Advancement Rate: {fmtRate(academic.key_rate)}</p>
+        <ReportTable columns={["Indicator", "No.", "%"]} rows={metricRows(report, academic.achievements)} />
+        <p className="oaaps-rate">Academic Advancement Rate: <FigureLink report={report} indicator="Academic Advancement">{fmtRate(academic.key_rate)}</FigureLink></p>
       </section>
 
       <section className="oaaps-section">
@@ -182,9 +244,9 @@ export default function OaapsReport({ report }) {
           numericFrom={2}
           rows={(report.scorecard || []).map((row) => [
             row.dimension,
-            row.key_indicator,
+            <FigureLink report={report} indicator={row.key_indicator}>{row.key_indicator}</FigureLink>,
             row.target == null ? "Not Set" : row.target,
-            fmtRate(row.actual_rate),
+            <FigureLink report={report} indicator={row.key_indicator}>{fmtRate(row.actual_rate)}</FigureLink>,
             row.status == null ? "Not Set" : row.status,
           ])}
         />
@@ -211,16 +273,19 @@ export default function OaapsReport({ report }) {
             "Overall Productivity",
           ]}
           numericFrom={1}
-          rows={(report.by_program || []).map((row) => [
-            row.college_program,
-            row.batch_year,
-            row.graduates,
-            row.traced,
-            fmtPct(row.workforce),
-            fmtPct(row.professional),
-            fmtPct(row.academic),
-            fmtPct(row.overall_productivity),
-          ])}
+          rows={(report.by_program || []).map((row) => {
+            const scope = row.is_total ? undefined : { college: row.college, program: row.program, year: row.batch_year };
+            return [
+              <FigureLink report={report} indicator="Graduates Traced" scope={scope}>{row.college_program}</FigureLink>,
+              row.batch_year,
+              <FigureLink report={report} indicator="Total Graduates" scope={scope}>{row.graduates}</FigureLink>,
+              <FigureLink report={report} indicator="Graduates Traced" scope={scope}>{row.traced}</FigureLink>,
+              <FigureLink report={report} indicator="Workforce Integration" scope={scope}>{fmtPct(row.workforce)}</FigureLink>,
+              <FigureLink report={report} indicator="Professional Advancement" scope={scope}>{fmtPct(row.professional)}</FigureLink>,
+              <FigureLink report={report} indicator="Academic Advancement" scope={scope}>{fmtPct(row.academic)}</FigureLink>,
+              <FigureLink report={report} indicator="Overall Graduate Productivity Rate" scope={scope}>{fmtPct(row.overall_productivity)}</FigureLink>,
+            ];
+          })}
         />
       </section>
 

@@ -26,6 +26,7 @@ from app.schemas import (
     ForgotPasswordVerifyRequest,
     GtsPayload,
     LoginRequest,
+    CurrentPasswordRequest,
     PasswordChangeRequest,
     ResetPasswordRequest,
     UserOut,
@@ -110,6 +111,11 @@ def serialize_user(user: Account) -> dict:
     if profile:
         data["first_name"] = data.get("first_name") or profile.first_name or ""
         data["last_name"] = data.get("last_name") or profile.last_name or ""
+    privileges = str(getattr(user, "admin_privileges", None) or "").strip()
+    number = getattr(user, "employee_number", None)
+    data["admin_privileges"] = privileges
+    data["full_admin"] = user.role == "Admin" and privileges == ""
+    data["employee_number"] = "" if number is None else str(number)
     return data
 
 
@@ -416,6 +422,18 @@ def me(user: Account = Depends(get_current_user), db: Session = Depends(get_db))
             "country_residence": profile.country_residence if profile else "Philippines",
         },
     }
+
+
+@router.post("/verify-current-password")
+def verify_current_password(
+    payload: CurrentPasswordRequest,
+    request: Request,
+    user: Account = Depends(get_current_user),
+):
+    enforce_rate_limit(request, password_limiter, f"password:{user.id}")
+    if not verify_password(payload.current_password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect.")
+    return {"ok": True}
 
 
 @router.post("/change-password")

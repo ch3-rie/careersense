@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { EyeIcon, GiftIcon, PencilIcon, PlusIcon, TrashIcon } from "../../components/icons";
+import { AlertTriangleIcon, CheckCircleIcon, ClockIcon, EyeIcon, GiftIcon, PencilIcon, PlusIcon, SearchIcon, TrashIcon } from "../../components/icons";
 import { PortalShell } from "../../components/Layout";
 import { RowActions } from "../../components/RowActions";
 import { DateField } from "../../components/DateField";
 import { FileDrop } from "../../components/FileDrop";
-import { Alert, Badge, Dialog, Empty, Field, LoadError, PageHeader, PageSkeleton } from "../../components/ui";
+import { Alert, Badge, Dialog, Empty, Field, LoadError, PageSkeleton } from "../../components/ui";
 import { api } from "../../lib/api";
 import { safeHttpUrl } from "../../lib/safeUrl";
 import { formatDate } from "../../lib/format";
-import { filterAdminPerks } from "../../lib/perkFilters";
+import { filterAdminPerks, perkIsExpired } from "../../lib/perkFilters";
 import { PHOTO_ACCEPT, imageFileError } from "../../lib/profilePhoto";
 
 const EMPTY = {
@@ -27,9 +27,25 @@ const EMPTY = {
   active: true,
 };
 
-function tone(status) {
-  if (status === "Active") return "active";
-  return "unknown";
+function currentStatus(row) {
+  if (perkIsExpired(row)) return { label: "Expired", tone: "expired" };
+  if (row?.status === "Active") return { label: "Active", tone: "active" };
+  return { label: row?.status || "Inactive", tone: "unknown" };
+}
+
+function websiteProblem(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    const url = new URL(withScheme);
+    if (!["http:", "https:"].includes(url.protocol) || !url.hostname || url.username || url.password) {
+      return "Website must be an http or https URL.";
+    }
+  } catch {
+    return "Website must be an http or https URL.";
+  }
+  return "";
 }
 
 function CellText({ value, lines = 2 }) {
@@ -42,11 +58,16 @@ function CellText({ value, lines = 2 }) {
   );
 }
 
+function openEnded(row) {
+  return Boolean(row?.valid_until_further_notice) || !row?.valid_to;
+}
+
 function validityLabel(row) {
+  if (openEnded(row)) {
+    return row.valid_from ? `From ${formatDate(row.valid_from)} · Until Further Notice` : "Until Further Notice";
+  }
   if (row.valid_from && row.valid_to) return `${formatDate(row.valid_from)} – ${formatDate(row.valid_to)}`;
-  if (row.valid_to) return `Until ${formatDate(row.valid_to)}`;
-  if (row.valid_from) return `From ${formatDate(row.valid_from)}`;
-  return "";
+  return `Until ${formatDate(row.valid_to)}`;
 }
 
 function DetailRow({ label, children }) {
@@ -97,6 +118,10 @@ export default function AdminPerks() {
   const [viewItem, setViewItem] = useState(null);
   const [removeTarget, setRemoveTarget] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [validityMode, setValidityMode] = useState("until_further_notice");
+  const [validTo, setValidTo] = useState("");
+  const [perkErrors, setPerkErrors] = useState({});
+  const [logoPreview, setLogoPreview] = useState("");
 
   async function load() {
     setError("");
@@ -109,6 +134,17 @@ export default function AdminPerks() {
 
   useEffect(() => { load(); }, []);
   useEffect(() => {
+    if (!editor) return;
+    const until = editor.id ? openEnded(editor) : true;
+    setValidityMode(until ? "until_further_notice" : "end_date");
+    setValidTo(until ? "" : editor.valid_to || "");
+    setPerkErrors({});
+    setLogoPreview((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return "";
+    });
+  }, [editor]);
+  useEffect(() => {
     if (!ok) return undefined;
     const timer = window.setTimeout(() => setOk(""), 4500);
     return () => window.clearTimeout(timer);
@@ -118,6 +154,15 @@ export default function AdminPerks() {
     () => filterAdminPerks(data?.items, { query, category, status, expiry }),
     [data, query, category, status, expiry]
   );
+  const stats = useMemo(() => {
+    const rows = data?.items || [];
+    return {
+      total: rows.length,
+      active: rows.filter((row) => row.status === "Active" && !perkIsExpired(row)).length,
+      expired: rows.filter((row) => perkIsExpired(row)).length,
+      expiring: rows.filter((row) => row.expiring_soon && !perkIsExpired(row)).length,
+    };
+  }, [data]);
 
   async function savePerk(event) {
     event.preventDefault();
@@ -133,14 +178,28 @@ export default function AdminPerks() {
       contact: form.get("contact"),
       website: form.get("website"),
       valid_from: form.get("valid_from") || null,
-      valid_to: form.get("valid_to") || null,
+      valid_to: validityMode === "until_further_notice" ? null : (validTo || null),
+      valid_until_further_notice: validityMode === "until_further_notice",
       requires_active_card: form.get("requires_active_card") === "on",
       active: form.get("status") === "Active",
     };
-    if (!payload.name?.trim() || !payload.discount?.trim()) {
-      setError("Perk name and offer are required.");
-      return;
+    const problems = {};
+    const name = String(payload.name || "").trim();
+    const offer = String(payload.discount || "").trim();
+    if (name.length < 2) problems.name = "Enter a perk name of at least 2 characters.";
+    else if (name.length > 160) problems.name = "Perk name must be 160 characters or fewer.";
+    if (!offer) problems.discount = "Enter the discount or offer.";
+    else if (offer.length > 80) problems.discount = "Offer must be 80 characters or fewer.";
+    if (validityMode === "end_date" && !payload.valid_to) {
+      problems.valid_to = "Enter a validity end date or choose Until Further Notice.";
     }
+    if (payload.valid_from && payload.valid_to && payload.valid_to < payload.valid_from) {
+      problems.valid_to = "The end date must be on or after the start date.";
+    }
+    const website = websiteProblem(payload.website);
+    if (website) problems.website = website;
+    setPerkErrors(problems);
+    if (Object.keys(problems).length) return;
     setBusy(true);
     setError("");
     try {
@@ -189,29 +248,71 @@ export default function AdminPerks() {
 
   return (
     <PortalShell role="Admin">
-      <div className="admin-perks">
-        <PageHeader
-          actions={
-            <button className="btn btn-navy" type="button" onClick={() => setEditor({ ...EMPTY })}>
-              <PlusIcon size={16} />
-              Add Perk
+      <div className="admin-perks setup-page">
+        <section className="card panel perks-intro" aria-label="Perks">
+          <header className="panel-head">
+            <div>
+              <h2>Perks</h2>
+              <p className="lead">Manage the alumni benefit catalog.</p>
+            </div>
+            <div className="panel-actions">
+              <button className="btn btn-navy" type="button" onClick={() => setEditor({ ...EMPTY })}>
+                <PlusIcon size={16} />
+                Add Perk
+              </button>
+            </div>
+          </header>
+          <div className="perk-stats" role="group" aria-label="Perk catalog summary">
+            <button type="button" className={`perk-stat${!status && !expiry ? " is-current" : ""}`} aria-pressed={!status && !expiry} onClick={() => { setStatus(""); setExpiry(""); }}>
+              <span className="perk-stat-icon" aria-hidden="true"><GiftIcon size={18} /></span>
+              <span className="perk-stat-copy">
+                <span>Total Perks</span>
+                <small>In the catalog</small>
+              </span>
+              <strong>{stats.total}</strong>
             </button>
-          }
-        />
+            <button type="button" className={`perk-stat${status === "active" && !expiry ? " is-current" : ""}`} aria-pressed={status === "active" && !expiry} onClick={() => { setExpiry(""); setStatus((current) => current === "active" && !expiry ? "" : "active"); }}>
+              <span className="perk-stat-icon" aria-hidden="true"><CheckCircleIcon size={18} /></span>
+              <span className="perk-stat-copy">
+                <span>Active</span>
+                <small>Available now</small>
+              </span>
+              <strong>{stats.active}</strong>
+            </button>
+            <button type="button" className={`perk-stat${expiry === "expired" && !status ? " is-current" : ""}`} aria-pressed={expiry === "expired" && !status} onClick={() => { if (expiry === "expired" && !status) setExpiry(""); else { setStatus(""); setExpiry("expired"); } }}>
+              <span className="perk-stat-icon" aria-hidden="true"><AlertTriangleIcon size={18} /></span>
+              <span className="perk-stat-copy">
+                <span>Expired</span>
+                <small>Ended</small>
+              </span>
+              <strong>{stats.expired}</strong>
+            </button>
+            <button type="button" className={`perk-stat is-soon${expiry === "expiring" && !status ? " is-current" : ""}`} aria-pressed={expiry === "expiring" && !status} onClick={() => { if (expiry === "expiring" && !status) setExpiry(""); else { setStatus(""); setExpiry("expiring"); } }}>
+              <span className="perk-stat-icon" aria-hidden="true"><ClockIcon size={18} /></span>
+              <span className="perk-stat-copy">
+                <span>Expiring Soon</span>
+                <small>Within 30 days</small>
+              </span>
+              <strong>{stats.expiring}</strong>
+            </button>
+          </div>
+        </section>
         <Alert type="error">{error && data ? error : null}</Alert>
         <Alert type="ok">{ok}</Alert>
         {error && !data ? <LoadError onRetry={load}>{error}</LoadError> : null}
 
-        <div className="perk-stats admin-perk-stats">
-          <span className="perk-stat">Total perks: {data?.total ?? 0}</span>
-          <span className="perk-stat">Active: {data?.active ?? 0}</span>
-          <span className="perk-stat">Inactive: {data?.inactive ?? 0}</span>
-          <span className="perk-stat">Expiring soon: {data?.expiring_soon ?? 0}</span>
-        </div>
-
+        <section className="card panel admin-perk-panel">
         <div className="filter-bar admin-perk-filters">
           <Field label="Search">
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, partner, or offer" />
+            <div className="search-field">
+              <SearchIcon size={16} />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search name, partner, or offer"
+                aria-label="Search by perk name, partner, or offer"
+              />
+            </div>
           </Field>
           <Field label="Category">
             <select value={category} onChange={(e) => setCategory(e.target.value)}>
@@ -234,13 +335,25 @@ export default function AdminPerks() {
             </select>
           </Field>
         </div>
-
-        <section className="card panel admin-perk-panel">
-          {!items.length ? (
-            <Empty title="No perks match" icon={<GiftIcon size={22} />}>Add a perk or adjust the filters.</Empty>
+          {!data?.items?.length ? (
+            <Empty
+              title="No perks yet"
+              icon={<GiftIcon size={22} />}
+              action={<button className="btn btn-navy" type="button" onClick={() => setEditor({ ...EMPTY })}>Add Perk</button>}
+            >
+              Add a perk to publish it in the alumni benefit list.
+            </Empty>
+          ) : !items.length ? (
+            <Empty
+              title="No perks match these filters"
+              icon={<GiftIcon size={22} />}
+              action={<button className="btn btn-outline" type="button" onClick={() => { setQuery(""); setCategory(""); setStatus(""); setExpiry(""); }}>Clear filters</button>}
+            >
+              Adjust the search, category, status, or expiration, or clear the filters.
+            </Empty>
           ) : (
             <div className="table-wrap admin-perk-table">
-              <table className="data">
+              <table className="data stack">
                 <colgroup>
                   <col className="perk-col-partner" />
                   <col className="perk-col-offer" />
@@ -260,24 +373,29 @@ export default function AdminPerks() {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((row) => (
-                    <tr key={row.id} className="admin-perk-row" onClick={() => setViewItem(row)}>
-                      <td>
+                  {items.map((row) => {
+                    const statusView = currentStatus(row);
+                    return (
+                    <tr key={row.id} className={`admin-perk-row${row.expiring_soon ? " is-soon" : ""}`} onClick={() => setViewItem(row)}>
+                      <td data-label="Partner">
                         <CellText value={row.partner || row.name} lines={3} />
                       </td>
-                      <td>
+                      <td data-label="Offer">
                         <CellText value={row.discount || row.name} lines={3} />
                       </td>
-                      <td>
+                      <td data-label="Category">
                         <CellText value={row.category} lines={2} />
                       </td>
-                      <td>
-                        <CellText value={row.valid_to ? formatDate(row.valid_to) : ""} lines={2} />
+                      <td data-label="Valid Until">
+                        <CellText value={openEnded(row) ? "Until Further Notice" : formatDate(row.valid_to)} lines={2} />
                       </td>
-                      <td className="cell-status">
-                        <Badge tone={tone(row.status)}>{row.status}</Badge>
+                      <td className="cell-status" data-label="Status">
+                        <div className="perk-status-stack">
+                          <Badge tone={statusView.tone}>{statusView.label}</Badge>
+                          {row.expiring_soon && !perkIsExpired(row) ? <Badge tone="pending">Expiring soon</Badge> : null}
+                        </div>
                       </td>
-                      <td className="cell-actions">
+                      <td className="cell-actions" data-label="Actions" onClick={(event) => event.stopPropagation()}>
                         <PerkActions
                           row={row}
                           onView={setViewItem}
@@ -287,7 +405,8 @@ export default function AdminPerks() {
                         />
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -298,62 +417,102 @@ export default function AdminPerks() {
       {editor ? (
         <Dialog title={editor.id ? "Edit perk" : "Add perk"} hideActions wide onClose={() => setEditor(null)}>
           <form onSubmit={savePerk} className="settings-form admin-perks-form">
-            <div className="inline-fields">
-              <Field label="Perk/Discount Name" required>
-                <input name="name" defaultValue={editor.name || ""} required />
+            <fieldset className="setup-group">
+              <legend>Basic Information</legend>
+              <div className="inline-fields">
+                <Field label="Perk/Discount Name" required error={perkErrors.name}>
+                  <input name="name" defaultValue={editor.name || ""} maxLength={160} required />
+                </Field>
+                <Field label="Discount/Offer" required error={perkErrors.discount}>
+                  <textarea name="discount" defaultValue={editor.discount || ""} required rows={2} maxLength={80} />
+                </Field>
+              </div>
+              <div className="inline-fields">
+                <Field label="Partner Name">
+                  <input name="partner" defaultValue={editor.partner || ""} maxLength={160} />
+                </Field>
+                <Field label="Category" hint="Campus, Dining, Events, and Career are common. Other categories already in use can be kept.">
+                  <input name="category" defaultValue={editor.category || ""} list="perk-category-suggestions" maxLength={80} />
+                </Field>
+              </div>
+              <datalist id="perk-category-suggestions">
+                {[...new Set(["Campus", "Dining", "Events", "Career", ...(data?.categories || [])])].map((item) => (
+                  <option key={item} value={item} />
+                ))}
+              </datalist>
+              <Field label="Description">
+                <textarea name="description" defaultValue={editor.description || ""} rows={4} />
               </Field>
-              <Field label="Partner Name">
-                <input name="partner" defaultValue={editor.partner || ""} />
+            </fieldset>
+            <fieldset className="setup-group">
+              <legend>Eligibility and Terms</legend>
+              <Field label="Eligibility">
+                <textarea name="eligibility" defaultValue={editor.eligibility || ""} rows={4} />
               </Field>
-            </div>
-            <div className="inline-fields">
-              <Field label="Category">
-                <input name="category" defaultValue={editor.category || ""} placeholder="Campus, Dining, Events, Career" />
+              <Field label="Terms and Conditions">
+                <textarea name="how_to_claim" defaultValue={editor.how_to_claim || ""} rows={5} />
               </Field>
-              <Field label="Discount/Offer" required>
-                <textarea name="discount" defaultValue={editor.discount || ""} required rows={2} />
+              <label className="check">
+                <input type="checkbox" name="requires_active_card" defaultChecked={Boolean(editor.requires_active_card)} />
+                Requires an Angelenean Alumni Card
+              </label>
+            </fieldset>
+            <fieldset className="setup-group">
+              <legend>Validity and Status</legend>
+              <div className="inline-fields">
+                <label className="check">
+                  <input type="radio" name="validity_mode" checked={validityMode === "end_date"} onChange={() => setValidityMode("end_date")} />
+                  Specific end date
+                </label>
+                <label className="check">
+                  <input type="radio" name="validity_mode" checked={validityMode === "until_further_notice"} onChange={() => setValidityMode("until_further_notice")} />
+                  Until Further Notice
+                </label>
+              </div>
+              <div className="inline-fields">
+                <Field label="Valid From"><DateField name="valid_from" defaultValue={editor.valid_from || ""} /></Field>
+                {validityMode === "end_date" ? (
+                  <Field label="Valid Until" required error={perkErrors.valid_to}>
+                    <DateField name="valid_to" value={validTo} onChange={(event) => setValidTo(event.target.value)} />
+                  </Field>
+                ) : null}
+              </div>
+              <Field label="Status">
+                <select name="status" defaultValue={editor.active === false ? "Inactive" : "Active"}>
+                  <option>Active</option>
+                  <option>Inactive</option>
+                </select>
               </Field>
-            </div>
-            <Field label="Description">
-              <textarea name="description" defaultValue={editor.description || ""} rows={4} />
-            </Field>
-            <Field label="Eligibility">
-              <textarea name="eligibility" defaultValue={editor.eligibility || ""} rows={4} />
-            </Field>
-            <Field label="Terms and Conditions">
-              <textarea name="how_to_claim" defaultValue={editor.how_to_claim || ""} rows={5} />
-            </Field>
-            <div className="inline-fields">
-              <Field label="Valid From"><DateField name="valid_from" defaultValue={editor.valid_from || ""} /></Field>
-              <Field label="Valid Until"><DateField name="valid_to" defaultValue={editor.valid_to || ""} /></Field>
-            </div>
-            <div className="inline-fields">
-              <Field label="Contact Information"><input name="contact" defaultValue={editor.contact || ""} /></Field>
-              <Field label="Website"><input name="website" defaultValue={editor.website || ""} placeholder="https://" /></Field>
-            </div>
-            <FileDrop
-              key={editor.id || "new"}
-              name="image"
-              accept={PHOTO_ACCEPT}
-              validate={imageFileError}
-              disabled={busy}
-              compact
-              currentName={editor.has_image ? "Current image" : ""}
-              label="Image or logo"
-              formats="JPG, PNG, or WebP"
-              maxSize="Maximum 5 MB"
-              description={editor.has_image ? "Optional. Choose a new image only if you want to replace the current one." : "Optional. Add a logo if you have one."}
-            />
-            <label className="check">
-              <input type="checkbox" name="requires_active_card" defaultChecked={Boolean(editor.requires_active_card)} />
-              Requires an Angelenean Alumni Card
-            </label>
-            <Field label="Status">
-              <select name="status" defaultValue={editor.active === false ? "Inactive" : "Active"}>
-                <option>Active</option>
-                <option>Inactive</option>
-              </select>
-            </Field>
+            </fieldset>
+            <fieldset className="setup-group">
+              <legend>Contact and Branding</legend>
+              <div className="inline-fields">
+                <Field label="Contact Information"><input name="contact" defaultValue={editor.contact || ""} maxLength={255} /></Field>
+                <Field label="Website" error={perkErrors.website}><input name="website" defaultValue={editor.website || ""} placeholder="https://" maxLength={500} /></Field>
+              </div>
+              {(logoPreview || editor.image_url) ? (
+                <img className="perk-logo-preview" src={logoPreview || editor.image_url} alt="Perk logo preview" />
+              ) : null}
+              <FileDrop
+                key={editor.id || "new"}
+                name="image"
+                accept={PHOTO_ACCEPT}
+                validate={imageFileError}
+                disabled={busy}
+                compact
+                currentName={editor.has_image ? "Current image" : ""}
+                label="Image or Logo"
+                formats="JPG, PNG, or WebP"
+                maxSize="Maximum 5 MB"
+                description={editor.has_image ? "Optional. A new image replaces the current one." : "Optional. Add a logo if you have one."}
+                onChange={(file) => {
+                  setLogoPreview((current) => {
+                    if (current) URL.revokeObjectURL(current);
+                    return file ? URL.createObjectURL(file) : "";
+                  });
+                }}
+              />
+            </fieldset>
             <div className="dialog-actions">
               <button type="button" className="btn btn-outline" onClick={() => setEditor(null)}>Cancel</button>
               <button className="btn btn-navy" disabled={busy}>{busy ? "Saving..." : editor.id ? "Save perk" : "Add perk"}</button>
@@ -381,7 +540,12 @@ export default function AdminPerks() {
                 ) : "—"}
               </DetailRow>
               <DetailRow label="Alumni card">{viewItem.requires_active_card ? "Required" : "Not required"}</DetailRow>
-              <DetailRow label="Status"><Badge tone={tone(viewItem.status)}>{viewItem.status}</Badge></DetailRow>
+              <DetailRow label="Status">
+                <div className="perk-status-stack">
+                  <Badge tone={currentStatus(viewItem).tone}>{currentStatus(viewItem).label}</Badge>
+                  {viewItem.expiring_soon && !perkIsExpired(viewItem) ? <Badge tone="pending">Expiring soon</Badge> : null}
+                </div>
+              </DetailRow>
             </dl>
           </div>
         </Dialog>
@@ -390,13 +554,13 @@ export default function AdminPerks() {
       {removeTarget ? (
         <Dialog
           title="Delete this perk?"
-          description={`Are you sure you want to delete “${removeTarget.name || removeTarget.partner || "this perk"}”?`}
+          description={`Delete “${removeTarget.name || removeTarget.partner || "this perk"}”?`}
           confirmLabel="Delete perk"
           danger
           onConfirm={remove}
           onClose={() => setRemoveTarget(null)}
         >
-          <p>It will no longer appear in the alumni Perks & Discounts list. This cannot be undone.</p>
+          <p>Deleting this perk removes it from the alumni-facing list and clears its claim records. This cannot be undone.</p>
         </Dialog>
       ) : null}
     </PortalShell>

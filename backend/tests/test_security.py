@@ -11,6 +11,17 @@ from app.services.validation import sanitize_alumni_path, sanitize_http_url
 from tests.conftest import auth_header, login
 
 
+def test_current_password_must_be_confirmed_before_change(client):
+    signed = login(client, "admin@auf.edu.ph", "Admin@AUF2026")
+    headers = auth_header(signed["access_token"])
+    wrong = client.post("/api/auth/verify-current-password", headers=headers, json={"current_password": "not-the-password"})
+    assert wrong.status_code == 400
+    assert wrong.json()["detail"] == "Current password is incorrect."
+    confirmed = client.post("/api/auth/verify-current-password", headers=headers, json={"current_password": "Admin@AUF2026"})
+    assert confirmed.status_code == 200
+    assert confirmed.json()["ok"] is True
+
+
 def test_security_headers_present(client):
     response = client.get("/api/health")
     assert response.status_code == 200
@@ -93,6 +104,7 @@ def test_javascript_perk_website_rejected(client):
             "name": "QA Unsafe Website Perk",
             "discount": "5%",
             "website": "javascript:alert(1)",
+            "valid_until_further_notice": True,
             "active": True,
         },
     )

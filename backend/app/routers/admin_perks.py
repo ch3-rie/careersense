@@ -12,7 +12,14 @@ from app.services.files import resolve_stored_file, save_perk_image, unlink_cont
 from app.services.validation import sanitize_http_url
 
 
-def perk_is_expired(valid_to: date | None, today: date | None = None) -> bool:
+def perk_is_expired(
+    valid_to: date | None,
+    today: date | None = None,
+    *,
+    until_further_notice: bool = False,
+) -> bool:
+    if until_further_notice:
+        return False
     if valid_to is None:
         return False
     today = today or date.today()
@@ -27,7 +34,13 @@ def _log(db: Session, admin_id: int, action: str, target_id, old=None, new=None)
 
 def serialize_admin_perk(perk: AlumniPerk) -> dict:
     today = date.today()
-    expiring = bool(perk.active and perk.valid_to and today <= perk.valid_to <= today + timedelta(days=30))
+    open_ended = bool(perk.valid_until_further_notice)
+    expiring = bool(
+        perk.active
+        and not open_ended
+        and perk.valid_to
+        and today <= perk.valid_to <= today + timedelta(days=30)
+    )
     return {
         "id": perk.id,
         "name": perk.name,
@@ -40,11 +53,12 @@ def serialize_admin_perk(perk: AlumniPerk) -> dict:
         "contact": perk.contact or "",
         "website": sanitize_http_url(perk.website or ""),
         "valid_from": perk.valid_from.isoformat() if perk.valid_from else None,
-        "valid_to": perk.valid_to.isoformat() if perk.valid_to else None,
+        "valid_to": None if open_ended or not perk.valid_to else perk.valid_to.isoformat(),
+        "valid_until_further_notice": open_ended,
         "requires_active_card": bool(perk.requires_active_card),
         "active": bool(perk.active),
         "status": "Active" if perk.active else "Inactive",
-        "expired": perk_is_expired(perk.valid_to, today),
+        "expired": perk_is_expired(perk.valid_to, today, until_further_notice=open_ended),
         "expiring_soon": expiring,
         "has_image": bool(perk.image_path),
         "image_url": f"/api/admin/perks/{perk.id}/image" if perk.image_path else None,
@@ -62,7 +76,19 @@ def _apply(perk: AlumniPerk, payload: PerkIn) -> None:
     perk.contact = (payload.contact or "").strip()
     perk.website = sanitize_http_url(payload.website or "", strict=True)
     perk.valid_from = payload.valid_from
-    perk.valid_to = payload.valid_to
+    if payload.valid_until_further_notice:
+        perk.valid_until_further_notice = True
+        perk.valid_to = None
+    else:
+        if payload.valid_to is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Enter a validity end date or choose Until Further Notice.",
+            )
+        if payload.valid_from and payload.valid_to < payload.valid_from:
+            raise HTTPException(status_code=400, detail="The end date must be on or after the start date.")
+        perk.valid_until_further_notice = False
+        perk.valid_to = payload.valid_to
     perk.requires_active_card = payload.requires_active_card
     perk.active = payload.active
 

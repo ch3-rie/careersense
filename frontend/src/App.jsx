@@ -5,8 +5,10 @@ import AdminAccount from "./pages/admin/Account";
 import AdminApprovalReview from "./pages/admin/ApprovalReview";
 import AdminApprovals from "./pages/admin/Approvals";
 import AdminDashboard from "./pages/admin/Dashboard";
+import AdminDirectory from "./pages/admin/Directory";
 import AdminRecordDetail from "./pages/admin/RecordDetail";
 import AdminRecords from "./pages/admin/Records";
+import AdminAcademics from "./pages/admin/Academics";
 import AdminRegistry from "./pages/admin/Registry";
 import AdminReports from "./pages/admin/Reports";
 import AdminSoc from "./pages/admin/Soc";
@@ -16,7 +18,9 @@ import {
   AdminSurveySectionDetail,
   AdminSurveyVersionDetail,
 } from "./pages/admin/SurveyDetail";
+import AdminPartnerActivity from "./pages/admin/PartnerActivity";
 import AdminPerks from "./pages/admin/Perks";
+import AdminBadges from "./pages/admin/Badges";
 import AdminCards from "./pages/admin/Cards";
 import AdminProfileUpdates from "./pages/admin/ProfileUpdates";
 import AdminUsers from "./pages/admin/Users";
@@ -34,10 +38,11 @@ import PendingPage from "./pages/public/Pending";
 import RegisterPage from "./pages/public/Register";
 import RejectedPage from "./pages/public/Rejected";
 import { justRegistered } from "./lib/registerSession";
+import { adminHome, isAddUsersOnly, isFullAdmin } from "./lib/adminAccess";
 
 function homeFor(user) {
   if (!user) return "/login";
-  if (user.role === "Admin") return "/admin";
+  if (user.role === "Admin") return adminHome(user);
   if (user.status === "Pending") return "/pending";
   if (user.status === "Rejected") return "/rejected";
   return "/alumni";
@@ -54,6 +59,10 @@ function Guard({ role, allowStatus, children }) {
   }
   if (user.role === "Admin" && user.must_change_password && location.pathname !== "/admin/account") {
     return <Navigate to="/admin/account" replace />;
+  }
+  if (user.role === "Admin" && !isFullAdmin(user)) {
+    const allowed = isAddUsersOnly(user) ? ["/admin/users", "/admin/account"] : ["/admin/account"];
+    if (!allowed.includes(location.pathname)) return <Navigate to={allowed[0]} replace />;
   }
   return children;
 }
@@ -99,6 +108,7 @@ export default function App() {
       <Route path="/alumni/profile" element={<Navigate to="/alumni" replace />} />
 
       <Route path="/admin" element={<Guard role="Admin"><AdminDashboard /></Guard>} />
+      <Route path="/admin/directory" element={<Guard role="Admin"><AdminDirectory /></Guard>} />
       <Route path="/admin/approvals" element={<Guard role="Admin"><AdminApprovals /></Guard>} />
       <Route path="/admin/approvals/:id" element={<Guard role="Admin"><AdminApprovalReview /></Guard>} />
       <Route path="/admin/records" element={<Guard role="Admin"><AdminRecords /></Guard>} />
@@ -109,9 +119,12 @@ export default function App() {
       <Route path="/admin/survey/sections/:sectionId" element={<Guard role="Admin"><AdminSurveySectionDetail /></Guard>} />
       <Route path="/admin/survey/versions/:versionNumber" element={<Guard role="Admin"><AdminSurveyVersionDetail /></Guard>} />
       <Route path="/admin/perks" element={<Guard role="Admin"><AdminPerks /></Guard>} />
+      <Route path="/admin/partner-activity" element={<Guard role="Admin"><AdminPartnerActivity /></Guard>} />
+      <Route path="/admin/badges" element={<Guard role="Admin"><AdminBadges /></Guard>} />
       <Route path="/admin/cards" element={<Guard role="Admin"><AdminCards /></Guard>} />
       <Route path="/admin/soc" element={<Guard role="Admin"><AdminSoc /></Guard>} />
       <Route path="/admin/registry" element={<Guard role="Admin"><AdminRegistry /></Guard>} />
+      <Route path="/admin/academics" element={<Guard role="Admin"><AdminAcademics /></Guard>} />
       <Route path="/admin/reports" element={<Guard role="Admin"><AdminReports /></Guard>} />
       <Route path="/admin/users" element={<Guard role="Admin"><AdminUsers /></Guard>} />
       <Route path="/admin/account" element={<Guard role="Admin"><AdminAccount /></Guard>} />

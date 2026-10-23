@@ -105,9 +105,35 @@ def require_active_alumni(user: Account = Depends(require_alumni)) -> Account:
     return user
 
 
-def require_admin(user: Account = Depends(get_current_user)) -> Account:
+ADD_USERS_PRIVILEGE = "add_users"
+
+
+def privilege_codes(user: Account) -> set[str] | None:
+    """None means an unrestricted administrator. Existing accounts keep that access."""
+    raw = getattr(user, "admin_privileges", None)
+    if raw is None or not str(raw).strip():
+        return None
+    return {part.strip() for part in str(raw).split(",") if part.strip()}
+
+
+def _require_admin_account(user: Account) -> Account:
     if user.role != "Admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Administrator access required.")
     if user.status != "Active":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This administrator account is inactive.")
     return user
+
+
+def require_admin(user: Account = Depends(get_current_user)) -> Account:
+    user = _require_admin_account(user)
+    if privilege_codes(user) is not None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account can only add users.")
+    return user
+
+
+def require_add_users(user: Account = Depends(get_current_user)) -> Account:
+    user = _require_admin_account(user)
+    codes = privilege_codes(user)
+    if codes is None or ADD_USERS_PRIVILEGE in codes:
+        return user
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to add users.")

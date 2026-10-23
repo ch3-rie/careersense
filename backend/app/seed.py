@@ -276,6 +276,348 @@ def _ensure_aac_slots(db: Session) -> None:
         cursor += timedelta(days=1)
 
 
+def _renewal_moment(year: int, month: int, day: int, hour: int = 9) -> datetime:
+    return datetime(year, month, day, hour, 0, tzinfo=timezone.utc)
+
+
+# Renewal-page samples. Batch 2027 and later stay visible in the status queues.
+# A claim on or before October 22, 2022 is already due, so those cards show as For Renewal.
+DEMO_CARD_RENEWALS = [
+    {
+        "student_id": "2021-0088",
+        "email": "carlos.mendoza@gmail.com",
+        "first_name": "Carlos",
+        "middle_name": "Villanueva",
+        "last_name": "Mendoza",
+        "degree": "Bachelor of Science in Computer Science",
+        "year_graduated": "2024",
+        "course_code": "BSCS",
+        "college": "College of Computer Studies",
+        "status": "ForVerification",
+        "submitted_at": _renewal_moment(2026, 10, 18),
+    },
+    {
+        "student_id": "2022-0112",
+        "email": "paolo.navarro@gmail.com",
+        "first_name": "Paolo",
+        "middle_name": "Diaz",
+        "last_name": "Navarro",
+        "degree": "Bachelor of Science in Civil Engineering",
+        "year_graduated": "2024",
+        "course_code": "BSCE",
+        "college": "College of Engineering and Architecture",
+        "status": "Approved",
+        "submitted_at": _renewal_moment(2026, 10, 8),
+        "card_number": "",
+    },
+    {
+        "student_id": "2017-0201",
+        "email": "sofia.lim@gmail.com",
+        "first_name": "Sofia",
+        "middle_name": "Ramos",
+        "last_name": "Lim",
+        "degree": "Bachelor of Elementary Education",
+        "year_graduated": "2019",
+        "course_code": "BEED",
+        "college": "College of Education",
+        "status": "ReadyForPickup",
+        "submitted_at": _renewal_moment(2026, 10, 2),
+        "pickup_ready_at": _renewal_moment(2026, 10, 20, 14),
+        "card_number": "AUF-2026-0201",
+    },
+    {
+        "student_id": "2020-0455",
+        "email": "miguel.santos@gmail.com",
+        "first_name": "Miguel",
+        "middle_name": "Bautista",
+        "last_name": "Santos",
+        "degree": "Bachelor of Science in Business Administration",
+        "year_graduated": "2022",
+        "course_code": "BSBA",
+        "college": "College of Business and Accountancy",
+        "status": "Claimed",
+        "submitted_at": _renewal_moment(2022, 6, 3),
+        "pickup_ready_at": _renewal_moment(2022, 6, 15, 10),
+        "issued_at": _renewal_moment(2022, 6, 20, 11),
+        "expires_at": date(2026, 6, 20),
+        "card_number": "AUF-2022-0455",
+    },
+    {
+        "student_id": "2027-0142",
+        "email": "elena.villanueva@gmail.com",
+        "first_name": "Elena",
+        "middle_name": "Reyes",
+        "last_name": "Villanueva",
+        "degree": "Bachelor of Science in Nursing",
+        "year_graduated": "2027",
+        "course_code": "BSN",
+        "college": "College of Nursing",
+        "status": "ForVerification",
+        "submitted_at": _renewal_moment(2026, 10, 21),
+        "create_record": True,
+    },
+    {
+        "student_id": "2016-0088",
+        "email": "rafael.gutierrez@gmail.com",
+        "first_name": "Rafael",
+        "middle_name": "Santos",
+        "last_name": "Gutierrez",
+        "degree": "Bachelor of Science in Accountancy",
+        "year_graduated": "2016",
+        "course_code": "BSA",
+        "college": "College of Business and Accountancy",
+        "status": "ForRenewal",
+        "submitted_at": _renewal_moment(2022, 1, 10),
+        "pickup_ready_at": _renewal_moment(2022, 2, 1, 10),
+        "issued_at": _renewal_moment(2022, 2, 8, 11),
+        "expires_at": date(2026, 2, 8),
+        "card_number": "AUF-2022-0088",
+        "create_record": True,
+    },
+    {
+        "student_id": "2027-2101",
+        "email": "andrea.santos@gmail.com",
+        "first_name": "Andrea",
+        "middle_name": "Cruz",
+        "last_name": "Santos",
+        "degree": "Bachelor of Science in Nursing",
+        "year_graduated": "2027",
+        "course_code": "BSN",
+        "college": "College of Nursing",
+        "status": "Claimed",
+        "submitted_at": _renewal_moment(2026, 7, 20),
+        "pickup_ready_at": _renewal_moment(2026, 8, 4, 10),
+        "issued_at": _renewal_moment(2026, 8, 12, 11),
+        "card_number": "AUF-2026-2101",
+        "create_record": True,
+    },
+    {
+        "student_id": "2028-2102",
+        "email": "daniel.cruz@gmail.com",
+        "first_name": "Daniel",
+        "middle_name": "Reyes",
+        "last_name": "Cruz",
+        "degree": "Bachelor of Science in Information Technology",
+        "year_graduated": "2028",
+        "course_code": "BSIT",
+        "college": "College of Computer Studies",
+        "status": "Claimed",
+        "submitted_at": _renewal_moment(2026, 8, 11),
+        "pickup_ready_at": _renewal_moment(2026, 8, 26, 10),
+        "issued_at": _renewal_moment(2026, 9, 3, 11),
+        "card_number": "AUF-2026-2102",
+        "create_record": True,
+    },
+    {
+        "student_id": "2027-2103",
+        "email": "bianca.garcia@gmail.com",
+        "first_name": "Bianca",
+        "middle_name": "Flores",
+        "last_name": "Garcia",
+        "degree": "Bachelor of Science in Business Administration",
+        "year_graduated": "2027",
+        "course_code": "BSBA",
+        "college": "College of Business and Accountancy",
+        "status": "Claimed",
+        "submitted_at": _renewal_moment(2022, 5, 16),
+        "pickup_ready_at": _renewal_moment(2022, 5, 27, 10),
+        "issued_at": _renewal_moment(2022, 6, 1, 11),
+        "card_number": "AUF-2022-2103",
+        "create_record": True,
+    },
+    {
+        "student_id": "2028-2104",
+        "email": "marco.ramos@gmail.com",
+        "first_name": "Marco",
+        "middle_name": "Dela Cruz",
+        "last_name": "Ramos",
+        "degree": "Bachelor of Science in Accountancy",
+        "year_graduated": "2028",
+        "course_code": "BSA",
+        "college": "College of Business and Accountancy",
+        "status": "Claimed",
+        "submitted_at": _renewal_moment(2022, 2, 21),
+        "pickup_ready_at": _renewal_moment(2022, 3, 8, 10),
+        "issued_at": _renewal_moment(2022, 3, 18, 11),
+        "card_number": "AUF-2022-2104",
+        "create_record": True,
+    },
+    {
+        "student_id": "2027-2105",
+        "email": "isabella.lim@gmail.com",
+        "first_name": "Isabella",
+        "middle_name": "Gomez",
+        "last_name": "Lim",
+        "degree": "Bachelor of Science in Computer Science",
+        "year_graduated": "2027",
+        "course_code": "BSCS",
+        "college": "College of Computer Studies",
+        "status": "ForVerification",
+        "submitted_at": _renewal_moment(2026, 10, 12),
+        "create_record": True,
+    },
+    {
+        "student_id": "2029-2106",
+        "email": "gabriel.aquino@gmail.com",
+        "first_name": "Gabriel",
+        "middle_name": "Torres",
+        "last_name": "Aquino",
+        "degree": "Bachelor of Science in Nursing",
+        "year_graduated": "2029",
+        "course_code": "BSN",
+        "college": "College of Nursing",
+        "status": "ForVerification",
+        "submitted_at": _renewal_moment(2026, 10, 19),
+        "create_record": True,
+    },
+    {
+        "student_id": "2027-2107",
+        "email": "camille.vega@gmail.com",
+        "first_name": "Camille",
+        "middle_name": "Santos",
+        "last_name": "Vega",
+        "degree": "Bachelor of Science in Civil Engineering",
+        "year_graduated": "2027",
+        "course_code": "BSCE",
+        "college": "College of Engineering and Architecture",
+        "status": "Approved",
+        "submitted_at": _renewal_moment(2026, 10, 5),
+        "create_record": True,
+    },
+    {
+        "student_id": "2028-2108",
+        "email": "nathan.bautista@gmail.com",
+        "first_name": "Nathan",
+        "middle_name": "Cruz",
+        "last_name": "Bautista",
+        "degree": "Bachelor of Science in Information Technology",
+        "year_graduated": "2028",
+        "course_code": "BSIT",
+        "college": "College of Computer Studies",
+        "status": "Approved",
+        "submitted_at": _renewal_moment(2026, 9, 28),
+        "create_record": True,
+    },
+    {
+        "student_id": "2027-2109",
+        "email": "patricia.reyes@gmail.com",
+        "first_name": "Patricia",
+        "middle_name": "Lim",
+        "last_name": "Reyes",
+        "degree": "Bachelor of Elementary Education",
+        "year_graduated": "2027",
+        "course_code": "BEED",
+        "college": "College of Education",
+        "status": "ReadyForPickup",
+        "submitted_at": _renewal_moment(2026, 10, 1),
+        "pickup_ready_at": _renewal_moment(2026, 10, 16, 14),
+        "card_number": "AUF-2026-2109",
+        "create_record": True,
+    },
+    {
+        "student_id": "2029-2110",
+        "email": "joshua.mendoza@gmail.com",
+        "first_name": "Joshua",
+        "middle_name": "Garcia",
+        "last_name": "Mendoza",
+        "degree": "Bachelor of Science in Business Administration",
+        "year_graduated": "2029",
+        "course_code": "BSBA",
+        "college": "College of Business and Accountancy",
+        "status": "ReadyForPickup",
+        "submitted_at": _renewal_moment(2026, 10, 6),
+        "pickup_ready_at": _renewal_moment(2026, 10, 18, 15),
+        "card_number": "AUF-2026-2110",
+        "create_record": True,
+    },
+]
+
+
+def _ensure_demo_card_renewals(db: Session) -> None:
+    """Sample renewal requests for the admin Alumni Card page. Existing cards are not overwritten."""
+    office = "AUF Main Campus, MacArthur Highway, Angeles City"
+    for spec in DEMO_CARD_RENEWALS:
+        record = db.get(UniversityRecord, spec["student_id"])
+        if record is None:
+            if not spec.get("create_record"):
+                continue
+            record = UniversityRecord(
+                student_id=spec["student_id"],
+                first_name=spec["first_name"],
+                middle_name=spec["middle_name"],
+                last_name=spec["last_name"],
+                personal_email=spec["email"],
+                degree=spec["degree"],
+                year_graduated=spec["year_graduated"],
+                course_code=spec["course_code"],
+                college=spec["college"],
+            )
+            db.add(record)
+            db.flush()
+        account = db.query(Account).filter(Account.personal_email == spec["email"]).one_or_none()
+        if account is None:
+            account = db.query(Account).filter(Account.linked_student_id == spec["student_id"]).one_or_none()
+        if account is None:
+            account = Account(
+                personal_email=spec["email"],
+                password_hash=hash_password("Alumni@2026"),
+                linked_student_id=spec["student_id"],
+                role="Alumni",
+                status="Active",
+                is_verified=True,
+                privacy_consent=True,
+                first_name=spec["first_name"],
+                last_name=spec["last_name"],
+            )
+            db.add(account)
+            db.flush()
+        if not account.first_name:
+            account.first_name = record.first_name
+        if not account.last_name:
+            account.last_name = record.last_name
+        profile = account.profile
+        if profile is None:
+            profile = AlumniProfile(
+                account_id=account.id,
+                country_residence="Philippines",
+                city="Angeles City",
+            )
+            db.add(profile)
+        # Older local rows copied Maria's profile onto other graduates. Restore the graduate record once.
+        copied_identity = profile.first_name == "Maria" and profile.last_name == "Reyes" and record.last_name != "Reyes"
+        if copied_identity or not profile.first_name:
+            profile.first_name = record.first_name
+            profile.middle_name = record.middle_name or ""
+            profile.last_name = record.last_name
+            profile.degree = record.degree or spec["degree"]
+            profile.year_graduated = record.year_graduated or spec["year_graduated"]
+        if account.alumni_card is not None:
+            continue
+        db.add(
+            AlumniCard(
+                account_id=account.id,
+                status=spec["status"],
+                card_number=spec.get("card_number") or "",
+                issued_at=spec.get("issued_at"),
+                expires_at=spec.get("expires_at"),
+                submitted_at=spec.get("submitted_at"),
+                pickup_ready_at=spec.get("pickup_ready_at"),
+                pickup_location=office,
+                application_json={
+                    "membership_type": "Renewal",
+                    "student_number": spec["student_id"],
+                    "email": spec["email"],
+                    "first_name": spec["first_name"],
+                    "middle_name": spec["middle_name"],
+                    "last_name": spec["last_name"],
+                    "year_graduated": record.year_graduated or spec["year_graduated"],
+                    "college": record.college or spec["college"],
+                    "course": record.degree or spec["degree"],
+                },
+            )
+        )
+
+
 def _ensure_demo_cards_and_contact(db: Session) -> None:
     specs = {
         "maria.reyes@gmail.com": {
@@ -703,14 +1045,19 @@ def seed_if_empty(db: Session) -> None:
             )
         )
 
+    from app.services.academic_reference import apply_auf_reference
+    from app.services.badge_admin import ensure_system_badges
     from app.services.survey import ensure_gts_survey
 
     ensure_gts_survey(db)
+    apply_auf_reference(db)
+    ensure_system_badges(db)
 
     if seed_demo_people:
         _ensure_demo_job_timelines(db)
         _ensure_demo_perks(db)
         _ensure_demo_cards_and_contact(db)
+        _ensure_demo_card_renewals(db)
         _ensure_aac_slots(db)
         _backfill_demo_job_details(db)
         _ensure_demo_perk_redemption(db)

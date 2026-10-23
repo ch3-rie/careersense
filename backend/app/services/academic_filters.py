@@ -1,35 +1,88 @@
-"""College and course filters drawn from official university records."""
+"""College and course filters from the shared academic catalog."""
 
 from __future__ import annotations
 
 from sqlalchemy import func
 from sqlalchemy.orm import Query, Session
 
-from app.models import Account, AlumniProfile, TracerSubmission, UniversityRecord
+from app.models import Account, AcademicProgram, AlumniProfile, College, TracerSubmission, UniversityRecord
+
+
+class ProgramSelectionError(ValueError):
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.message = message
 
 
 def clean_academic(value: str | None) -> str:
     return str(value or "").strip()
 
 
+def ensure_academic_catalog(db: Session, *, commit: bool = False) -> None:
+    """Copy missing colleges and courses from graduate records, then add the AUF reference list."""
+    from app.services.academic_reference import apply_auf_reference
+
+    if apply_auf_reference(db) and commit:
+        db.commit()
+
+
+def academic_programs(db: Session) -> list[dict]:
+    """College, course, and the course code saved for that program."""
+    ensure_academic_catalog(db)
+    rows = (
+        db.query(AcademicProgram, College)
+        .join(College, AcademicProgram.college_id == College.id)
+        .all()
+    )
+    programs = [
+        {
+            "college": college.name,
+            "course": program.name,
+            "course_code": program.course_code or "",
+            "kind": program.kind or "",
+        }
+        for program, college in rows
+        if college.name and program.name
+    ]
+    programs.sort(key=lambda item: (item["college"].casefold(), item["course"].casefold()))
+    return programs
+
+
 def academic_catalog(db: Session) -> dict:
-    """Distinct colleges and courses from the graduate registry."""
-    rows = db.query(UniversityRecord.college, UniversityRecord.degree).all()
-    pairs = []
-    seen: set[tuple[str, str]] = set()
-    for college, degree in rows:
-        college_name = clean_academic(college)
-        course_name = clean_academic(degree)
-        if not college_name and not course_name:
-            continue
-        key = (college_name, course_name)
-        if key in seen:
-            continue
-        seen.add(key)
-        pairs.append({"college": college_name, "course": course_name})
-    colleges = sorted({item["college"] for item in pairs if item["college"]})
-    courses = sorted({item["course"] for item in pairs if item["course"]})
-    return {"colleges": colleges, "courses": courses, "pairs": pairs}
+    """Colleges and courses maintained for the whole system."""
+    programs = academic_programs(db)
+    pairs = [{"college": item["college"], "course": item["course"]} for item in programs]
+    colleges = [row.name for row in db.query(College).all() if clean_academic(row.name)]
+    known = {name.casefold() for name in colleges}
+    for item in programs:
+        if item["college"].casefold() not in known:
+            colleges.append(item["college"])
+            known.add(item["college"].casefold())
+    colleges.sort(key=str.casefold)
+    courses = sorted({item["course"] for item in pairs if item["course"]}, key=str.casefold)
+    return {"colleges": colleges, "courses": courses, "pairs": pairs, "programs": programs}
+
+
+def resolve_program_selection(db: Session, college: str, course: str, course_code: str = "") -> tuple[str, str, str]:
+    """Keep a manually chosen course inside its college and fill the stored course code."""
+    college_name = clean_academic(college)
+    course_name = clean_academic(course)
+    code = clean_academic(course_code)
+    if not course_name:
+        raise ProgramSelectionError("Course is required.")
+    if len(college_name) > 160:
+        raise ProgramSelectionError("College must be 160 characters or fewer.")
+    if len(course_name) > 200:
+        raise ProgramSelectionError("Course must be 200 characters or fewer.")
+    if len(code) > 40:
+        raise ProgramSelectionError("Course code must be 40 characters or fewer.")
+    matches = [item for item in academic_programs(db) if item["course"].casefold() == course_name.casefold()]
+    pair = next((item for item in matches if item["college"].casefold() == college_name.casefold()), None)
+    if matches and not pair:
+        raise ProgramSelectionError("The selected course does not belong to the selected college.")
+    if pair:
+        return pair["college"], pair["course"], pair["course_code"] or code
+    return college_name, course_name, code
 
 
 def apply_registry_academic_filters(query: Query, college: str = "", course: str = "") -> Query:

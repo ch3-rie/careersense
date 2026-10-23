@@ -24,6 +24,7 @@ from app.models import (
     TracerSubmission,
 )
 from app.schemas import CardApplicationIn, ProfileUpdateIn
+from app.services.card_renewal import MANILA
 from app.services.email.dispatch import send_notice
 from app.services.employment import apply_profile_unemployment, resolve_current_employment, unemployment_public
 from app.services.jobs import ensure_job_timeline
@@ -333,7 +334,7 @@ def _perk_status(perk: AlumniPerk, card_status: str, redeemed: AlumniPerkRedempt
     today = date.today()
     if redeemed:
         return "Used"
-    if perk.valid_to and perk.valid_to < today:
+    if not perk.valid_until_further_notice and perk.valid_to and perk.valid_to < today:
         return "Expired"
     if perk.requires_active_card and card_status not in ISSUED_STATUSES:
         return "Locked"
@@ -359,7 +360,8 @@ def serialize_perk(perk: AlumniPerk, card_status: str, redeemed: AlumniPerkRedem
         "has_image": bool(perk.image_path),
         "image_url": f"/api/alumni/perks/{perk.id}/image" if perk.image_path else None,
         "valid_from": perk.valid_from.isoformat() if perk.valid_from else None,
-        "valid_to": perk.valid_to.isoformat() if perk.valid_to else None,
+        "valid_to": None if perk.valid_until_further_notice or not perk.valid_to else perk.valid_to.isoformat(),
+        "valid_until_further_notice": bool(perk.valid_until_further_notice),
         "status": status,
         "code": redeemed.code if redeemed else "",
         "requires_card": bool(perk.requires_active_card),
@@ -428,16 +430,20 @@ def set_alumni_card_status(
     notify: bool = False,
     pickup_location: str = "",
     card_number: str = "",
+    claimed_on: date | None = None,
 ) -> AlumniCard:
     """Internal status write. Alumni cannot call this; OAAPS uses transition_alumni_card_status."""
     card = ensure_card(db, user)
     card.status = status
     if status == "ReadyForPickup":
-        card.pickup_ready_at = card.pickup_ready_at or _now()
+        card.pickup_ready_at = _now()
         if pickup_location.strip():
             card.pickup_location = pickup_location.strip()[:200]
     if status == "Claimed":
-        card.issued_at = card.issued_at or _now()
+        if claimed_on is not None:
+            card.issued_at = datetime(claimed_on.year, claimed_on.month, claimed_on.day, 12, 0, tzinfo=MANILA)
+        else:
+            card.issued_at = card.issued_at or _now()
         card.card_number = (card_number.strip() or card.card_number or f"AUF-{user.id:04d}")[:40]
     if status == "NotYetApplied":
         card.submitted_at = None
@@ -476,6 +482,8 @@ def transition_alumni_card_status(
     pickup_location: str = "",
     card_number: str = "",
     note: str = "",
+    claimed_on: date | None = None,
+    office_placement: bool = False,
 ) -> tuple[AlumniCard, bool]:
     card = ensure_card(db, user)
     current = canonical_card_status(card)
@@ -485,11 +493,22 @@ def transition_alumni_card_status(
     if current == target:
         return card, True
     allowed = CARD_TRANSITIONS.get(current, ())
-    if target not in allowed:
+    application = card.application_json if isinstance(card.application_json, dict) else {}
+    renewal_print = (
+        current == "ForVerification"
+        and target == "ReadyForPickup"
+        and application.get("membership_type") == "Renewal"
+    )
+    # A renewal that is already for renewal can be recorded as requesting by the office.
+    manual_request = current == "ForRenewal" and target == "ForVerification"
+    placed = office_placement and target in {"Claimed", "ForRenewal", "ForVerification", "Approved", "ReadyForPickup"}
+    if target not in allowed and not renewal_print and not manual_request and not placed:
         raise HTTPException(
             status_code=400,
             detail=f"Cannot change the alumni card from {CARD_META[current]['label']} to {CARD_META[target]['label']}.",
         )
+    if target == "Claimed" and claimed_on is not None and claimed_on > datetime.now(MANILA).date():
+        raise HTTPException(status_code=400, detail="The claiming date cannot be in the future.")
     _notify_card_status(db, user, target, note)
     card = set_alumni_card_status(
         db,
@@ -498,6 +517,7 @@ def transition_alumni_card_status(
         notify=True,
         pickup_location=pickup_location,
         card_number=card_number,
+        claimed_on=claimed_on,
     )
     return card, False
 

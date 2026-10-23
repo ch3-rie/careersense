@@ -68,6 +68,10 @@ class RegisterResponse(BaseModel):
     parser_source: str = "heuristic"
 
 
+class CurrentPasswordRequest(BaseModel):
+    current_password: str
+
+
 class PasswordChangeRequest(BaseModel):
     current_password: str
     new_password: str = Field(min_length=8)
@@ -313,6 +317,7 @@ class CardStatusIn(BaseModel):
     pickup_location: str = Field(default="", max_length=200)
     card_number: str = Field(default="", max_length=40)
     note: str = Field(default="", max_length=400)
+    claimed_on: Optional[date] = None
 
 
 class SurveyDraftIn(BaseModel):
@@ -349,6 +354,7 @@ class PerkIn(BaseModel):
     website: str = Field(default="", max_length=500)
     valid_from: Optional[date] = None
     valid_to: Optional[date] = None
+    valid_until_further_notice: bool = False
     requires_active_card: bool = False
     active: bool = True
 
@@ -357,6 +363,7 @@ class AdminUserCreateIn(BaseModel):
     first_name: str = Field(min_length=1, max_length=80)
     last_name: str = Field(min_length=1, max_length=80)
     email: EmailStr
+    employee_number: str = ""
     role: str = "Admin"
     status: str = "Active"
     confirm: bool = False
@@ -366,6 +373,7 @@ class AdminUserUpdateIn(BaseModel):
     first_name: Optional[str] = Field(default=None, max_length=80)
     last_name: Optional[str] = Field(default=None, max_length=80)
     email: Optional[EmailStr] = None
+    employee_number: Optional[str] = Field(default=None, max_length=8)
     role: Optional[str] = None
     status: Optional[str] = None
 

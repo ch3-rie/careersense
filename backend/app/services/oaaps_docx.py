@@ -122,6 +122,8 @@ def render_oaaps_docx(report: dict[str, Any]) -> bytes:
             ["Reporting Period", header["reporting_period"]],
             ["Graduating Batch/Cohort", header["batch_cohort"]],
             ["College/Program", header["college_program"]],
+            ["Awards Received", header.get("awards") or "All"],
+            ["Further Studies", header.get("further_studies") or "All"],
             ["Total Graduates", header["total_graduates"]],
             ["Number of Graduates Traced", header["graduates_traced"]],
             ["Tracer Study Response Rate", _fmt(header["response_rate"], "pct")],

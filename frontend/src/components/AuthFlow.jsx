@@ -72,19 +72,21 @@ export function FormBlock({ title, children }) {
   );
 }
 
-export function PasswordHints({ value }) {
+export function PasswordHints({ value, id }) {
   const checks = passwordChecks(value);
+  const started = Boolean(String(value || ""));
   const items = [
     ["length", "At least 8 characters", checks.length],
     ["letter", "Contains a letter", checks.letter],
     ["number", "Contains a number", checks.number],
   ];
   return (
-    <ul className="pw-hints" aria-live="polite">
-      {items.map(([id, label, ok]) => (
-        <li key={id} className={ok ? "ok" : ""}>
-          <span aria-hidden="true">{ok ? "✓" : "○"}</span>
-          {label}
+    <ul className="pw-hints" id={id} aria-label="New password requirements" aria-live="polite">
+      {items.map(([key, label, ok]) => (
+        <li key={key} className={ok ? "ok" : started ? "miss" : ""}>
+          <span className="pw-hint-mark" aria-hidden="true">{ok ? <CheckIcon size={12} /> : null}</span>
+          <span>{label}</span>
+          <span className="sr-only">{ok ? ", met" : ", not met"}</span>
         </li>
       ))}
     </ul>

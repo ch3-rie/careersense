@@ -28,6 +28,28 @@ def test_admin_dashboard_and_approval_search(client):
     assert "options" in reports.json()
     assert "colleges" in reports.json()["options"]
 
+    listed = queue.json()["items"]
+    assert listed
+    assert "college" in listed[0]
+    assert all(row["status"] == "Pending" for row in listed)
+    narrowed = client.get(
+        "/api/admin/approvals",
+        headers=headers,
+        params={"course": listed[0]["degree"], "year": listed[0]["year_graduated"], "status": "Pending", "page_size": 8},
+    )
+    assert narrowed.status_code == 200
+    assert listed[0]["id"] in {row["id"] for row in narrowed.json()["items"]}
+    empty = client.get("/api/admin/approvals", headers=headers, params={"course": "Not a real course", "page_size": 8})
+    assert empty.status_code == 200
+    assert empty.json()["total"] == 0
+
+    approved = client.get("/api/admin/approvals", headers=headers, params={"status": "Approved", "page_size": 8})
+    assert approved.status_code == 200
+    approved_body = approved.json()
+    assert set(approved_body["summary"]) == {"approved", "pending", "rejected"}
+    assert approved_body["summary"]["approved"] == approved_body["total"]
+    assert all(row["status"] == "Active" for row in approved_body["items"])
+
 
 def test_verify_returns_match_type(client):
     admin = login(client, "admin@auf.edu.ph", "Admin@AUF2026")
@@ -58,6 +80,25 @@ def test_tracer_record_detail(client):
     assert "data" in body
     missing = client.get("/api/admin/tracer/999999", headers=headers)
     assert missing.status_code == 404
+    assert body["name"]
+    assert body["student_id"]
+    assert body["submitted_at"]
+    assert body["alignment"] in {"Aligned", "Misaligned", "Unknown"}
+    assert body["email"]
+
+    by_email = client.get("/api/admin/tracer", headers=headers, params={"email": body["email"]})
+    by_name = client.get("/api/admin/tracer", headers=headers, params={"email": "Maria Reyes"})
+    by_student = client.get("/api/admin/tracer", headers=headers, params={"email": body["student_id"]})
+    assert by_email.status_code == 200
+    assert by_name.status_code == 200
+    assert by_student.status_code == 200
+    assert any(item["id"] == body["id"] for item in by_email.json()["items"])
+    assert any(item["email"] == "maria.reyes@gmail.com" for item in by_name.json()["items"])
+    assert any(item["id"] == body["id"] for item in by_student.json()["items"]), body["student_id"]
+
+    alumni = login(client, "maria.reyes@gmail.com", "Alumni@2026")
+    denied = client.get("/api/admin/tracer", headers=auth_header(alumni["access_token"]))
+    assert denied.status_code == 403
 
 
 def test_approve_and_reject_update_queue_and_dashboard(client, monkeypatch):

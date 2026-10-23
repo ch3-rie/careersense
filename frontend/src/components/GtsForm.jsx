@@ -17,6 +17,7 @@ export default function GtsForm({
   variant,
   resume,
   hideQuestionIds,
+  browse,
 }) {
   const liveSchema = schema || options?.survey;
   if (liveSchema?.sections?.length) {
@@ -36,6 +37,7 @@ export default function GtsForm({
         variant={variant}
         resume={resume}
         hideQuestionIds={hideQuestionIds}
+        browse={browse}
       />
     );
   }

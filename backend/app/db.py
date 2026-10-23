@@ -94,6 +94,28 @@ def ensure_runtime_schema(bind=None) -> None:
     if "accounts" not in inspector.get_table_names():
         return
 
+    _ensure_columns(
+        bind,
+        "accounts",
+        [
+            ("employee_number", "VARCHAR(3)"),
+            ("admin_privileges", "VARCHAR(80)"),
+        ],
+    )
+    try:
+        with bind.begin() as conn:
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_accounts_employee_number "
+                    "ON accounts (employee_number)"
+                )
+            )
+    except Exception as exc:
+        logger.warning("Could not add unique index on accounts.employee_number (%s).", exc)
+    if "alumni_perks" in inspector.get_table_names():
+        perk_flag = "BOOLEAN NOT NULL DEFAULT FALSE" if bind.dialect.name == "postgresql" else "INTEGER NOT NULL DEFAULT 0"
+        _ensure_columns(bind, "alumni_perks", [("valid_until_further_notice", perk_flag)])
+
     cols = _column_names(inspector, "accounts")
     if "password_changed_at" not in cols:
         dialect = bind.dialect.name
@@ -248,3 +270,92 @@ def ensure_runtime_schema(bind=None) -> None:
             ("award_metadata", json_type),
         ],
     )
+    _ensure_columns(
+        bind,
+        "academic_programs",
+        [
+            ("parent_id", "INTEGER"),
+            ("kind", "VARCHAR(32) DEFAULT ''"),
+            ("review_status", "VARCHAR(20) DEFAULT 'on_record'"),
+        ],
+    )
+    _relax_university_email(bind)
+
+
+def _relax_university_email(bind) -> None:
+    """Allow registrar imports that have a student number but no email address."""
+    inspector = inspect(bind)
+    if "university_records" not in inspector.get_table_names():
+        return
+    email = next((col for col in inspector.get_columns("university_records") if col["name"] == "personal_email"), None)
+    if email is None or email.get("nullable", True):
+        return
+    if bind.dialect.name == "postgresql":
+        statement = "ALTER TABLE university_records ALTER COLUMN personal_email DROP NOT NULL"
+        if hasattr(bind, "exec_driver_sql") and not hasattr(bind, "raw_connection"):
+            bind.exec_driver_sql(statement)
+        else:
+            with bind.begin() as conn:
+                conn.execute(text(statement))
+        logger.info("Made university_records.personal_email optional")
+        return
+    if bind.dialect.name != "sqlite" or not hasattr(bind, "raw_connection"):
+        logger.warning("Could not relax university_records.personal_email on %s", bind.dialect.name)
+        return
+    dbapi_conn = bind.raw_connection()
+    cursor = dbapi_conn.cursor()
+    try:
+        try:
+            dbapi_conn.rollback()
+        except Exception:
+            pass
+        cursor.execute("PRAGMA foreign_keys=OFF")
+        cursor.execute("BEGIN")
+        cursor.execute(
+            """
+            CREATE TABLE university_records__email_optional (
+                student_id VARCHAR(40) NOT NULL PRIMARY KEY,
+                first_name VARCHAR(80) NOT NULL,
+                middle_name VARCHAR(80) NOT NULL DEFAULT '',
+                last_name VARCHAR(80) NOT NULL,
+                personal_email VARCHAR(255),
+                degree VARCHAR(200) NOT NULL,
+                year_graduated VARCHAR(8) NOT NULL DEFAULT '',
+                course_code VARCHAR(40) NOT NULL DEFAULT '',
+                college VARCHAR(160) NOT NULL DEFAULT ''
+            )
+            """
+        )
+        cursor.execute(
+            """
+            INSERT INTO university_records__email_optional (
+                student_id, first_name, middle_name, last_name, personal_email,
+                degree, year_graduated, course_code, college
+            )
+            SELECT student_id, first_name, COALESCE(middle_name, ''), last_name,
+                NULLIF(TRIM(personal_email), ''),
+                degree, COALESCE(year_graduated, ''), COALESCE(course_code, ''), COALESCE(college, '')
+            FROM university_records
+            """
+        )
+        cursor.execute("DROP TABLE university_records")
+        cursor.execute("ALTER TABLE university_records__email_optional RENAME TO university_records")
+        cursor.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_university_records_personal_email "
+            "ON university_records (personal_email)"
+        )
+        cursor.execute("COMMIT")
+        logger.info("Made university_records.personal_email optional")
+    except Exception:
+        try:
+            cursor.execute("ROLLBACK")
+        except Exception:
+            pass
+        logger.exception("Could not relax university_records.personal_email")
+        raise
+    finally:
+        try:
+            cursor.execute("PRAGMA foreign_keys=ON")
+        except Exception:
+            pass
+        dbapi_conn.close()

@@ -256,13 +256,15 @@ export function PerksDirectory({
           {detail.terms || detail.how_to_claim ? (
             <p className="perk-terms"><strong>How to use.</strong> {detail.terms || detail.how_to_claim}</p>
           ) : null}
-          {detail.valid_from || detail.valid_to ? (
+          {detail.valid_until_further_notice || detail.valid_from || detail.valid_to ? (
             <p className="muted">
-              {detail.valid_from && detail.valid_to
-                ? `Valid ${formatDate(detail.valid_from)} – ${formatDate(detail.valid_to)}`
-                : detail.valid_to
-                  ? `Valid until ${formatDate(detail.valid_to)}`
-                  : `Available from ${formatDate(detail.valid_from)}`}
+              {detail.valid_until_further_notice
+                ? (detail.valid_from ? `Valid from ${formatDate(detail.valid_from)} until further notice` : "Valid until further notice")
+                : detail.valid_from && detail.valid_to
+                  ? `Valid ${formatDate(detail.valid_from)} – ${formatDate(detail.valid_to)}`
+                  : detail.valid_to
+                    ? `Valid until ${formatDate(detail.valid_to)}`
+                    : `Available from ${formatDate(detail.valid_from)}`}
             </p>
           ) : null}
           {detail.status === "Used" && detail.code ? (

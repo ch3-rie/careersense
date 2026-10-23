@@ -26,13 +26,65 @@ class UniversityRecord(Base):
     first_name: Mapped[str] = mapped_column(String(80), nullable=False)
     middle_name: Mapped[str] = mapped_column(String(80), default="")
     last_name: Mapped[str] = mapped_column(String(80), nullable=False)
-    personal_email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    # Registrar lists often have no email. NULL keeps the unique constraint without inventing addresses.
+    personal_email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True, index=True)
     degree: Mapped[str] = mapped_column(String(200), nullable=False)
     year_graduated: Mapped[str] = mapped_column(String(8), nullable=False)
     course_code: Mapped[str] = mapped_column(String(40), default="")
     college: Mapped[str] = mapped_column(String(160), default="")
 
     accounts: Mapped[list["Account"]] = relationship(back_populates="university_record")
+
+
+class College(Base):
+    """Official college list used by the import form, reports, and verification."""
+
+    __tablename__ = "colleges"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(160), unique=True, nullable=False)
+    code: Mapped[str] = mapped_column(String(40), default="", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    programs: Mapped[list["AcademicProgram"]] = relationship(back_populates="college")
+
+
+class AcademicProgram(Base):
+    """A course or program offered by one college, with the course code stored for graduates."""
+
+    __tablename__ = "academic_programs"
+    __table_args__ = (UniqueConstraint("college_id", "name", name="uq_academic_program_college_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    college_id: Mapped[int] = mapped_column(ForeignKey("colleges.id"), nullable=False, index=True)
+    parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("academic_programs.id"), nullable=True, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    course_code: Mapped[str] = mapped_column(String(40), default="", nullable=False)
+    # undergraduate, graduate, professional, diploma, certificate, combined, pathway, major, specialization
+    kind: Mapped[str] = mapped_column(String(32), default="", nullable=False)
+    # on_record programs are already used or confirmed. needs_review came from the public AUF reference list.
+    review_status: Mapped[str] = mapped_column(String(20), default="on_record", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    college: Mapped["College"] = relationship(back_populates="programs")
+
+
+class RegistryImport(Base):
+    """A successful Registrar's Office workbook import. Fingerprints block the same file twice."""
+
+    __tablename__ = "registry_imports"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    file_sha256: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    content_sha256: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    filename: Mapped[str] = mapped_column(String(255), default="")
+    imported_count: Mapped[int] = mapped_column(Integer, default=0)
+    skipped_count: Mapped[int] = mapped_column(Integer, default=0)
+    invalid_count: Mapped[int] = mapped_column(Integer, default=0)
+    admin_id: Mapped[Optional[int]] = mapped_column(ForeignKey("accounts.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Account(Base):
@@ -56,6 +108,8 @@ class Account(Base):
     first_name: Mapped[str] = mapped_column(String(80), default="")
     last_name: Mapped[str] = mapped_column(String(80), default="")
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=False)
+    employee_number: Mapped[Optional[str]] = mapped_column(String(3), nullable=True, unique=True)
+    admin_privileges: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
     token_version: Mapped[int] = mapped_column(Integer, default=0)
     last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -368,8 +422,31 @@ class AlumniNotification(Base):
     account: Mapped[Account] = relationship(back_populates="notifications")
 
 
+class BadgeDefinition(Base):
+    """Admin-managed badge catalog. Earned rows stay in alumni_badges."""
+
+    __tablename__ = "badge_definitions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    key: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="")
+    locked_description: Mapped[str] = mapped_column(Text, default="")
+    icon: Mapped[str] = mapped_column(String(40), default="check")
+    category: Mapped[str] = mapped_column(String(40), default="recognition")
+    criteria_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    route: Mapped[str] = mapped_column(String(200), default="/alumni")
+    cta: Mapped[str] = mapped_column(String(80), default="Continue")
+    cta_edit: Mapped[bool] = mapped_column(Boolean, default=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_system: Mapped[bool] = mapped_column(Boolean, default=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=100)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class AlumniBadge(Base):
-    """Persisted alumni achievements. Definitions live in the achievement catalog."""
+    """Persisted alumni achievements. Definitions live in badge_definitions."""
 
     __tablename__ = "alumni_badges"
     __table_args__ = (
@@ -397,6 +474,7 @@ class AlumniPerk(Base):
     partner: Mapped[str] = mapped_column(String(160), default="")
     valid_from: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     valid_to: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    valid_until_further_notice: Mapped[bool] = mapped_column(Boolean, default=False)
     requires_active_card: Mapped[bool] = mapped_column(Boolean, default=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     category: Mapped[str] = mapped_column(String(80), default="")
@@ -419,6 +497,44 @@ class AlumniPerkRedemption(Base):
 
     account: Mapped[Account] = relationship(back_populates="perk_redemptions")
     perk: Mapped[AlumniPerk] = relationship()
+
+
+class PartnerActivity(Base):
+    """A partner scan, visit, or benefit redemption. These event types are stored separately."""
+
+    __tablename__ = "partner_activities"
+    __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_partner_activity_idempotency"),
+        Index("ix_partner_activity_at", "activity_at"),
+        Index("ix_partner_activity_alumni", "alumni_account_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    alumni_account_id: Mapped[Optional[int]] = mapped_column(ForeignKey("accounts.id"), nullable=True, index=True)
+    activity_type: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    recording_method: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    partner_name: Mapped[str] = mapped_column(String(160), nullable=False, default="")
+    perk_id: Mapped[Optional[int]] = mapped_column(ForeignKey("alumni_perks.id"), nullable=True)
+    benefit_label: Mapped[str] = mapped_column(String(240), default="")
+    activity_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    notes: Mapped[str] = mapped_column(Text, default="")
+    reference_code: Mapped[str] = mapped_column(String(80), default="")
+    outcome_detail: Mapped[str] = mapped_column(String(240), default="")
+    token_fingerprint: Mapped[str] = mapped_column(String(64), default="")
+    idempotency_key: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    related_activity_id: Mapped[Optional[int]] = mapped_column(ForeignKey("partner_activities.id"), nullable=True)
+    recorded_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("accounts.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    alumni: Mapped[Optional[Account]] = relationship(foreign_keys=[alumni_account_id])
+    recorded_by: Mapped[Optional[Account]] = relationship(foreign_keys=[recorded_by_id])
+    perk: Mapped[Optional[AlumniPerk]] = relationship()
+    related_activity: Mapped[Optional["PartnerActivity"]] = relationship(
+        foreign_keys=[related_activity_id],
+        remote_side="PartnerActivity.id",
+    )
 
 
 class SurveyDefinition(Base):

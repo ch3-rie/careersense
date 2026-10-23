@@ -6,7 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload, subqueryload
 
 from app.constants import UNEMPLOYMENT_REASONS
-from app.models import Account, TracerSubmission, UniversityRecord
+from app.models import Account, AlumniAward, AlumniProfile, FurtherStudy, TracerSubmission, UniversityRecord
 from app.services.employment import apply_profile_unemployment, is_no, is_yes, resolve_current_employment
 
 SEEKING_REASON = "Looking for a job, but cannot find one"
@@ -69,6 +69,7 @@ def latest_submissions(db: Session, submitted_from=None, submitted_to=None) -> l
             joinedload(TracerSubmission.account).joinedload(Account.university_record),
             joinedload(TracerSubmission.account).joinedload(Account.profile),
             joinedload(TracerSubmission.account).subqueryload(Account.studies),
+            joinedload(TracerSubmission.account).subqueryload(Account.awards),
         )
         .filter(TracerSubmission.id.in_(latest_submission_ids(db, submitted_from, submitted_to)))
         .order_by(TracerSubmission.submitted_at.desc())
@@ -231,6 +232,112 @@ def _person_context(row: TracerSubmission) -> dict[str, Any]:
     }
 
 
+NONE_RECORD = "__none__"
+RECORDED_RECORD = "__recorded__"
+EMPLOYMENT_FILTERS = {"employed", "unemployed"}
+
+
+def normalize_employment_filter(value: str) -> str:
+    """Employed and unemployed are recorded answers. Anything else is not a status."""
+    selected = _text(value).lower()
+    if selected and selected not in EMPLOYMENT_FILTERS:
+        raise ValueError("Unsupported employment status filter.")
+    return selected
+
+
+def _matches_location(city: str, location: str) -> bool:
+    selected = _text(location)
+    if not selected:
+        return True
+    recorded = _text(city)
+    if selected == NONE_RECORD:
+        return not recorded
+    return recorded.casefold() == selected.casefold()
+
+
+def _employment_kind(data: dict) -> str:
+    answer = data.get("is_currently_employed")
+    if is_yes(answer):
+        return "employed"
+    if is_no(answer):
+        return "unemployed"
+    return "unknown"
+
+
+def _profile_city(row: TracerSubmission) -> str:
+    profile = row.account.profile if row.account else None
+    return _text(profile.city) if profile else ""
+
+
+def prepare_employment_row(
+    row: TracerSubmission,
+    college: str,
+    program: str,
+    year: str,
+    location: str,
+    employment: str,
+):
+    """Return prepared tracer data when the row is inside the employment filters."""
+    selected = normalize_employment_filter(employment)
+    if not _matches_filters(_academic_context(row), college, program, year):
+        return None
+    if not _matches_location(_profile_city(row), location):
+        return None
+    profile = row.account.profile if row.account else None
+    data = apply_profile_unemployment(row.data_json or {}, profile)
+    kind = _employment_kind(data)
+    if selected and kind != selected:
+        return None
+    return data, kind
+
+
+def _award_titles(account: Optional[Account]) -> list[str]:
+    if account is None:
+        return []
+    return [_text(item.title) for item in (account.awards or []) if _text(item.title)]
+
+
+def _has_recorded_further(account: Optional[Account], data: dict) -> bool:
+    return bool(_studies(account, data or {})) or _yes((data or {}).get("enroll_further_studies"))
+
+
+def _further_labels(account: Optional[Account], data: dict) -> list[str]:
+    return [item["course"] for item in _studies(account, data or {}) if item.get("course")]
+
+
+def matches_population(account: Optional[Account], data: dict, award: str, further: str) -> bool:
+    """Recorded awards and further studies. Missing rows are not treated as achievements."""
+    chosen_award = _text(award)
+    titles = _award_titles(account)
+    if chosen_award == NONE_RECORD and titles:
+        return False
+    if chosen_award == RECORDED_RECORD and not titles:
+        return False
+    if chosen_award and chosen_award not in {NONE_RECORD, RECORDED_RECORD} and chosen_award not in titles:
+        return False
+    chosen_study = _text(further)
+    if not chosen_study:
+        return True
+    recorded = _has_recorded_further(account, data)
+    labels = _further_labels(account, data)
+    if chosen_study == NONE_RECORD:
+        return not recorded
+    if chosen_study == RECORDED_RECORD:
+        return recorded
+    return chosen_study in labels
+
+
+def _choice_caption(value: str, recorded: str, empty: str) -> str:
+    chosen = _text(value)
+    if not chosen:
+        return "All"
+    if chosen == RECORDED_RECORD:
+        return recorded
+    if chosen == NONE_RECORD:
+        return empty
+    return chosen
+
+
 def _matches_filters(ctx: dict[str, Any], college: str, program: str, year: str) -> bool:
     if college and ctx["college"] != college:
         return False
@@ -303,10 +410,17 @@ NOT_REPORTED_REASON = "Not reported"
 
 
 def filter_options(db: Session) -> dict[str, Any]:
+    from app.services.academic_filters import academic_catalog, ensure_academic_catalog
+
+    ensure_academic_catalog(db, commit=True)
+    catalog = academic_catalog(db)
     records = db.query(UniversityRecord).all()
-    colleges = sorted({_text(row.college) for row in records if _text(row.college)})
-    programs = sorted({_text(row.degree) for row in records if _text(row.degree)})
+    colleges = {_text(row.college) for row in records if _text(row.college)}
+    colleges.update(catalog["colleges"])
+    programs = {_text(row.degree) for row in records if _text(row.degree)}
+    programs.update(catalog["courses"])
     years = sorted({_text(row.year_graduated) for row in records if _text(row.year_graduated)}, reverse=True)
+    kind_by_pair = {(item["college"], item["course"]): item.get("kind") or "" for item in catalog["programs"]}
     seen: set[tuple[str, str]] = set()
     pairs = []
     for row in records:
@@ -316,9 +430,37 @@ def filter_options(db: Session) -> dict[str, Any]:
         if key in seen or not (college or program):
             continue
         seen.add(key)
-        pairs.append({"college": college, "program": program})
-    pairs.sort(key=lambda item: (item["college"], item["program"]))
-    return {"colleges": colleges, "programs": programs, "years": years, "pairs": pairs}
+        pairs.append({"college": college, "program": program, "kind": kind_by_pair.get(key, "")})
+    for pair in catalog["pairs"]:
+        key = (pair["college"], pair["course"])
+        if key in seen or not (pair["college"] or pair["course"]):
+            continue
+        seen.add(key)
+        pairs.append({"college": pair["college"], "program": pair["course"], "kind": kind_by_pair.get(key, "")})
+    colleges_list = sorted(colleges, key=str.casefold)
+    programs_list = sorted(programs, key=str.casefold)
+    pairs.sort(key=lambda item: (item["college"].casefold(), item["program"].casefold()))
+    locations = sorted(
+        {_text(city) for (city,) in db.query(AlumniProfile.city).all() if _text(city)},
+        key=str.casefold,
+    )
+    awards = sorted(
+        {_text(title) for (title,) in db.query(AlumniAward.title).all() if _text(title)},
+        key=str.casefold,
+    )
+    further_studies = sorted(
+        {_text(course) for (course,) in db.query(FurtherStudy.course_degree).all() if _text(course)},
+        key=str.casefold,
+    )
+    return {
+        "colleges": colleges_list,
+        "programs": programs_list,
+        "years": years,
+        "pairs": pairs,
+        "locations": locations,
+        "awards": awards,
+        "further_studies": further_studies,
+    }
 
 
 def _latest_tracer_rows(db: Session) -> list[TracerSubmission]:
@@ -382,6 +524,8 @@ def employment_analytics(
     college: str = "",
     program: str = "",
     year: str = "",
+    location: str = "",
+    employment: str = "",
 ) -> dict[str, Any]:
     """Aggregate official submitted GTS employment answers.
 
@@ -393,21 +537,22 @@ def employment_analytics(
     college = _text(college)
     program = _text(program)
     year = _text(year)
+    location = _text(location)
+    employment = normalize_employment_filter(employment)
     employed = 0
     unemployed = 0
     unknown = 0
     reason_counts: dict[str, int] = defaultdict(int)
 
     for row in _latest_tracer_rows(db):
-        if not _matches_filters(_academic_context(row), college, program, year):
+        prepared = prepare_employment_row(row, college, program, year, location, employment)
+        if prepared is None:
             continue
-        profile = row.account.profile if row.account else None
-        data = apply_profile_unemployment(row.data_json or {}, profile)
-        answer = data.get("is_currently_employed")
-        if is_yes(answer):
+        data, kind = prepared
+        if kind == "employed":
             employed += 1
             continue
-        if not is_no(answer):
+        if kind != "unemployed":
             unknown += 1
             continue
         unemployed += 1
@@ -443,7 +588,15 @@ def employment_analytics(
     }
 
 
-def _header_labels(college: str, program: str, year: str, period_from: str, period_to: str) -> dict[str, str]:
+def _header_labels(
+    college: str,
+    program: str,
+    year: str,
+    period_from: str,
+    period_to: str,
+    award: str = "",
+    further: str = "",
+) -> dict[str, str]:
     if period_from and period_to:
         period = f"{period_from} to {period_to}"
     elif period_from:
@@ -464,6 +617,8 @@ def _header_labels(college: str, program: str, year: str, period_from: str, peri
         "reporting_period": period,
         "batch_cohort": year or "All batches",
         "college_program": college_program,
+        "awards": _choice_caption(award, "Has recorded awards", "No recorded awards"),
+        "further_studies": _choice_caption(further, "Has recorded further studies", "No recorded further studies"),
     }
 
 
@@ -475,25 +630,54 @@ def build_oaaps_report(
     year: str = "",
     period_from: str = "",
     period_to: str = "",
+    award: str = "",
+    further: str = "",
     submitted_from=None,
     submitted_to=None,
 ) -> dict[str, Any]:
     college = _text(college)
     program = _text(program)
     year = _text(year)
-    labels = _header_labels(college, program, year, _text(period_from), _text(period_to))
+    award = _text(award)
+    further = _text(further)
+    labels = _header_labels(college, program, year, _text(period_from), _text(period_to), award, further)
+
+    submission_rows = latest_submissions(db, submitted_from, submitted_to)
+    registry_rows = submission_rows if submitted_from is None and submitted_to is None else latest_submissions(db)
+    submissions_by_account = {row.account_id: row for row in registry_rows}
+    linked = {
+        account.linked_student_id: account
+        for account in (
+            db.query(Account)
+            .options(subqueryload(Account.awards), subqueryload(Account.studies), joinedload(Account.profile))
+            .filter(Account.role == "Alumni", Account.linked_student_id.isnot(None))
+            .all()
+        )
+        if account.linked_student_id
+    }
+
+    def _registry_population(record: UniversityRecord) -> bool:
+        account = linked.get(record.student_id)
+        submission = submissions_by_account.get(account.id) if account else None
+        profile = account.profile if account else None
+        data = apply_profile_unemployment(submission.data_json or {}, profile) if submission else {}
+        return matches_population(account, data, award, further)
 
     records = [
         row
         for row in db.query(UniversityRecord).all()
-        if _record_matches(row, college, program, year)
+        if _record_matches(row, college, program, year) and _registry_population(row)
     ]
     total_graduates = len(records)
 
     people = []
-    for row in latest_submissions(db, submitted_from, submitted_to):
+    for row in submission_rows:
         classified = classify_graduate(row)
         if not _matches_filters(classified["context"], college, program, year):
+            continue
+        profile = row.account.profile if row.account else None
+        data = apply_profile_unemployment(row.data_json or {}, profile)
+        if not matches_population(row.account, data, award, further):
             continue
         people.append(classified)
 
@@ -705,6 +889,8 @@ def build_oaaps_report(
         by_program.append(
             {
                 "college_program": f"{college_name} / {program_name}",
+                "college": college_name,
+                "program": program_name,
                 "batch_year": batch,
                 "graduates": values["graduates"],
                 "traced": row_traced,
@@ -742,6 +928,8 @@ def build_oaaps_report(
             "year": year,
             "period_from": _text(period_from),
             "period_to": _text(period_to),
+            "award": award,
+            "further": further,
         },
         "options": filter_options(db),
         "executive_summary": executive,
@@ -788,3 +976,91 @@ def build_oaaps_report(
             "÷ Number of graduates successfully traced × 100"
         ),
     }
+
+
+_UNCOLLECTED_PRODUCTIVITY = {
+    "Freelance / Project-Based",
+    "Employed locally",
+    "Employed internationally",
+    "Remote/Work-from-Home",
+    "Full-Time Employment",
+    "Part-Time Employment",
+    "With Benefits",
+    "Supervisory/Managerial Position",
+    "Employed before graduation",
+    "Received Promotion",
+    "Increased Salary/Compensation",
+    "Assumed Supervisory Role",
+    "Assumed Managerial/Leadership Role",
+    "Changed to Higher-Level Position",
+    "Passed Licensure/Board Examination",
+    "Obtained Professional Certification",
+    "Completed Industry Training",
+    "Obtained Additional Professional Credentials",
+    "Participated in Professional Organizations",
+    "Received Professional/Industry Awards",
+    "Published Research",
+    "Presented Research",
+    "Received Academic Award",
+    "Became Faculty/Educator",
+    "Participated in Academic/Research Organizations",
+}
+
+_PRODUCTIVITY_PREDICATES = {
+    "Graduates Traced": lambda item: True,
+    "Total Traced": lambda item: True,
+    "Traced Graduates": lambda item: True,
+    "Employed Graduates": lambda item: item["currently_employed"],
+    "Graduates with Professional Advancement": lambda item: item["professional"],
+    "Professional Advancement": lambda item: item["professional"],
+    "Graduates with career/professional advancement": lambda item: item["professional"],
+    "Established Own Business": lambda item: item["professional"],
+    "Graduates Pursuing Further Studies": lambda item: item["academic"],
+    "Academic Advancement": lambda item: item["academic"],
+    "Graduates pursuing/completing further studies": lambda item: item["academic"],
+    "Graduates with Multiple Productivity Indicators": lambda item: item["multiple"],
+    "Overall Graduate Productivity Rate": lambda item: item["productive"],
+    "Productive Graduates": lambda item: item["productive"],
+    "Graduates demonstrating ≥1 productivity outcome": lambda item: item["productive"],
+    "Not Yet Productively Engaged": lambda item: not item["productive"],
+    "Employed": lambda item: item["wage_employed"],
+    "Self-Employed / Entrepreneur": lambda item: item["self_employed"],
+    "Unemployed – Seeking Employment": lambda item: item["unemployed_seeking"],
+    "Not Seeking Employment": lambda item: item["unemployed_not_seeking"],
+    "Employed in a field related to degree": lambda item: item["relatedness"] == "related",
+    "Employed in a different field": lambda item: item["relatedness"] == "different",
+    "Permanent/Regular": lambda item: item["permanent"],
+    "Contractual/Project-Based": lambda item: item["contractual"],
+    "Employed within 3 months": lambda item: item["time_bucket"] == "within_3_months",
+    "Employed within 6 months": lambda item: item["time_bucket"] == "within_6_months",
+    "Employed within 12 months": lambda item: item["time_bucket"] == "within_12_months",
+    "More than 12 months": lambda item: item["time_bucket"] == "more_than_12_months",
+    "Pursuing Master’s Degree": lambda item: "pursuing_masters" in item["academic_flags"],
+    "Completed Master’s Degree": lambda item: "completed_masters" in item["academic_flags"],
+    "Pursuing Doctorate": lambda item: "pursuing_doctorate" in item["academic_flags"],
+    "Completed Doctorate": lambda item: "completed_doctorate" in item["academic_flags"],
+    "Pursuing Postgraduate Certificate/Diploma": lambda item: "postgrad_cert" in item["academic_flags"],
+    "Pursuing Second Degree": lambda item: "second_degree" in item["academic_flags"],
+    "Other Further Studies": lambda item: "other" in item["academic_flags"],
+    "Received Scholarship/Fellowship": lambda item: item["has_scholarship"],
+    "Workforce Integration": lambda item: item["workforce"],
+    "Graduates productively employed/engaged": lambda item: item["workforce"],
+}
+
+
+def productivity_membership(indicator: str):
+    """Classify a report label without recalculating the report totals.
+
+    ``records`` lists the graduate registry. ``empty`` is an indicator the
+    survey does not collect. A callable selects traced graduates with the
+    same flags the report counts. ``unknown`` is not a report label.
+    """
+    label = _text(indicator)
+    if label == "Total Graduates":
+        return "records"
+    if label in _UNCOLLECTED_PRODUCTIVITY:
+        return "empty"
+    predicate = _PRODUCTIVITY_PREDICATES.get(label)
+    if predicate is None:
+        return "unknown"
+    return predicate

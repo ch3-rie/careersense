@@ -295,6 +295,7 @@ def test_admin_perk_crud_updates_alumni_list(client):
             "discount": "10% off",
             "how_to_claim": "Show your AAC at checkout.",
             "eligibility": "Active alumni",
+            "valid_until_further_notice": True,
             "active": True,
         },
     )
@@ -330,6 +331,7 @@ def test_admin_user_create_and_guards(client):
             "first_name": "Pat",
             "last_name": "Cruz",
             "email": "pat.admin@auf.edu.ph",
+            "employee_number": "012",
             "role": "Admin",
             "status": "Active",
             "confirm": True,
@@ -339,6 +341,8 @@ def test_admin_user_create_and_guards(client):
     temp = created.json()["temporary_password"]
     assert temp
     user_id = created.json()["item"]["id"]
+    assert created.json()["item"]["employee_number"] == "012"
+    assert created.json()["item"]["admin_privileges"] == "add_users"
     assert "password" not in created.json()["item"]
 
     duplicate = client.post(
@@ -348,6 +352,7 @@ def test_admin_user_create_and_guards(client):
             "first_name": "Pat",
             "last_name": "Cruz",
             "email": "pat.admin@auf.edu.ph",
+            "employee_number": "013",
             "confirm": True,
         },
     )
@@ -360,3 +365,10 @@ def test_admin_user_create_and_guards(client):
     signed = login(client, "pat.admin@auf.edu.ph", temp)
     assert signed["user"]["must_change_password"] is True
     assert signed["user"]["role"] == "Admin"
+    assert signed["user"]["employee_number"] == "012"
+    assert signed["user"]["full_admin"] is False
+    limited = auth_header(signed["access_token"])
+    assert client.get("/api/admin/soc", headers=limited).status_code == 403
+    assert client.get("/api/admin/perks", headers=limited).status_code == 403
+    assert client.patch(f"/api/admin/users/{user_id}", headers=limited, json={"first_name": "Patricia"}).status_code == 403
+    assert client.get("/api/admin/users", headers=headers).json()["items"][0]["privilege_label"]

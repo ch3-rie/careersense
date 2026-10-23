@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { DetailHeader, TracerRecordLayout } from "../../components/AdminReview";
+import { DetailHeader } from "../../components/AdminReview";
 import GtsForm from "../../components/GtsForm";
+import { recordName, recordStudentNumber, RecordDossier } from "../../components/OfficialTracerRecord";
 import { PortalShell } from "../../components/Layout";
 import { Alert, ExpandDetails, LoadError, PageSkeleton } from "../../components/ui";
 import { api } from "../../lib/api";
-import { formatLongDate, questionLabelsFrom } from "../../lib/format";
+import { formatLongDate, formatTime, questionLabelsFrom } from "../../lib/format";
 import { showToast } from "../../lib/toasts";
 import { friendlyError } from "../../lib/userMessages";
 
@@ -58,22 +59,24 @@ export default function AdminRecordDetail() {
         backTo="/admin/records"
         backLabel="Back to Tracer Records"
         title="Tracer Record Details"
-        name={
-          record?.email ? (
-            <a href={`mailto:${record.email}`}>{record.email}</a>
-          ) : null
+        name={record ? recordName(record) || record.email : null}
+        meta={
+          record
+            ? [record.email, recordStudentNumber(record), formatLongDate(record.submitted_at), formatTime(record.submitted_at)]
+                .filter(Boolean)
+                .join(" · ")
+            : null
         }
-        meta={record ? `Submitted ${formatLongDate(record.submitted_at)}` : null}
       />
       <Alert type="error">{error}</Alert>
       {error && !record ? (
         <LoadError onRetry={load}>{error}</LoadError>
       ) : record ? (
         <>
-          <TracerRecordLayout record={record} questionLabels={labels} />
+          <RecordDossier record={record} schema={survey} questionLabels={labels} />
           <section className="detail-section official-tracer-manage">
-            <h2>Official tracer record</h2>
-            <p className="muted">OAAPS can review and update this graduate's saved tracer submission, including household background that is not shown to the alumnus.</p>
+            <h2>Update this submission</h2>
+            <p className="muted">OAAPS can correct this graduate's saved tracer submission. Saving updates the same record and keeps the original submission history.</p>
             {survey ? (
               <ExpandDetails summary="Manage official tracer record" hint="Edit and save the official survey answers">
                 <GtsForm

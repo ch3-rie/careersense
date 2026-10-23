@@ -10,13 +10,12 @@ import {
   Field,
   LoadError,
   Pager,
-  PageHeader,
   PageSkeleton,
 } from "../../components/ui";
 import { api } from "../../lib/api";
 import { formatDate, formatDateTime } from "../../lib/format";
 import { showToast } from "../../lib/toasts";
-import ProfileRemindersPanel from "./ProfileRemindersPanel";
+import ProfileRemindersPanel, { ProfileFieldOptions } from "./ProfileRemindersPanel";
 
 const STEPS = [
   ["alumni", "Select alumni"],
@@ -207,23 +206,27 @@ export default function AdminProfileUpdates() {
 
   return (
     <PortalShell role="Admin">
-      <PageHeader
-        actions={
-          composing ? null : (
+      <div className="pur-page">
+      <Alert type="error">{error && !confirmSend ? error : null}</Alert>
+      {error && !list ? <LoadError onRetry={() => loadList(1)}>{error}</LoadError> : null}
+
+      {!composing ? (
+        <ProfileRemindersPanel
+          actions={(
             <button className="btn btn-navy" type="button" onClick={startComposer}>
               <PlusIcon size={16} />
               New Update Request
             </button>
-          )
-        }
-      />
-      <Alert type="error">{error && !confirmSend ? error : null}</Alert>
-      {error && !list ? <LoadError onRetry={() => loadList(1)}>{error}</LoadError> : null}
-
-      {!composing ? <ProfileRemindersPanel /> : null}
+          )}
+        />
+      ) : null}
 
       {composing ? (
         <section className="card pur-composer" aria-label="New profile update request">
+          <header className="pur-composer-head">
+            <h3>New Update Request</h3>
+            <p>Choose Active alumni, the profile areas to update, and the message they will receive.</p>
+          </header>
           <ol className="pur-steps" aria-label="Request steps">
             {STEPS.map(([id, label], index) => (
               <li key={id} className={`${index === step ? "on" : ""} ${index < step ? "done" : ""}`}>
@@ -267,7 +270,7 @@ export default function AdminProfileUpdates() {
                 <button className="btn btn-navy" type="submit" disabled={alumniBusy}>Search</button>
               </form>
               <div className="pur-toolbar">
-                <p className="muted">{selectedAlumni.length} selected · Active alumni only</p>
+                <p className="pur-selected-count"><strong>{selectedAlumni.length}</strong> {selectedAlumni.length === 1 ? "alumnus" : "alumni"} selected · Active alumni only. Selections stay in place when you change pages.</p>
                 <div className="panel-actions">
                   <button type="button" className="btn btn-outline btn-sm" onClick={selectVisible} disabled={!rows.length}>
                     {allVisibleSelected ? "Visible selected" : "Select all visible"}
@@ -318,27 +321,14 @@ export default function AdminProfileUpdates() {
           ) : null}
 
           {step === 1 ? (
-            <fieldset className="pur-fields">
-              <legend>Information requiring attention</legend>
-              <div className="pur-field-grid">
-                {fieldOptions.map((item) => (
-                  <label key={item.id} className={`pur-field check ${form.fields.includes(item.id) ? "on" : ""}`}>
-                    <input type="checkbox" checked={form.fields.includes(item.id)} onChange={() => toggleField(item.id)} />
-                    <span>{item.label}</span>
-                  </label>
-                ))}
-              </div>
-              {form.fields.includes("other") ? (
-                <Field label="Other profile information" hint="This note is included in the alumni notification.">
-                  <input
-                    value={form.other_detail}
-                    onChange={(e) => setForm({ ...form, other_detail: e.target.value })}
-                    maxLength={400}
-                    placeholder="Please update your current employer and position."
-                  />
-                </Field>
-              ) : null}
-            </fieldset>
+            <ProfileFieldOptions
+              fields={fieldOptions}
+              selected={form.fields}
+              onToggle={toggleField}
+              otherValue={form.other_detail}
+              onOtherChange={(value) => setForm({ ...form, other_detail: value })}
+              otherInputId="request-other-detail"
+            />
           ) : null}
 
           {step === 2 ? (
@@ -387,7 +377,11 @@ export default function AdminProfileUpdates() {
           ) : null}
 
           <div className="dialog-actions pur-actions">
-            <button type="button" className="btn btn-outline" onClick={() => (step === 0 ? setComposing(false) : setStep(step - 1))}>
+            <button type="button" className="btn btn-outline" onClick={() => {
+              setError("");
+              if (step === 0) setComposing(false);
+              else setStep(step - 1);
+            }}>
               {step === 0 ? "Cancel" : "Back"}
             </button>
             {step < 3 ? (
@@ -416,12 +410,12 @@ export default function AdminProfileUpdates() {
         </section>
       ) : null}
 
-      <Panel title="Previous requests" description="Delivery status is shown separately from whether the alumnus has updated the requested information.">
+      <Panel title="Previous Requests" description="Delivery status is shown separately from whether the alumnus has updated the requested information.">
         {!list?.items?.length ? (
           <Empty title="No profile update requests yet">Create a request to notify Active alumni by CareerSense notification and email.</Empty>
         ) : (
           <div className="table-wrap">
-            <table className="data">
+            <table className="data stack">
               <thead>
                 <tr>
                   <th>Date sent</th>
@@ -436,13 +430,13 @@ export default function AdminProfileUpdates() {
               <tbody>
                 {list.items.map((row) => (
                   <tr key={row.id}>
-                    <td>{formatDateTime(row.created_at)}</td>
-                    <td>{row.recipient_count}</td>
-                    <td>{(row.requested_labels || []).join(", ")}</td>
-                    <td>{row.sent_by || row.sent_by_email}</td>
-                    <td><Badge tone={statusTone(row.email_status)}>{row.email_status}</Badge></td>
-                    <td><Badge tone={statusTone(row.status)}>{row.status}</Badge></td>
-                    <td>
+                    <td data-label="Date sent">{formatDateTime(row.created_at)}</td>
+                    <td data-label="Recipients">{row.recipient_count}</td>
+                    <td data-label="Requested updates">{(row.requested_labels || []).join(", ")}</td>
+                    <td data-label="Sent by">{row.sent_by || row.sent_by_email}</td>
+                    <td data-label="Email status"><Badge tone={statusTone(row.email_status)}>{row.email_status}</Badge></td>
+                    <td data-label="Status"><Badge tone={statusTone(row.status)}>{row.status}</Badge></td>
+                    <td className="cell-actions" data-label="Actions">
                       <button type="button" className="btn btn-outline btn-sm" onClick={() => openDetail(row.id)}>View</button>
                     </td>
                   </tr>
@@ -526,6 +520,7 @@ export default function AdminProfileUpdates() {
           </div>
         </Dialog>
       ) : null}
+      </div>
     </PortalShell>
   );
 }

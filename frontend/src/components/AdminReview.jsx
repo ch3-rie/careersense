@@ -7,11 +7,10 @@ import {
   ChevronLeftIcon,
   DownloadIcon,
   FileIcon,
-  InboxIcon,
   LockIcon,
   XIcon,
 } from "./icons";
-import { Alert, Badge, Empty, ExpandDetails, Field, TabList } from "./ui";
+import { Alert, Badge, Dialog, ExpandDetails, Field } from "./ui";
 import { api, downloadAuthorized } from "../lib/api";
 import { safeHttpUrl } from "../lib/safeUrl";
 import { friendlyError } from "../lib/userMessages";
@@ -53,22 +52,15 @@ export function verifyShortLabel(verify) {
   return (
     {
       student_id: "Matched by Student ID",
-      email_name: "Possible match",
-      already_linked: "Already linked",
-      none: "No match found",
-    }[verifyType(verify)] || "No match found"
+      email_name: "Matched by Email or Name",
+      already_linked: "Already Linked",
+      none: "No Match Found",
+    }[verifyType(verify)] || "No Match Found"
   );
 }
 
 export function verifySummaryValue(verify) {
-  return (
-    {
-      student_id: "✓ Matched by Student ID",
-      email_name: "! Possible match",
-      already_linked: "! Already linked",
-      none: "! No match found",
-    }[verifyType(verify)] || "! No match found"
-  );
+  return verifyShortLabel(verify);
 }
 
 export function alignmentLabel(value) {
@@ -133,7 +125,8 @@ export function StatusBadge({ kind = "account", value }) {
     );
   }
   if (kind === "tracer") {
-    return <Badge tone={value ? "Active" : "Pending"}>{value ? "Yes" : "No"}</Badge>;
+    const yes = Boolean(value);
+    return <Badge tone={yes ? "defined" : "not-yet"}>{yes ? "Yes" : "No"}</Badge>;
   }
   return <Badge tone={text}>{text}</Badge>;
 }
@@ -143,26 +136,26 @@ export function VerifyBanner({ verify, compact = false }) {
     student_id: {
       tone: "ok",
       icon: <CheckCircleIcon size={compact ? 18 : 20} />,
-      title: "✓ Graduate Record Matched",
-      text: "Matched using Student ID.",
+      title: "Matched by Student ID",
+      text: "This student ID matches a graduate registry record.",
     },
     email_name: {
       tone: "info",
       icon: <AlertTriangleIcon size={compact ? 18 : 20} />,
-      title: "! Possible Graduate Record",
-      text: "Matched using email/name. Review the registry information before approving.",
+      title: "Matched by Email or Name",
+      text: "A registry record was matched through email or name. Confirm the details before deciding.",
     },
     already_linked: {
       tone: "warn",
       icon: <AlertTriangleIcon size={compact ? 18 : 20} />,
-      title: "! Graduate Record Already Linked",
-      text: "This official graduate record is already connected to another account.",
+      title: "Already Linked",
+      text: "This registry record is linked to another account and must not be attached to this applicant.",
     },
     none: {
       tone: "error",
       icon: <AlertTriangleIcon size={compact ? 18 : 20} />,
-      title: "! No Graduate Record Found",
-      text: "Review the submitted information or search the Graduate Registry.",
+      title: "No Match Found",
+      text: "No matching graduate registry record was found.",
     },
   };
   const state = map[verifyType(verify)] || map.none;
@@ -174,6 +167,34 @@ export function VerifyBanner({ verify, compact = false }) {
         <p>{state.text}</p>
       </div>
     </div>
+  );
+}
+
+export function ApplicantSummary({ detail }) {
+  if (!detail) return null;
+  const account = detail.account || {};
+  const linked = String(account.student_id || "").trim();
+  return (
+    <section className="applicant-summary" aria-label="Applicant summary">
+      <div className="applicant-summary-id">
+        <h3>{applicantName(detail) || "Applicant"}</h3>
+        <p>{account.email || "—"}</p>
+      </div>
+      <dl>
+        <div>
+          <dt>Student ID</dt>
+          <dd>{linked ? linked : <span className="id-unlinked">Unlinked</span>}</dd>
+        </div>
+        <div>
+          <dt>Account status</dt>
+          <dd><StatusBadge value={account.status || "Pending"} /></dd>
+        </div>
+        <div>
+          <dt>Registered</dt>
+          <dd>{formatLongDate(account.created_at)}</dd>
+        </div>
+      </dl>
+    </section>
   );
 }
 
@@ -296,9 +317,10 @@ export function AlignmentHero({ record }) {
   );
 }
 
-function StudiesSection({ studies, defaultOpen = false, plain = false }) {
+function StudiesSection({ studies, defaultOpen = false, plain = false, openIfPresent = false }) {
   const rows = studyRows(studies);
-  const countLabel = `${rows.length} record${rows.length === 1 ? "" : "s"}`;
+  const countLabel = rows.length ? `${rows.length} record${rows.length === 1 ? "" : "s"}` : "None";
+  const startOpen = openIfPresent ? rows.length > 0 : defaultOpen;
   const body = rows.length ? (
     <div className="study-stack">
       {rows.map((row, index) => (
@@ -326,7 +348,7 @@ function StudiesSection({ studies, defaultOpen = false, plain = false }) {
       hint={countLabel}
       showLabel="Show"
       hideLabel="Hide"
-      defaultOpen={defaultOpen}
+      defaultOpen={startOpen}
     >
       {body}
     </ExpandDetails>
@@ -338,7 +360,23 @@ function ActivityCards({ rows, empty, render }) {
   return <div className="activity-stack">{rows.map(render)}</div>;
 }
 
-export function ProfileActivityReview({ activity }) {
+function MaybeCollapse({ title, hint, collapsible, open, children }) {
+  if (!collapsible) {
+    return (
+      <section className="review-block">
+        <h3>{title}</h3>
+        {children}
+      </section>
+    );
+  }
+  return (
+    <ExpandDetails summary={title} hint={hint} defaultOpen={open} showLabel="Show" hideLabel="Hide">
+      {children}
+    </ExpandDetails>
+  );
+}
+
+export function ProfileActivityReview({ activity, collapsible = false }) {
   const [error, setError] = useState("");
   if (!activity) return null;
   const jobs = activity.jobs || [];
@@ -366,8 +404,12 @@ export function ProfileActivityReview({ activity }) {
   return (
     <div className="activity-review">
       <Alert type="error">{error}</Alert>
-      <section className="review-block">
-        <h3>Employment History</h3>
+      <MaybeCollapse
+        title="Employment History"
+        hint={jobs.length ? `${jobs.length} record${jobs.length === 1 ? "" : "s"}` : unemployed ? "Unemployed" : "None"}
+        collapsible={collapsible}
+        open={Boolean(jobs.length || unemployed)}
+      >
         {unemployed || jobs.length ? (
           <div className="activity-stack">
             {unemployed ? (
@@ -399,9 +441,13 @@ export function ProfileActivityReview({ activity }) {
         ) : (
           <p className="muted">{reason || "No employment history recorded."}</p>
         )}
-      </section>
-      <section className="review-block">
-        <h3>Seminars Attended</h3>
+      </MaybeCollapse>
+      <MaybeCollapse
+        title="Seminars Attended"
+        hint={seminars.length ? `${seminars.length}` : "None"}
+        collapsible={collapsible}
+        open={seminars.length > 0}
+      >
         <ActivityCards
           rows={seminars}
           empty="No seminars recorded."
@@ -418,9 +464,13 @@ export function ProfileActivityReview({ activity }) {
             </article>
           )}
         />
-      </section>
-      <section className="review-block">
-        <h3>Certifications</h3>
+      </MaybeCollapse>
+      <MaybeCollapse
+        title="Certifications"
+        hint={certifications.length ? `${certifications.length}` : "None"}
+        collapsible={collapsible}
+        open={certifications.length > 0}
+      >
         <ActivityCards
           rows={certifications}
           empty="No certifications recorded."
@@ -448,9 +498,13 @@ export function ProfileActivityReview({ activity }) {
             );
           }}
         />
-      </section>
-      <section className="review-block">
-        <h3>Awards / Achievements Received</h3>
+      </MaybeCollapse>
+      <MaybeCollapse
+        title="Awards / Achievements"
+        hint={awards.length ? `${awards.length}` : "None"}
+        collapsible={collapsible}
+        open={awards.length > 0}
+      >
         <ActivityCards
           rows={awards}
           empty="No awards or achievements recorded."
@@ -467,74 +521,112 @@ export function ProfileActivityReview({ activity }) {
             </article>
           )}
         />
-      </section>
+      </MaybeCollapse>
     </div>
   );
 }
 
-function ResumeStack({ resumes, onDownload, heading = "Uploaded Resumes" }) {
+function ResumeStack({ resumes, onDownload, heading = "Uploaded Resumes", collapsible = false }) {
   const files = resumes || [];
+  const body = files.length ? (
+    <div className="file-stack">
+      {files.map((row) => (
+        <FileCard
+          key={row.id}
+          filename={row.filename}
+          uploadedAt={row.created_at}
+          onDownload={() => onDownload(row.id, row.filename)}
+        />
+      ))}
+    </div>
+  ) : (
+    <p className="muted">No resume files on file.</p>
+  );
+  if (collapsible) {
+    return (
+      <MaybeCollapse
+        title={heading || "Uploaded Resumes"}
+        hint={files.length ? `${files.length}` : "None"}
+        collapsible
+        open={files.length > 0}
+      >
+        {body}
+      </MaybeCollapse>
+    );
+  }
   return (
     <section className="review-block">
       {heading ? <h3>{heading}</h3> : null}
-      {files.length ? (
-        <div className="file-stack">
-          {files.map((row) => (
-            <FileCard
-              key={row.id}
-              filename={row.filename}
-              uploadedAt={row.created_at}
-              onDownload={() => onDownload(row.id, row.filename)}
-            />
-          ))}
-        </div>
-      ) : (
-        <p className="muted">No resume files on file.</p>
-      )}
+      {body}
     </section>
   );
 }
 
-function IdentitySections({ detail, verify, stacked = false }) {
-  const profile = detail.profile || {};
-  const registry = verify?.record;
+function comparable(value) {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  if (!text || text === "—" || text === "Unlinked") return "";
+  return text.toLowerCase();
+}
+
+function CompareCell({ side, label, value, unlinked = false, differs = false, official = false }) {
+  const missing = !isFilled(value) || value === "—";
   return (
-    <div className={stacked ? "identity-stack" : "compare-grid"}>
-      <article className="compare-card">
-        <div className="compare-kicker">Submitted information</div>
-        <h3>Submitted Profile</h3>
-        <InfoGrid
-          items={[
-            { label: "Full Name", value: fullName(profile) },
-            { label: "Student ID", value: displayValue(detail.account.student_id || "Unlinked") },
-            { label: "Degree", value: displayValue(profile.degree) },
-            { label: "Year Graduated", value: displayValue(profile.year_graduated) },
-            { label: "Country", value: displayValue(profile.country_residence) },
-            { label: "Registered", value: formatLongDate(detail.account.created_at) },
-          ]}
-        />
-      </article>
-      <article className="compare-card official">
-        <div className="compare-kicker">
-          Official university record
-          <OfficialMark />
-        </div>
-        <h3>University Registry Match</h3>
-        {registry ? (
-          <InfoGrid
-            items={[
-              { label: "Student ID", value: displayValue(registry.student_id) },
-              { label: "Name", value: fullName(registry) },
-              { label: "Email", value: displayValue(registry.email) },
-              { label: "Degree", value: displayValue(registry.degree) },
-              { label: "Year", value: displayValue(registry.year_graduated) },
-              { label: "College", value: displayValue(registry.college) },
-            ]}
-          />
-        ) : (
-          <Empty title="No official match">Search the Graduate Registry if the submitted details look correct.</Empty>
-        )}
-      </article>
+    <div className={`compare-cell${official ? " official" : ""}${differs ? " is-diff" : ""}`}>
+      <span className="compare-side">{side}</span>
+      <span>{label}</span>
+      <strong>
+        {unlinked ? <span className="id-unlinked">Unlinked</span> : missing ? "—" : value}
+        {differs ? <span className="compare-note">Differs</span> : null}
+      </strong>
+    </div>
+  );
+}
+
+function IdentitySections({ detail, verify }) {
+  const profile = detail.profile || {};
+  const account = detail.account || {};
+  const registry = verify?.record;
+  const rows = [
+    { label: "Full name", submitted: fullName(profile), registry: registry ? fullName(registry) : "", compare: true },
+    {
+      label: "Student ID",
+      submitted: account.student_id,
+      registry: registry?.student_id || "",
+      compare: true,
+      unlinked: !String(account.student_id || "").trim(),
+    },
+    { label: "Degree or course", submitted: profile.degree, registry: registry?.degree || "", compare: true },
+    { label: "Graduation year", submitted: profile.year_graduated, registry: registry?.year_graduated || "", compare: true },
+    { label: "Country", submitted: profile.country_residence, registry: "", compare: false },
+    { label: "Registration date", submitted: formatLongDate(account.created_at), registry: "", compare: false },
+    { label: "College", submitted: "", registry: registry?.college || "", compare: false },
+    { label: "Email", submitted: account.email, registry: registry?.email || "", compare: true },
+  ];
+  return (
+    <div className="compare-board">
+      <div className="compare-board-head">Submitted Information</div>
+      <div className="compare-board-head official">
+        <span>Official Graduate Registry Record</span>
+        <OfficialMark />
+      </div>
+      {registry ? null : (
+        <p className="compare-missing">No matching registry record was found. Registry values are unavailable.</p>
+      )}
+      {rows.map((row) => {
+        const differs = Boolean(
+          row.compare
+          && registry
+          && comparable(row.submitted)
+          && comparable(row.registry)
+          && comparable(row.submitted) !== comparable(row.registry)
+        );
+        return (
+          <div className="compare-pair" key={row.label}>
+            <CompareCell side="Submitted" label={row.label} value={row.submitted} unlinked={row.unlinked} differs={differs} />
+            <CompareCell side="Registry" label={row.label} value={row.registry} official />
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -600,9 +692,17 @@ export function TracerDetailView({
   hideIdentity = false,
   hideEmail = false,
   showAlignment = true,
+  groupEmployment = false,
 }) {
   if (!record) return null;
   const extras = extraItems(record, questionLabels);
+  const employment = employmentItems(record);
+  const relevanceLabels = new Set([
+    "How relevant is your current employment to your degree?",
+    "First job related to degree",
+  ]);
+  const relevance = employment.filter((item) => relevanceLabels.has(item.label));
+  const employmentCore = employment.filter((item) => !relevanceLabels.has(item.label));
   const submissionItems = [
     { label: "Submitted date", value: formatLongDate(record.submitted_at) },
     { label: "Submitted time", value: formatTime(record.submitted_at) },
@@ -612,10 +712,23 @@ export function TracerDetailView({
 
   return (
     <div className={`tracer-detail ${compact ? "is-compact" : "is-page"}`}>
-      <section className="review-block">
-        <h3>Employment Information</h3>
-        <QaList compact items={employmentItems(record)} />
-      </section>
+      {groupEmployment ? (
+        <>
+          <section className="review-block">
+            <h3>Employment</h3>
+            <QaList compact items={employmentCore} />
+          </section>
+          <section className="review-block">
+            <h3>Degree relevance</h3>
+            <QaList compact items={relevance} />
+          </section>
+        </>
+      ) : (
+        <section className="review-block">
+          <h3>Employment Information</h3>
+          <QaList compact items={employment} />
+        </section>
+      )}
       {showAlignment ? <AlignmentHero record={record} /> : null}
       {Array.isArray(record.further_studies) ? (
         <section className="review-block">
@@ -665,12 +778,12 @@ export function DecisionPanel({
       {canDecide ? (
         <>
           <p className="decision-lead">
-            Review the verification and submitted information before deciding whether to activate this account.
+            Choose one option after you have checked the registry match and the submitted information. Opening this tab does not approve or reject the account.
           </p>
           <div className="decision-grid">
             <article className="decision-card">
-              <h4>Approve</h4>
-              <p>Activates the alumni account and marks the graduate as verified.</p>
+              <h4>Approve Registration</h4>
+              <p>Approval activates the alumni account and marks it as verified.</p>
               {showButtons ? (
                 <button className="btn btn-navy" type="button" disabled={busy} onClick={onApprove}>
                   <CheckIcon size={16} />
@@ -679,7 +792,8 @@ export function DecisionPanel({
               ) : null}
             </article>
             <article className="decision-card reject">
-              <h4>Reject</h4>
+              <h4>Reject Registration</h4>
+              <p>Rejection prevents the applicant from accessing the alumni portal. The applicant will be informed of the rejection reason.</p>
               <Field label="Reason for Rejection" required error={reasonError}>
                 <textarea
                   id="rejection-reason"
@@ -691,7 +805,6 @@ export function DecisionPanel({
                   placeholder="Explain why this registration cannot be approved."
                 />
               </Field>
-              <p className="field-help">The applicant will see this reason and remain unable to access the alumni portal.</p>
               {showButtons ? (
                 <button className="btn btn-danger" type="button" disabled={busy} onClick={onReject}>
                   <XIcon size={16} />
@@ -702,8 +815,8 @@ export function DecisionPanel({
           </div>
         </>
       ) : (
-        <p className="decision-lead">
-          This registration is already <strong>{statusLabel}</strong>. Approve and Reject are no longer available.
+        <p className="decision-closed">
+          This request is no longer available for a decision. The account status is <strong>{statusLabel}</strong>.
         </p>
       )}
     </div>
@@ -716,95 +829,78 @@ export function DecisionActions({ busy, onApprove, onReject, compact = false, di
     <div className={`decision-actions ${compact ? "is-compact" : ""}`}>
       <button className="btn btn-navy" type="button" disabled={locked} onClick={onApprove}>
         <CheckIcon size={16} />
-        {busy ? "Working…" : compact ? "Approve" : "Approve Registration"}
+        {busy ? "Working…" : "Approve Registration"}
       </button>
       <button className="btn btn-danger" type="button" disabled={locked} onClick={onReject}>
         <XIcon size={16} />
-        {busy ? "Working…" : compact ? "Reject" : "Reject Registration"}
+        {busy ? "Working…" : "Reject Registration"}
       </button>
     </div>
   );
 }
 
-export function ApprovalReviewContent({
-  detail,
-  verify,
-  labels,
-  reviewTab,
-  setReviewTab,
-  reason,
-  setReason,
-  reasonError,
-  setReasonError,
-  busy,
-  onApprove,
-  onReject,
-  onDownloadResume,
-}) {
+export function ApprovalReviewContent({ detail, verify }) {
   if (!detail) return null;
-  const profile = detail.profile || {};
-  const submission = tracerFromApproval(detail);
+  const pending = isPendingRegistration(detail);
 
   return (
     <div className="review-flow">
-      <ReviewSummary
-        items={[
-          { label: "Applicant", value: applicantName(detail) },
-          { label: "Student ID", value: displayValue(detail.account.student_id || "Unlinked") },
-          { label: "Degree", value: displayValue(profile.degree) },
-          { label: "Verification", value: verifySummaryValue(verify) },
-        ]}
-      />
-      <VerifyBanner verify={verify} compact />
-      <TabList
-        label="Review"
-        value={reviewTab}
-        onChange={setReviewTab}
-        tabs={[
-          ["identity", "Identity"],
-          ["tracer", "Tracer"],
-          ["decision", "Decision"],
-        ]}
-      />
-
-      {reviewTab === "identity" && (
-        <div role="tabpanel" id="panel-review-identity" className="review-tab-panel">
-          <IdentitySections detail={detail} verify={verify} />
-          <StudiesSection studies={detail.further_studies} />
-          <ProfileActivityReview activity={detail.profile_activity} />
-          <ResumeStack resumes={detail.resumes} onDownload={onDownloadResume} />
-        </div>
-      )}
-
-      {reviewTab === "tracer" && (
-        <div role="tabpanel" id="panel-review-tracer" className="review-tab-panel">
-          {submission ? (
-            <TracerDetailView record={submission} questionLabels={labels} compact hideIdentity hideEmail />
-          ) : (
-            <Empty icon={<InboxIcon size={36} />} title="No tracer submission">
-              The applicant has not submitted a Graduate Tracer Survey yet.
-            </Empty>
-          )}
-        </div>
-      )}
-
-      {reviewTab === "decision" && (
-        <div role="tabpanel" id="panel-review-decision" className="review-tab-panel">
-          <DecisionPanel
-            reason={reason}
-            setReason={setReason}
-            reasonError={reasonError}
-            setReasonError={setReasonError}
-            busy={busy}
-            onApprove={onApprove}
-            onReject={onReject}
-            showButtons={false}
-            canDecide={isPendingRegistration(detail)}
-            statusLabel={registrationStatusLabel(detail.account.status)}
-          />
-        </div>
-      )}
+      <ApplicantSummary detail={detail} />
+      <section className="registry-status" aria-label="Registry verification">
+        <h3>Registry verification</h3>
+        <VerifyBanner verify={verify} compact />
+        {pending ? (
+          <p className="registry-note">
+            This result is separate from the account status. The account remains Pending until you approve or reject the registration.
+          </p>
+        ) : (
+          <p className="decision-closed">
+            This request is no longer available for a decision. The account status is <strong>{registrationStatusLabel(detail.account?.status)}</strong>.
+          </p>
+        )}
+      </section>
+      <IdentitySections detail={detail} verify={verify} />
     </div>
+  );
+}
+
+export function ApproveConfirmDialog({ busy, onConfirm, onClose }) {
+  return (
+    <Dialog
+      title="Approve this registration?"
+      confirmLabel="Approve Registration"
+      busy={busy}
+      onConfirm={onConfirm}
+      onClose={onClose}
+    >
+      <p>Approval activates the alumni account and marks it as verified. The graduate will be able to access the Alumni Portal.</p>
+    </Dialog>
+  );
+}
+
+export function RejectConfirmDialog({ reason, setReason, reasonError, setReasonError, busy, onConfirm, onClose }) {
+  return (
+    <Dialog
+      title="Reject this registration?"
+      confirmLabel="Reject Registration"
+      danger
+      busy={busy}
+      onConfirm={onConfirm}
+      onClose={onClose}
+    >
+      <p>Rejection prevents the applicant from accessing the alumni portal. The applicant will be informed of this reason.</p>
+      <Field label="Reason for Rejection" required error={reasonError}>
+        <textarea
+          id="rejection-reason-dialog"
+          value={reason}
+          onChange={(e) => {
+            setReason(e.target.value);
+            if (e.target.value.trim().length >= 3) setReasonError("");
+          }}
+          placeholder="Explain why this registration cannot be approved."
+        />
+      </Field>
+    </Dialog>
   );
 }
 
@@ -830,6 +926,8 @@ export function ApprovalDetailView({
   detail,
   verify,
   labels,
+  reviewTab,
+  setReviewTab,
   reason,
   setReason,
   reasonError,
@@ -839,122 +937,24 @@ export function ApprovalDetailView({
   onReject,
   onDownloadResume,
 }) {
+  const [localTab, setLocalTab] = useState("identity");
   if (!detail) return null;
-  const profile = detail.profile || {};
-  const submission = tracerFromApproval(detail);
-  const status = detail.account.status || "Pending";
-  const pending = isPendingRegistration(detail);
-
   return (
-    <div className="detail-page">
-      <ReviewSummary
-        items={[
-          { label: "Applicant", value: applicantName(detail) },
-          { label: "Student ID", value: displayValue(detail.account.student_id || "Unlinked") },
-          { label: "Degree", value: displayValue(profile.degree) },
-          { label: "Status", value: registrationStatusLabel(status) },
-        ]}
-      />
-      <div className="detail-layout">
-        <div className="detail-main">
-          <section className="detail-section">
-            <h2>Identity Information</h2>
-            <h3 className="section-subhead">Submitted Profile</h3>
-            <InfoGrid
-              items={[
-                { label: "Full Name", value: fullName(profile) },
-                { label: "Student ID", value: displayValue(detail.account.student_id || "Unlinked") },
-                { label: "Degree", value: displayValue(profile.degree) },
-                { label: "Year Graduated", value: displayValue(profile.year_graduated) },
-                { label: "Country", value: displayValue(profile.country_residence) },
-                { label: "Registered", value: formatLongDate(detail.account.created_at) },
-              ]}
-            />
-          </section>
-          <section className="detail-section official">
-            <div className="section-kicker">
-              <h2>University Registry</h2>
-              <OfficialMark />
-            </div>
-            {verify?.record ? (
-              <InfoGrid
-                items={[
-                  { label: "Student ID", value: displayValue(verify.record.student_id) },
-                  { label: "Name", value: fullName(verify.record) },
-                  { label: "Email", value: displayValue(verify.record.email) },
-                  { label: "Degree", value: displayValue(verify.record.degree) },
-                  { label: "Year", value: displayValue(verify.record.year_graduated) },
-                  { label: "College", value: displayValue(verify.record.college) },
-                ]}
-              />
-            ) : (
-              <Empty title="No official match">Search the Graduate Registry if the submitted details look correct.</Empty>
-            )}
-          </section>
-          <section className="detail-section">
-            <h2>Further Studies / Degrees Earned</h2>
-            <StudiesSection studies={detail.further_studies} plain />
-          </section>
-          <section className="detail-section">
-            {submission ? (
-              <TracerDetailView
-                record={submission}
-                questionLabels={labels}
-                hideIdentity
-                hideEmail
-                showAlignment={false}
-              />
-            ) : (
-              <>
-                <h2>Graduate Tracer Survey</h2>
-                <Empty icon={<InboxIcon size={36} />} title="No tracer submission">
-                  The applicant has not submitted a Graduate Tracer Survey yet.
-                </Empty>
-              </>
-            )}
-          </section>
-          <section className="detail-section">
-            <h2>Uploaded Documents</h2>
-            <ResumeStack resumes={detail.resumes} onDownload={onDownloadResume} heading={null} />
-          </section>
-        </div>
-        <aside className="detail-aside">
-          <section className="detail-section">
-            <h2>Verification</h2>
-            <VerifyBanner verify={verify} compact />
-          </section>
-          <section className="detail-section">
-            <h2>Status</h2>
-            <InfoGrid
-              items={[
-                { label: "Account", value: registrationStatusLabel(status) },
-                { label: "Verification", value: verifyShortLabel(verify) },
-              ]}
-            />
-          </section>
-          {submission ? (
-            <section className="detail-section">
-              <AlignmentHero record={submission} />
-            </section>
-          ) : null}
-          <section className="detail-section">
-            <h2>Actions</h2>
-            <DecisionPanel
-              reason={reason}
-              setReason={setReason}
-              reasonError={reasonError}
-              setReasonError={setReasonError}
-              busy={busy}
-              onApprove={onApprove}
-              onReject={onReject}
-              hideTitle
-              canDecide={pending}
-              statusLabel={registrationStatusLabel(status)}
-            />
-          </section>
-        </aside>
-      </div>
-    </div>
+    <ApprovalReviewContent
+      detail={detail}
+      verify={verify}
+      labels={labels}
+      reviewTab={reviewTab || localTab}
+      setReviewTab={setReviewTab || setLocalTab}
+      reason={reason}
+      setReason={setReason}
+      reasonError={reasonError}
+      setReasonError={setReasonError}
+      busy={busy}
+      onApprove={onApprove}
+      onReject={onReject}
+      onDownloadResume={onDownloadResume}
+    />
   );
 }
 
@@ -1090,7 +1090,7 @@ export function useApprovalReview(accountId) {
   function requestApprove() {
     if (!detail || busy) return;
     if (!isPendingRegistration(detail)) {
-      setError("This registration is no longer pending.");
+      setError("This request is no longer available for a decision.");
       return;
     }
     setConfirmApprove(true);
@@ -1099,7 +1099,7 @@ export function useApprovalReview(accountId) {
   async function approve() {
     if (!detail || busy) return false;
     if (!isPendingRegistration(detail)) {
-      setError("This registration is no longer pending.");
+      setError("This request is no longer available for a decision.");
       setConfirmApprove(false);
       return false;
     }
@@ -1122,7 +1122,7 @@ export function useApprovalReview(accountId) {
   function requestReject() {
     if (!detail || busy) return;
     if (!isPendingRegistration(detail)) {
-      setError("This registration is no longer pending.");
+      setError("This request is no longer available for a decision.");
       return;
     }
     if (reason.trim().length < 3) {
@@ -1137,7 +1137,7 @@ export function useApprovalReview(accountId) {
   async function reject() {
     if (!detail) return false;
     if (!isPendingRegistration(detail)) {
-      setError("This registration is no longer pending.");
+      setError("This request is no longer available for a decision.");
       setConfirmReject(false);
       return false;
     }

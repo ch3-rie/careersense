@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { CheckIcon, UploadIcon } from "./icons";
+import { CheckIcon, FileIcon, UploadIcon } from "./icons";
 import { fileKindLabel, formatFileSize } from "../lib/userMessages";
 
 function assignFiles(input, file) {
@@ -27,6 +27,11 @@ export function FileDrop({
   formats = "",
   maxSize = "",
   description = "",
+  readyLabel = "Ready to upload",
+  prompt = "",
+  browseLabel = "",
+  labelHidden = false,
+  mark = "upload",
 }) {
   const autoId = useId();
   const inputId = `${autoId}-file`;
@@ -87,7 +92,7 @@ export function FileDrop({
       : status === "error"
         ? "Upload failed"
         : selected
-          ? "Ready to upload"
+          ? readyLabel
           : showingCurrent
             ? "Current file"
             : "";
@@ -96,7 +101,7 @@ export function FileDrop({
 
   return (
     <div className={`file-drop${compact ? " is-compact" : ""}${dragOver ? " is-over" : ""}${(status === "error" || (problem && !showingCurrent)) ? " has-error" : ""}${status === "success" ? " is-success" : ""}${status === "uploading" ? " is-uploading" : ""}${className ? ` ${className}` : ""}`}>
-      {label ? <p className="file-drop-label" id={`${autoId}-label`}>{label}{required ? <span className="req" aria-hidden="true">*</span> : null}</p> : null}
+      {label ? <p className={`file-drop-label${labelHidden ? " sr-only" : ""}`} id={`${autoId}-label`}>{label}{required ? <span className="req" aria-hidden="true">*</span> : null}</p> : null}
       {selected || showingCurrent ? (
         <div
           className="file-drop-selected"
@@ -114,7 +119,7 @@ export function FileDrop({
           }}
         >
           <span className={`file-drop-mark${status === "success" ? " is-success" : ""}`} aria-hidden="true">
-            {status === "uploading" ? <span className="btn-spinner" /> : status === "success" ? <CheckIcon size={18} /> : <UploadIcon size={18} />}
+            {status === "uploading" ? <span className="btn-spinner" /> : status === "success" ? <CheckIcon size={18} /> : mark === "file" ? <FileIcon size={18} /> : <UploadIcon size={18} />}
           </span>
           <div className="file-drop-copy">
             <strong>{selected ? selected.name : currentName}</strong>
@@ -135,6 +140,28 @@ export function FileDrop({
               </button>
             ) : null}
           </div>
+        </div>
+      ) : browseLabel ? (
+        <div
+          className="file-drop-zone"
+          onDragOver={(event) => {
+            event.preventDefault();
+            if (!disabled) setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(event) => {
+            event.preventDefault();
+            setDragOver(false);
+            take(event.dataTransfer.files?.[0] || null);
+          }}
+        >
+          <span className="file-drop-icon" aria-hidden="true"><UploadIcon size={22} /></span>
+          <strong>{prompt || "Drag and drop your file here"}</strong>
+          <button type="button" className="btn btn-navy btn-sm" onClick={browse} disabled={disabled}>
+            {browseLabel}
+          </button>
+          {limits ? <span className="muted">{limits}</span> : null}
+          {description ? <p className="file-drop-note">{description}</p> : null}
         </div>
       ) : (
         <label

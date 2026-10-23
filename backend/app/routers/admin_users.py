@@ -1,14 +1,18 @@
+import re
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.deps import require_admin
+from app.deps import ADD_USERS_PRIVILEGE, require_add_users, require_admin
 from app.models import Account, AdminLog
 from app.schemas import AdminUserCreateIn, AdminUserUpdateIn
 from app.security import generate_temp_password, hash_password
 from app.services.validation import normalize_email, validate_password_strength
+
+EMPLOYEE_NUMBER = re.compile(r"^0[0-9]{2}$")
 
 router = APIRouter(prefix="/api/admin/users", tags=["admin-users"])
 
@@ -21,13 +25,19 @@ def _log(db: Session, admin_id: int, action: str, target_id, old=None, new=None)
 
 
 def serialize_admin_user(user: Account) -> dict:
+    privileges = str(user.admin_privileges or "").strip()
+    number = user.employee_number
     return {
         "id": user.id,
         "first_name": user.first_name or "",
         "last_name": user.last_name or "",
         "name": " ".join(part for part in [user.first_name, user.last_name] if part).strip() or user.personal_email,
         "email": user.personal_email,
+        "employee_number": "" if number is None else str(number),
         "role": user.role,
+        "admin_privileges": privileges,
+        "privilege_label": "Add Users" if privileges == ADD_USERS_PRIVILEGE else "Full access",
+        "full_admin": privileges == "",
         "status": user.status,
         "created_at": user.created_at,
         "last_login_at": user.last_login_at,
@@ -35,8 +45,34 @@ def serialize_admin_user(user: Account) -> dict:
     }
 
 
-def _active_admin_count(db: Session) -> int:
-    return db.query(Account).filter(Account.role == "Admin", Account.status == "Active").count()
+def _employee_number(value: str) -> str:
+    number = str(value or "").strip()
+    if not EMPLOYEE_NUMBER.fullmatch(number):
+        raise HTTPException(
+            status_code=400,
+            detail="Employee number must be 0 followed by two digits, such as 001.",
+        )
+    return number
+
+
+def _ensure_unique_employee_number(db: Session, number: str, exclude_id: int | None = None) -> None:
+    query = db.query(Account).filter(Account.employee_number == number)
+    if exclude_id is not None:
+        query = query.filter(Account.id != exclude_id)
+    if query.first():
+        raise HTTPException(status_code=400, detail="This employee number is already assigned.")
+
+
+def _active_full_admin_count(db: Session) -> int:
+    return (
+        db.query(Account)
+        .filter(
+            Account.role == "Admin",
+            Account.status == "Active",
+            or_(Account.admin_privileges.is_(None), Account.admin_privileges == ""),
+        )
+        .count()
+    )
 
 
 def _get_admin_account(db: Session, user_id: int) -> Account:
@@ -47,7 +83,7 @@ def _get_admin_account(db: Session, user_id: int) -> Account:
 
 
 @router.get("")
-def list_admins(admin: Account = Depends(require_admin), db: Session = Depends(get_db)):
+def list_admins(admin: Account = Depends(require_add_users), db: Session = Depends(get_db)):
     rows = db.query(Account).filter(Account.role == "Admin").order_by(Account.created_at.asc()).all()
     items = [serialize_admin_user(row) for row in rows]
     return {
@@ -55,23 +91,26 @@ def list_admins(admin: Account = Depends(require_admin), db: Session = Depends(g
         "total": len(items),
         "active": sum(1 for row in items if row["status"] == "Active"),
         "inactive": sum(1 for row in items if row["status"] != "Active"),
+        "full_active": sum(1 for row in items if row["status"] == "Active" and row["full_admin"]),
         "roles": ADMIN_ROLES,
     }
 
 
 @router.get("/{user_id}")
-def get_admin(user_id: int, admin: Account = Depends(require_admin), db: Session = Depends(get_db)):
+def get_admin(user_id: int, admin: Account = Depends(require_add_users), db: Session = Depends(get_db)):
     return serialize_admin_user(_get_admin_account(db, user_id))
 
 
 @router.post("")
-def create_admin(payload: AdminUserCreateIn, admin: Account = Depends(require_admin), db: Session = Depends(get_db)):
+def create_admin(payload: AdminUserCreateIn, admin: Account = Depends(require_add_users), db: Session = Depends(get_db)):
     if not payload.confirm:
         raise HTTPException(status_code=400, detail="Confirm that you want to create this administrator account.")
     if payload.role not in ADMIN_ROLES:
         raise HTTPException(status_code=400, detail="Unsupported role.")
     if payload.status not in ADMIN_STATUSES:
         raise HTTPException(status_code=400, detail="Status must be Active or Inactive.")
+    employee_number = _employee_number(payload.employee_number)
+    _ensure_unique_employee_number(db, employee_number)
     email = normalize_email(str(payload.email))
     if db.query(Account).filter(Account.personal_email == email).first():
         raise HTTPException(status_code=400, detail="An account with this email already exists.")
@@ -84,6 +123,8 @@ def create_admin(payload: AdminUserCreateIn, admin: Account = Depends(require_ad
         status=payload.status,
         first_name=payload.first_name.strip(),
         last_name=payload.last_name.strip(),
+        employee_number=employee_number,
+        admin_privileges=ADD_USERS_PRIVILEGE,
         is_verified=True,
         privacy_consent=True,
         must_change_password=True,
@@ -96,7 +137,13 @@ def create_admin(payload: AdminUserCreateIn, admin: Account = Depends(require_ad
         "CREATE_ADMIN",
         user.id,
         None,
-        {"email": email, "role": payload.role, "created_by": admin.personal_email},
+        {
+            "email": email,
+            "role": payload.role,
+            "employee_number": employee_number,
+            "admin_privileges": ADD_USERS_PRIVILEGE,
+            "created_by": admin.personal_email,
+        },
     )
     db.commit()
     db.refresh(user)
@@ -127,6 +174,10 @@ def update_admin(
         user.first_name = data["first_name"].strip()
     if "last_name" in data and data["last_name"] is not None:
         user.last_name = data["last_name"].strip()
+    if "employee_number" in data and data["employee_number"] is not None:
+        employee_number = _employee_number(data["employee_number"])
+        _ensure_unique_employee_number(db, employee_number, exclude_id=user.id)
+        user.employee_number = employee_number
     if "role" in data and data["role"] is not None:
         if data["role"] not in ADMIN_ROLES:
             raise HTTPException(status_code=400, detail="Unsupported role.")
@@ -182,7 +233,7 @@ def _set_status(db: Session, actor: Account, user: Account, status: str) -> None
     if status == "Inactive":
         if user.id == actor.id:
             raise HTTPException(status_code=400, detail="You cannot deactivate your own account.")
-        if user.status == "Active" and _active_admin_count(db) <= 1:
+        if user.status == "Active" and not str(user.admin_privileges or "").strip() and _active_full_admin_count(db) <= 1:
             raise HTTPException(status_code=400, detail="The last active administrator cannot be deactivated.")
     user.status = status
     _log(db, actor.id, "SET_ADMIN_STATUS", user.id, None, {"status": status})

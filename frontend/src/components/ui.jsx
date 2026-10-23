@@ -229,7 +229,7 @@ export function Field({ label, hint, note, children, required, error }) {
   const kids = Children.toArray(children);
   const control = kids.find(isControl);
   const id = control?.props?.id || autoId;
-  const describedBy = [hint ? `${id}-hint` : null, error ? `${id}-error` : null, note ? `${id}-note` : null].filter(Boolean).join(" ") || undefined;
+  const describedBy = [control?.props?.["aria-describedby"], hint ? `${id}-hint` : null, error ? `${id}-error` : null, note ? `${id}-note` : null].filter(Boolean).join(" ") || undefined;
   let assigned = false;
   return (
     <div className={`field ${error ? "has-error" : ""}`}>
@@ -547,6 +547,7 @@ export function Dialog({
   onClose,
   wide,
   compact,
+  className = "",
   hideActions,
   footer,
 }) {
@@ -629,7 +630,7 @@ export function Dialog({
   return createPortal(
     <div className="dialog-backdrop offset-sidebar" onClick={requestClose}>
       <div
-        className={`dialog ${wide ? "wide" : ""} ${compact ? "compact" : ""}`.trim()}
+        className={`dialog ${wide ? "wide" : ""} ${compact ? "compact" : ""} ${className}`.trim()}
         role={danger ? "alertdialog" : "dialog"}
         aria-modal="true"
         aria-labelledby={titleId}

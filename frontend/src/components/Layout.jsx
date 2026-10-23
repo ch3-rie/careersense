@@ -9,17 +9,19 @@ import {
   DatabaseIcon,
   FileTextIcon,
   GiftIcon,
+  GraduationIcon,
   HashIcon,
   LayoutDashboardIcon,
   LogOutIcon,
   MailIcon,
   MenuIcon,
   SettingsIcon,
-  SlidersIcon,
+  StarIcon,
   UsersIcon,
   XIcon,
 } from "./icons";
 import { api } from "../lib/api";
+import { isAddUsersOnly } from "../lib/adminAccess";
 import { useAuth } from "../lib/auth";
 import { safeAlumniPath } from "../lib/safeUrl";
 
@@ -151,18 +153,20 @@ const ADMIN_NAV = [
     label: "Operations",
     items: [
       ["Approvals", "/admin/approvals", ClipboardListIcon],
-      ["Alumni Cards", "/admin/cards", CreditCardIcon],
+      ["Alumni Card", "/admin/cards", CreditCardIcon],
       ["Profile Updates", "/admin/profile-updates", MailIcon],
       ["Records", "/admin/records", FileTextIcon],
-      ["Registry", "/admin/registry", DatabaseIcon],
+      ["Alumni QR Usage", "/admin/partner-activity", QrCodeIcon],
       ["Reports", "/admin/reports", BarChartIcon],
     ],
   },
   {
     label: "Setup",
     items: [
-      ["Survey", "/admin/survey", SlidersIcon],
+      ["Import List", "/admin/registry", DatabaseIcon],
+      ["Colleges and Courses", "/admin/academics", GraduationIcon],
       ["Perks", "/admin/perks", GiftIcon],
+      ["Badge Management", "/admin/badges", StarIcon],
       ["SOC Mapping", "/admin/soc", HashIcon],
       ["Users", "/admin/users", UsersIcon],
       ["Account", "/admin/account", SettingsIcon],
@@ -173,6 +177,7 @@ const ADMIN_NAV = [
 function pageLabel(pathname, hash, groups, fallback) {
   if (/^\/admin\/approvals\/\d+/.test(pathname)) return "Registration Review";
   if (/^\/admin\/records\/\d+/.test(pathname)) return "Tracer Record Details";
+  if (pathname === "/admin/directory") return "Alumni list";
   const items = groups.flatMap((group) => group.items);
   const currentHash = hash || "";
   if (currentHash) {
@@ -185,6 +190,19 @@ function pageLabel(pathname, hash, groups, fallback) {
     .filter(([, to]) => !to.includes("#") && pathname.startsWith(`${to}/`))
     .sort((a, b) => b[1].length - a[1].length)[0];
   return nested?.[0] || fallback;
+}
+
+function adminNavFor(user) {
+  if (!isAddUsersOnly(user)) return ADMIN_NAV;
+  return [
+    {
+      label: "Setup",
+      items: [
+        ["Users", "/admin/users", UsersIcon],
+        ["Account", "/admin/account", SettingsIcon],
+      ],
+    },
+  ];
 }
 
 function navTarget(to) {
@@ -225,9 +243,9 @@ export function PortalShell({ role, children }) {
   const [notesState, setNotesState] = useState("idle");
   const menuRef = useRef(null);
   const sidebarRef = useRef(null);
-  const groups = role === "Admin" ? ADMIN_NAV : ALUMNI_NAV;
+  const groups = role === "Admin" ? adminNavFor(user) : ALUMNI_NAV;
   const title = role === "Admin" ? "Administrator" : "Alumni Portal";
-  const home = role === "Admin" ? "/admin" : "/alumni";
+  const home = role === "Admin" ? (isAddUsersOnly(user) ? "/admin/users" : "/admin") : "/alumni";
   const currentPage = pageLabel(location.pathname, location.hash, groups, "Dashboard");
   const displayName = [user?.first_name, user?.last_name].filter(Boolean).join(" ") || user?.personal_email || "Alumni";
   const initials = initialsFromUser(user);
