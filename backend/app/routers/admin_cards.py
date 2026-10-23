@@ -166,9 +166,18 @@ def _year_expr():
     )
 
 
+def _four_digit_year(year):
+    """True when the year is four digits. Avoids SQLite-only GLOB so PostgreSQL can run the same filter."""
+    digits = [
+        and_(func.substr(year, index, 1) >= "0", func.substr(year, index, 1) <= "9")
+        for index in range(1, 5)
+    ]
+    return and_(func.length(year) == 4, *digits)
+
+
 def _defined_batch_clause():
     year = _year_expr()
-    return and_(func.length(year) == 4, year.op("GLOB")("[0-9][0-9][0-9][0-9]"), year >= str(RENEWAL_BATCH_YEAR))
+    return and_(_four_digit_year(year), year >= str(RENEWAL_BATCH_YEAR))
 
 
 def _office_confirmed_clause():

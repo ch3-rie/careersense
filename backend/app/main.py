@@ -136,6 +136,19 @@ class SecurityHeadersMiddleware:
 app.add_middleware(SecurityHeadersMiddleware)
 
 
+def _error_cors_headers(request: Request) -> dict[str, str]:
+    """Unhandled errors are returned outside the CORS middleware, so the browser would otherwise hide them."""
+    origin = (request.headers.get("origin") or "").strip()
+    allowed = {item.strip().rstrip("/") for item in settings.cors_origin_list}
+    if not origin or origin.rstrip("/") not in allowed:
+        return {}
+    return {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Credentials": "true",
+        "Vary": "Origin",
+    }
+
+
 @app.exception_handler(Exception)
 async def unhandled_exception(request: Request, exc: Exception):
     if isinstance(exc, RequestValidationError):
@@ -143,7 +156,11 @@ async def unhandled_exception(request: Request, exc: Exception):
     if isinstance(exc, StarletteHTTPException):
         return await http_exception_handler(request, exc)
     logger.exception("Unhandled server error")
-    return JSONResponse(status_code=500, content={"detail": "Something went wrong. Please try again."})
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Something went wrong. Please try again."},
+        headers=_error_cors_headers(request),
+    )
 
 
 app.include_router(auth.router)

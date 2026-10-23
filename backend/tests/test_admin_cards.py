@@ -1,6 +1,19 @@
 from io import BytesIO
 
+from sqlalchemy.dialects import postgresql, sqlite
+
+from app.routers.admin_cards import _defined_batch_clause
 from tests.conftest import auth_header, login, unique_resume
+
+
+def test_renewal_year_filter_runs_on_postgresql():
+    clause = _defined_batch_clause()
+    postgres = str(clause.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}))
+    sqlite_sql = str(clause.compile(dialect=sqlite.dialect(), compile_kwargs={"literal_binds": True}))
+    assert "GLOB" not in postgres.upper()
+    assert "GLOB" not in sqlite_sql.upper()
+    assert "substr" in postgres.lower()
+    assert "2027" in postgres
 
 GTS = {
     "first_name": "Card",
