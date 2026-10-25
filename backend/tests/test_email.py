@@ -56,7 +56,7 @@ def test_production_health_includes_email_configured(client, monkeypatch):
     assert body["email_enabled"] is True
     assert body["email_configured"] is True
     assert "email_provider" not in body
-    assert "gemini_configured" not in body
+    assert "llm_configured" not in body
 
 
 def test_disabled_email_does_not_report_success(monkeypatch):

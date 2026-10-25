@@ -30,20 +30,38 @@ SECTION_ALIASES: dict[str, tuple[str, ...]] = {
         "career history", "work history", "employment", "professional background",
         "professional history", "relevant experience", "work", "career experience",
         "employment history and internships", "experience and internships",
-        "experience & internships", "internships",
+        "experience & internships", "internships", "employment record", "employment records",
+        "job history", "work record", "professional work experience",
     ),
     "skills": (
         "skills", "technical skills", "core skills", "core competencies", "competencies",
         "expertise", "technical expertise", "tools", "technologies", "tools/technologies",
         "key skills", "skill set", "technical competencies", "professional skills",
+        "skills & tools", "skills and tools",
     ),
     "certifications": (
         "certifications", "licenses", "credentials", "professional certifications",
-        "licensure", "certificates",
+        "licensure", "certificates", "certifications and licenses",
+        "licenses and certifications", "professional licenses",
+    ),
+    "seminars": (
+        "seminars", "seminars attended", "seminars and trainings", "trainings attended",
+        "training attended", "workshops", "workshops attended", "training and seminars",
+        "trainings", "training", "seminars trainings and workshops",
+        "seminars and workshops", "trainings and workshops",
+    ),
+    "awards": (
+        "awards", "achievements", "honors", "honours", "awards and achievements",
+        "awards or achievements", "achievements received", "honors and awards",
+        "awards and honors", "honors and achievements",
     ),
     "projects": (
         "projects", "academic projects", "selected projects", "relevant projects",
-        "personal projects",
+        "personal projects", "key campaign projects", "campaign projects",
+    ),
+    "publications": (
+        "publications", "publication", "selected publications", "peer-reviewed publications",
+        "research publications", "published works",
     ),
     "organizations": (
         "organizations", "leadership", "affiliations", "activities",
@@ -55,20 +73,33 @@ SECTION_ALIASES: dict[str, tuple[str, ...]] = {
     ),
     "personal": (
         "personal information", "personal details", "applicant information",
-        "personal data",
+        "personal data", "contact", "contact information", "contact details",
+    ),
+    "summary": (
+        "summary", "professional summary", "career objective", "objective",
+        "professional profile", "profile summary", "summary of qualifications", "profile",
     ),
 }
 
 JOB_TITLE_HINTS = {
     "engineer", "developer", "programmer", "analyst", "manager", "intern", "internship",
-    "specialist", "officer", "assistant", "consultant", "coordinator", "administrator",
+    "specialist", "strategist", "marketer", "buyer", "officer", "assistant", "consultant", "coordinator", "administrator",
     "nurse", "teacher", "instructor", "accountant", "designer", "architect", "technician",
     "associate", "lead", "head", "director", "supervisor", "clerk", "cashier", "staff",
     "administrator", "administrator", "scientist", "researcher", "writer", "editor",
     "representative", "executive", "president", "founder", "owner", "freelancer",
     "trainee", "apprentice", "ojt", "support", "administrator", "hr", "recruiter",
     "pharmacist", "therapist", "counselor", "lawyer", "attorney", "auditor",
+    "investigator", "physician", "surgeon", "professor", "clinician",
+    "tutor", "writer", "chef", "cook", "barista", "crew", "cashier",
     "software", "frontend", "backend", "full-stack", "fullstack", "qa", "tester",
+}
+# Role words that must never be split into a person's name. "Clinical" and
+# "research" stay out of JOB_TITLE_HINTS so a duty sentence is not turned into a job.
+NAME_ROLE_WORDS = JOB_TITLE_HINTS | {
+    "principal", "clinical", "investigator", "physician", "surgeon", "professor",
+    "clinician", "pathologist", "epidemiologist", "resident", "fellow",
+    "medical", "research", "trial", "trials",
 }
 EMPLOYER_HINTS = {
     "inc", "corp", "corporation", "ltd", "llc", "university", "college", "hospital",
@@ -131,7 +162,8 @@ DUTY_START = re.compile(
     r"^(?:developed|maintained|configured|managed|performed|created|implemented|"
     r"designed|built|responsible|worked|gathered|tested|deployed|wrote|led|"
     r"assisted|provided|analyzed|monitored|supported|collaborated|optimized|"
-    r"automated|integrated|handled|conducted|coordinated|reviewed)\b",
+    r"automated|integrated|handled|conducted|coordinated|reviewed|spearheaded|"
+    r"directed|increased|achieved|reduced|delivered|executed|launched|generated)\b",
     re.I,
 )
 NAME_FIELD_PATTERNS = (
@@ -168,33 +200,37 @@ TITLE_STOP = re.compile(
 COUNTRY_NAMES = {"philippines", "singapore", "japan", "canada", "australia"}
 
 
+def _is_page_furniture(text: str) -> bool:
+    """Page counters such as 'Page 1 of 1' are not resume records."""
+    compact = re.sub(r"\s+", " ", _strip_bullet(text or "")).strip(" -–—|:.")
+    if not compact:
+        return False
+    return bool(
+        re.fullmatch(r"(?:page|pg)\.?\s*\d{1,4}(?:\s*(?:of|/)\s*\d{1,4})?", compact, re.I)
+        or re.fullmatch(r"\d{1,4}\s*(?:of|/)\s*\d{1,4}", compact, re.I)
+    )
+
+
 def lines_from_document(document: DocumentView) -> list[str]:
+    """Keep the document reader's order.
+
+    PDF and DOCX extraction already rebuilds columns, date rails, and table rows.
+    Splitting those blocks again by horizontal position pulls a date or a skill
+    out of the record it belongs to.
+    """
     if document.blocks:
         lines: list[str] = []
-        for block in _reading_order(document.blocks):
-            for piece in block.text.splitlines():
+        for block in document.blocks:
+            for piece in (getattr(block, "text", "") or "").splitlines():
                 cleaned = _strip_bullet(piece)
-                if cleaned:
+                if cleaned and not _is_page_furniture(cleaned):
                     lines.append(cleaned)
         if lines:
             return lines
-    return [_strip_bullet(line) for line in (document.text or "").splitlines() if _strip_bullet(line)]
-
-
-def _reading_order(blocks: list) -> list:
-    """Read each column from top to bottom before the next column."""
-    positioned = [block for block in blocks if getattr(block, "text", "")]
-    if len(positioned) < 2:
-        return positioned
-    xs = [float(getattr(block, "x0", 0.0) or 0.0) for block in positioned]
-    if max(xs) - min(xs) < 80:
-        return sorted(positioned, key=lambda block: (getattr(block, "page", 0), float(getattr(block, "y0", 0.0) or 0.0)))
-    midpoint = (min(xs) + max(xs)) / 2
-    left = [block for block in positioned if float(getattr(block, "x0", 0.0) or 0.0) < midpoint]
-    right = [block for block in positioned if float(getattr(block, "x0", 0.0) or 0.0) >= midpoint]
-    left.sort(key=lambda block: (getattr(block, "page", 0), float(getattr(block, "y0", 0.0) or 0.0)))
-    right.sort(key=lambda block: (getattr(block, "page", 0), float(getattr(block, "y0", 0.0) or 0.0)))
-    return left + right
+    return [
+        cleaned for line in (document.text or "").splitlines()
+        if (cleaned := _strip_bullet(line)) and not _is_page_furniture(cleaned)
+    ]
 
 
 def _strip_bullet(text: str) -> str:
@@ -217,23 +253,32 @@ def classify_sections(lines: list[str]) -> dict[str, list[str]]:
     return buckets
 
 
-def _heading_key(line: str) -> str | None:
-    compact = re.sub(r"[:\-–—|]+$", "", line.strip())
+def _normalize_heading(text: str) -> str:
+    compact = re.sub(r"[:\-–—|]+$", "", (text or "").strip())
     compact = re.sub(r"\s+", " ", compact).lower()
-    compact = re.sub(r"\bsection\b", "", compact).strip()
-    if not compact or len(compact) > 48:
+    compact = re.sub(r"\bsection\b", " ", compact)
+    normalized = re.sub(r"[^a-z0-9]+", " ", compact)
+    normalized = re.sub(r"\b(?:and|or)\b", " ", normalized)
+    return re.sub(r"\s+", " ", normalized).strip()
+
+
+def _heading_key(line: str) -> str | None:
+    normalized = _normalize_heading(line)
+    if not normalized or len(normalized) > 60:
         return None
-    if EMAIL_PATTERN.search(compact) or PHONE_PATTERN.search(line):
+    if EMAIL_PATTERN.search(normalized) or PHONE_PATTERN.search(line):
         return None
-    if len(compact.split()) > 5:
+    words = normalized.split()
+    if len(words) > 8:
         return None
-    normalized = re.sub(r"[^a-z0-9]+", " ", compact).strip()
     for key, aliases in SECTION_ALIASES.items():
         for alias in aliases:
-            alias_norm = re.sub(r"[^a-z0-9]+", " ", alias).strip()
+            alias_norm = _normalize_heading(alias)
+            if not alias_norm:
+                continue
             if normalized == alias_norm:
                 return key
-            if len(alias_norm) >= 10 and " " in alias_norm and alias_norm in normalized and len(normalized.split()) <= 8:
+            if len(alias_norm) >= 10 and " " in alias_norm and alias_norm in normalized and len(words) <= 8:
                 return key
     return None
 
@@ -290,7 +335,7 @@ def _looks_like_title(text: str) -> bool:
     lowered = text.lower().strip()
     if not lowered or DEGREE_PATTERN.search(text) or INSTITUTION_PATTERN.search(text):
         return False
-    if EMAIL_PATTERN.search(text) or TITLE_STOP.search(text) or _heading_key(text):
+    if EMAIL_PATTERN.search(text) or TITLE_STOP.search(text) or _heading_key(text) or DUTY_START.search(text):
         return False
     if lowered in COUNTRY_NAMES:
         return False
@@ -307,7 +352,7 @@ def _looks_like_title(text: str) -> bool:
 
 def _looks_like_person_name(text: str) -> bool:
     tokens = set(re.findall(r"[a-z]+", text.lower()))
-    if tokens & EMPLOYER_HINTS or tokens & JOB_TITLE_HINTS:
+    if tokens & EMPLOYER_HINTS or tokens & NAME_ROLE_WORDS:
         return False
     words = re.findall(r"[A-Za-z][A-Za-z'\-]+", text)
     return 2 <= len(words) <= 4 and len(words) == len(text.split())
@@ -331,6 +376,13 @@ def _looks_like_employer(text: str) -> bool:
 def _split_job_line(text: str) -> list[str]:
     parts = [part.strip(" -:|•·") for part in SEPARATORS.split(text) if part.strip(" -:|•·")]
     return parts or [text.strip()]
+
+
+def _label_beside_dates(part: str) -> str:
+    cleaned = re.sub(rf"\b{PRESENT_PATTERN}\b", " ", part or "", flags=re.I)
+    cleaned = re.sub(DATE_TOKEN, " ", cleaned, flags=re.I)
+    cleaned = re.sub(r"[-–—/|,()]+", " ", cleaned)
+    return re.sub(r"\s+", " ", cleaned).strip()
 
 
 def _collapse_dates(dates: list[tuple[str, str, str]]) -> tuple[str, str, str]:
@@ -364,11 +416,14 @@ def _classify_job_parts(parts: list[str]) -> dict[str, str]:
         is_present = current == "Yes" or parse_date_token(part) == "present"
         if start_date or end_date or is_present:
             dates.append((start_date, end_date, "Yes" if is_present else current))
+            label = _label_beside_dates(part)
+            if label and label.lower() != part.strip().lower() and _looks_like_title(label) and not title:
+                title = label
             continue
         if _looks_like_title(part) and not title:
             title = part
             continue
-        if not employer and (_looks_like_employer(part) or (title and _looks_like_title(part))):
+        if not employer and (_looks_like_employer(part) or (title and (_plausible_org(part) or _companyish(part)))):
             employer = part
             continue
         unused.append(part)
@@ -378,7 +433,7 @@ def _classify_job_parts(parts: list[str]) -> dict[str, str]:
             continue
         if not title and _looks_like_title(part):
             title = part
-        elif not employer and _looks_like_employer(part):
+        elif not employer and (_looks_like_employer(part) or (title and (_plausible_org(part) or _companyish(part)))):
             employer = part
     return {
         "job_title": title,
@@ -402,8 +457,49 @@ def _supervisor_from_line(line: str) -> tuple[str, str]:
 def extract_experiences(lines: list[str], sections: dict[str, list[str]]) -> list[dict[str, str]]:
     focused = sections.get("experience") or []
     if focused:
-        return _parse_job_lines(focused)
-    return _parse_job_lines(lines)
+        return _parse_job_lines(focused, allow_partial=True)
+    skipped = set()
+    for key in (
+        "education", "skills", "certifications", "seminars", "awards", "summary",
+        "projects", "publications", "further_studies",
+    ):
+        skipped.update(sections.get(key) or [])
+    return _parse_job_lines([line for line in lines if line not in skipped], allow_partial=False)
+
+
+def _companyish(text: str) -> bool:
+    """Organization line that merely contains a job word, such as 'Sample Software'."""
+    if not text or not _looks_like_title(text) or _heading_key(text):
+        return False
+    tokens = re.findall(r"[a-z0-9]+", text.lower())
+    role_words = JOB_TITLE_HINTS | {
+        "senior", "junior", "staff", "lead", "part", "time", "full", "web", "qa", "data", "it",
+        "digital", "technical", "customer", "service", "project", "product", "human", "resource",
+    }
+    if not tokens or all(token in role_words for token in tokens):
+        return False
+    return True
+
+
+def _date_follows(lines: list[str], index: int) -> bool:
+    if index + 1 >= len(lines):
+        return False
+    follower = lines[index + 1]
+    return _is_date_only(follower) or bool(re.search(DATE_TOKEN, follower, re.I) and not _looks_like_title(follower))
+
+
+def _plausible_org(text: str) -> bool:
+    """An organization line that should stay with the job above it, not become the next title."""
+    if not text or _looks_like_title(text) or _heading_key(text):
+        return False
+    if EMAIL_PATTERN.search(text) or DEGREE_PATTERN.search(text) or DUTY_START.search(text):
+        return False
+    if _is_date_only(text):
+        return False
+    if _looks_like_employer(text):
+        return True
+    words = re.findall(r"[A-Za-z0-9][A-Za-z0-9&.\-']*", text)
+    return 1 <= len(words) <= 8
 
 
 def _is_date_only(line: str) -> bool:
@@ -418,7 +514,15 @@ def _is_date_only(line: str) -> bool:
     return bool(start or end or current) and len(leftover) < 3
 
 
-def _parse_job_lines(lines: list[str]) -> list[dict[str, str]]:
+def _clear_role_title(line: str) -> bool:
+    """A short line that names a role, even when the employer and dates are missing."""
+    if not line or len(line.split()) > 8 or not _looks_like_title(line):
+        return False
+    tokens = set(re.findall(r"[a-z]+", line.lower()))
+    return bool(tokens & JOB_TITLE_HINTS)
+
+
+def _parse_job_lines(lines: list[str], allow_partial: bool = False) -> list[dict[str, str]]:
     jobs: list[dict[str, str]] = []
     skip_until = -1
     for index, line in enumerate(lines):
@@ -432,12 +536,17 @@ def _parse_job_lines(lines: list[str]) -> list[dict[str, str]]:
             continue
         if _looks_like_person_name(line) and not (set(re.findall(r"[a-z]+", line.lower())) & JOB_TITLE_HINTS):
             continue
+        if not _looks_like_title(line) and not re.search(DATE_TOKEN, line, re.I):
+            continue
         if _is_date_only(line) and index and (DEGREE_PATTERN.search(lines[index - 1]) or INSTITUTION_PATTERN.search(lines[index - 1])):
             continue
         window = lines[index:index + 5]
         joined = " | ".join(window)
         has_dates = bool(re.search(DATE_TOKEN, joined, re.I) or re.search(PRESENT_PATTERN, joined, re.I))
-        if not has_dates and not (_looks_like_title(line) and index + 1 < len(lines) and _looks_like_employer(lines[index + 1])):
+        partial_title = allow_partial and _clear_role_title(line)
+        if not has_dates and not partial_title and not (
+            _looks_like_title(line) and index + 1 < len(lines) and _looks_like_employer(lines[index + 1])
+        ):
             continue
         parts = _split_job_line(line)
         parsed = _classify_job_parts(parts)
@@ -446,12 +555,17 @@ def _parse_job_lines(lines: list[str]) -> list[dict[str, str]]:
             nxt = lines[index + 1]
             own_job = _standalone_job_line(nxt)
             needs_employer = not parsed.get("employer")
-            can_take_next = not own_job and (
+            # "Title" on one line and "Hospital | 2022 - Present" on the next.
+            # The dated line can stand alone, but it belongs to the title above it
+            # when that line has no role word of its own.
+            dated_org = needs_employer and _dated_org_line(nxt)
+            can_take_next = (not own_job or dated_org) and (
                 _is_date_only(nxt)
                 or _looks_like_employer(nxt)
+                or _plausible_org(nxt)
                 or "|" in nxt
                 or bool(re.search(DATE_TOKEN, nxt, re.I))
-                or (_looks_like_title(nxt) and (not parsed.get("job_title") or needs_employer))
+                or (_looks_like_title(nxt) and not parsed.get("job_title"))
             ) and not (DUTY_START.search(nxt) or nxt.startswith(("•", "-", "*")))
             if can_take_next:
                 one_line = _classify_job_parts(parts + _split_job_line(nxt))
@@ -468,8 +582,8 @@ def _parse_job_lines(lines: list[str]) -> list[dict[str, str]]:
             if (
                 _looks_like_title(nxt)
                 and parsed.get("job_title")
-                and parsed.get("employer")
                 and not re.search(DATE_TOKEN, nxt, re.I)
+                and not _date_follows(lines, cursor)
             ):
                 break
             trial = _classify_job_parts(
@@ -488,7 +602,7 @@ def _parse_job_lines(lines: list[str]) -> list[dict[str, str]]:
                     cursor += 2
                     continue
             break
-        if _job_score(parsed) < 2:
+        if _job_score(parsed) < 2 and not (allow_partial and _clear_role_title(parsed.get("job_title", ""))):
             continue
         supervisor_name = supervisor_email = ""
         look = index + consumed
@@ -514,13 +628,19 @@ def _parse_job_lines(lines: list[str]) -> list[dict[str, str]]:
                     break
             if _is_date_only(nxt):
                 break
+            if re.search(r"(?:₱|php|salary|compensation)", nxt, re.I):
+                local_salary = extract_salary(nxt)
+                if local_salary.get("current") and not parsed.get("salary_range"):
+                    parsed["salary_range"] = local_salary["current"]
+                look += 1
+                continue
             if DUTY_START.search(nxt) or nxt.startswith(("•", "-", "*")) or len(nxt.split()) >= 6:
                 description_parts.append(_strip_bullet(nxt))
                 look += 1
                 continue
             break
         parsed.update({
-            "salary_range": "",
+            "salary_range": parsed.get("salary_range", ""),
             "employment_status": _status_from_title(parsed.get("job_title", "")) or _status_from_context(
                 " ".join(description_parts)
             ),
@@ -532,6 +652,19 @@ def _parse_job_lines(lines: list[str]) -> list[dict[str, str]]:
         jobs.append(parsed)
         skip_until = look
     return _dedupe_jobs(jobs)
+
+
+def _dated_org_line(line: str) -> bool:
+    """An organization and a date, with no job-title word of its own."""
+    if not line or not (re.search(DATE_TOKEN, line, re.I) or re.search(PRESENT_PATTERN, line, re.I)):
+        return False
+    for part in _split_job_line(line):
+        if re.search(DATE_TOKEN, part, re.I) or re.search(PRESENT_PATTERN, part, re.I):
+            continue
+        tokens = set(re.findall(r"[a-z]+", part.lower()))
+        if tokens & JOB_TITLE_HINTS:
+            return False
+    return True
 
 
 def _standalone_job_line(line: str) -> bool:
@@ -587,6 +720,20 @@ def _dedupe_jobs(jobs: list[dict[str, str]]) -> list[dict[str, str]]:
     return unique
 
 
+def _completion_status(blob: str, current: str, year_graduated: str, year_confidence: str) -> str:
+    if re.search(r"\bexpected\b", blob or "", re.I):
+        return "expected"
+    if current == "Yes" or re.search(r"\b(?:ongoing|in progress|currently pursuing|pursuing)\b", blob or "", re.I):
+        return "ongoing"
+    if re.search(r"\b(?:incomplete|withdrawn|did not finish)\b", blob or "", re.I):
+        return "incomplete"
+    if year_graduated and year_confidence == "high":
+        return "graduated"
+    if year_graduated:
+        return "unknown"
+    return "unknown"
+
+
 def _education_year(blob: str, start: str, end: str) -> tuple[str, str]:
     """Return a graduation year only when the text says which year it is."""
     if re.search(r"\bexpected\b", blob, re.I):
@@ -617,8 +764,14 @@ def _parse_education_lines(lines: list[str]) -> list[dict[str, str]]:
         if not DEGREE_PATTERN.search(line) and not INSTITUTION_PATTERN.search(line) and not GRADUATE_PATTERN.search(line):
             continue
         pieces = [line]
+        previous_school_belongs_above = (
+            index >= 2
+            and INSTITUTION_PATTERN.search(lines[index - 1])
+            and (DEGREE_PATTERN.search(lines[index - 2]) or GRADUATE_PATTERN.search(lines[index - 2]))
+        )
         if (
             index
+            and not previous_school_belongs_above
             and INSTITUTION_PATTERN.search(lines[index - 1])
             and not DEGREE_PATTERN.search(lines[index - 1])
             and not GRADUATE_PATTERN.search(lines[index - 1])
@@ -630,6 +783,9 @@ def _parse_education_lines(lines: list[str]) -> list[dict[str, str]]:
             nxt = lines[index + offset]
             if DEGREE_PATTERN.search(nxt) or GRADUATE_PATTERN.search(nxt):
                 break
+            if re.match(r"major in\b", nxt, re.I):
+                pieces.append(nxt)
+                continue
             if (
                 INSTITUTION_PATTERN.search(nxt)
                 or _is_date_only(nxt)
@@ -640,6 +796,9 @@ def _parse_education_lines(lines: list[str]) -> list[dict[str, str]]:
             break
         blob = " | ".join(pieces)
         degree = next((piece for piece in pieces if DEGREE_PATTERN.search(piece) or GRADUATE_PATTERN.search(piece)), "")
+        major = next((piece for piece in pieces if re.match(r"major in\b", piece, re.I)), "")
+        if degree and major and major.lower() not in degree.lower():
+            degree = f"{degree} {major}".strip()
         institution = next((piece for piece in pieces if INSTITUTION_PATTERN.search(piece) and piece != degree), "")
         start, end, current = parse_date_range(blob)
         year_graduated, year_confidence = _education_year(blob, start, end)
@@ -652,6 +811,7 @@ def _parse_education_lines(lines: list[str]) -> list[dict[str, str]]:
             "year_enrolled": start[:4] if start and (end or year_confidence == "high") else "",
             "year_confidence": year_confidence,
             "is_graduated": "No" if current == "Yes" or re.search(r"\bexpected\b", blob, re.I) else ("Yes" if year_graduated else ""),
+            "completion_status": _completion_status(blob, current, year_graduated, year_confidence),
             "is_bachelors": bool(BACHELORS_PATTERN.search(degree or blob)),
             "is_graduate": bool(GRADUATE_PATTERN.search(degree or blob)),
         })
@@ -671,12 +831,17 @@ def _dedupe_education(records: list[dict[str, str]]) -> list[dict[str, str]]:
 
 
 def select_bachelors(records: list[dict[str, str]]) -> dict[str, str]:
+    """The primary bachelor's degree is the earliest one, not a later second degree."""
     bachelors = [row for row in records if row.get("is_bachelors")]
     pool = bachelors or [row for row in records if not row.get("is_graduate")]
     if not pool:
         return {}
-    pool = sorted(pool, key=lambda row: row.get("year_graduated") or "0000", reverse=True)
-    return pool[0]
+
+    def sort_key(row: dict[str, str]) -> tuple:
+        year = str(row.get("year_graduated") or "")
+        return (0 if year else 1, year or "9999")
+
+    return sorted(pool, key=sort_key)[0]
 
 
 def further_study_level(program: str) -> str:
@@ -800,6 +965,7 @@ def further_studies_from_education(records: list[dict[str, str]], primary: dict[
             "school": institution,
             "year_enrolled": record.get("year_enrolled", ""),
             "is_graduated": record.get("is_graduated") or "",
+            "completion_status": record.get("completion_status") or "",
         })
     return studies
 
@@ -814,11 +980,31 @@ def extract_skills(lines: list[str], sections: dict[str, list[str]], resume_text
             skill_lines.append(match.group(1))
     if not skill_lines:
         return []
-    blob = "\n".join(skill_lines[:12])
-    collected = [part.strip(" -:|") for part in re.split(r",|•|\||;|\n", blob) if part.strip()]
+    wrapped: list[str] = []
+    for line in skill_lines:
+        previous = wrapped[-1] if wrapped else ""
+        tail = re.split(r"[•·|;]", previous)[-1].strip() if previous else ""
+        wrapped_item = (
+            bool(previous)
+            and re.search(r"[•·|;]", previous)
+            and not re.search(r"[•·|;]\s*$", previous)
+            and 0 < len(tail) <= 12
+            and " " not in tail
+            and not NAME_STOP.search(line)
+            and not _heading_key(line)
+        )
+        if wrapped_item:
+            wrapped[-1] = f"{previous} {line}"
+        else:
+            wrapped.append(line)
+    blob = "\n".join(wrapped[:12])
+    collected = [part.strip(" -:|") for part in re.split(r",|•|·|\||;|\n", blob) if part.strip()]
     cleaned, seen = [], set()
     for skill in collected:
         text = re.sub(r"\s+", " ", skill).strip()
+        text = re.sub(r"^(?:and|or)\s+", "", text, flags=re.I).strip()
+        if NAME_STOP.search(text) or _is_page_furniture(text):
+            continue
         if not text or len(text) > 48 or len(text) < 2:
             continue
         if re.fullmatch(r"(and|or|the|with|using|including)", text, re.I):
@@ -829,6 +1015,32 @@ def extract_skills(lines: list[str], sections: dict[str, list[str]], resume_text
         seen.add(key)
         cleaned.append(SKILL_CANON.get(key, text))
     return cleaned
+
+
+def extract_inferred_skills(experiences: list[dict[str, str]], explicit: list[str]) -> list[dict[str, str]]:
+    """Skills mentioned only inside job duties. These are not declared skill-section entries."""
+    declared = {item.strip().lower() for item in explicit}
+    found: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for job in experiences:
+        description = job.get("description") or ""
+        if not description:
+            continue
+        for skill in sorted(KNOWN_SKILLS, key=len, reverse=True):
+            if not re.search(rf"(?<![a-z0-9]){re.escape(skill)}(?![a-z0-9])", description, re.I):
+                continue
+            canon = SKILL_CANON.get(skill, skill)
+            key = canon.lower()
+            if key in declared or key in seen:
+                continue
+            seen.add(key)
+            found.append({
+                "name": canon if canon[:1].isupper() else canon,
+                "evidence_type": "job_description",
+                "excerpt": description[:180],
+                "job_title": job.get("job_title", ""),
+            })
+    return found
 
 
 def extract_name(document: DocumentView, lines: list[str], resume_text: str) -> dict[str, str]:
@@ -848,7 +1060,7 @@ def extract_name(document: DocumentView, lines: list[str], resume_text: str) -> 
     for block in top_blocks:
         for piece in block.text.splitlines():
             labeled_line = BARE_NAME_LABEL.match(piece.strip())
-            payload = labeled_line.group(1) if labeled_line else piece
+            payload = _strip_name_decorations(labeled_line.group(1) if labeled_line else piece)
             if not _name_candidate(payload):
                 continue
             score = 1.0
@@ -858,19 +1070,19 @@ def extract_name(document: DocumentView, lines: list[str], resume_text: str) -> 
                 score += 3
             if block.y0 <= 120:
                 score += 2
-            if email and email.split("@")[0].split(".")[0].lower() in payload.lower():
-                score += 2
+            if _email_matches_name(email, payload):
+                score += 3
             candidates.append((score, payload))
     for index, line in enumerate(lines[:16]):
         labeled_line = BARE_NAME_LABEL.match(line.strip())
-        payload = labeled_line.group(1) if labeled_line else line
+        payload = _strip_name_decorations(labeled_line.group(1) if labeled_line else line)
         if index and _is_name_heading(lines[index - 1]) and _name_candidate(payload):
             candidates.append((4.5, payload))
             continue
         if _name_candidate(payload):
             score = 2.5 if labeled_line else (1.5 if index <= 2 else 0.8)
-            if email and email.split("@")[0].split(".")[0].lower() in payload.lower():
-                score += 2
+            if _email_matches_name(email, payload):
+                score += 3
             candidates.append((score, payload))
     if not candidates:
         return {"first_name": "", "middle_name": "", "last_name": ""}
@@ -906,16 +1118,41 @@ def _is_name_heading(line: str) -> bool:
     }
 
 
+def _strip_name_decorations(line: str) -> str:
+    """Drop a leading honorific and a trailing credential so the name itself can be read."""
+    text = BARE_NAME_LABEL.sub(lambda match: match.group(1), line or "").strip()
+    text = re.sub(r"^(?:dr|mr|mrs|ms|miss|prof|engr|atty)\.?\s+", "", text, flags=re.I)
+    previous = None
+    while previous != text:
+        previous = text
+        text = re.sub(
+            r"(?:,|\s)+(?:ph\.?d|m\.?d|md|rn|mba|cpa|rph|mph|msn|dmd|dds|do|llb|llm)\.?$",
+            "",
+            text,
+            flags=re.I,
+        ).strip(" ,")
+    return text.strip()
+
+
+def _email_matches_name(email: str, payload: str) -> bool:
+    local = (email or "").split("@")[0].lower()
+    tokens = [part for part in re.split(r"[^a-z]+", local) if len(part) >= 3]
+    haystack = payload.lower()
+    return any(part in haystack for part in tokens)
+
+
 def _name_candidate(line: str) -> bool:
-    payload = BARE_NAME_LABEL.sub(lambda match: match.group(1), line or "").strip()
-    if not payload or NAME_STOP.search(payload) or EMAIL_PATTERN.search(payload) or _heading_key(payload):
+    payload = _strip_name_decorations(line)
+    if not payload or not payload[0].isupper() or "|" in payload:
+        return False
+    if NAME_STOP.search(payload) or EMAIL_PATTERN.search(payload) or _heading_key(payload):
         return False
     if re.search(r"\d", payload) or LOCATION_STOP.search(payload):
         return False
     if DEGREE_PATTERN.search(payload) or INSTITUTION_PATTERN.search(payload):
         return False
     tokens = set(re.findall(r"[a-z]+", payload.lower()))
-    if tokens & JOB_TITLE_HINTS or tokens & EMPLOYER_HINTS:
+    if tokens & NAME_ROLE_WORDS or tokens & EMPLOYER_HINTS:
         return False
     words = re.findall(r"[A-Za-z][A-Za-z'\-.]+", payload)
     return 2 <= len(words) <= 5
@@ -934,7 +1171,7 @@ def _take_surname(words: list[str]) -> tuple[list[str], str]:
 
 
 def _split_name(line: str) -> dict[str, str]:
-    cleaned = BARE_NAME_LABEL.sub(lambda match: match.group(1), line or "").strip()
+    cleaned = _strip_name_decorations(line)
     words = re.findall(r"[A-Za-z][A-Za-z'\-.]+", cleaned)
     suffix = ""
     if words and words[-1].lower().rstrip(".") in {"jr", "sr", "ii", "iii", "iv"}:
@@ -1020,6 +1257,13 @@ def extract_salary(text: str) -> dict[str, str]:
     for line in (text or "").splitlines():
         if not re.search(r"(?:₱|php|salary|compensation)", line, re.I):
             continue
+        if re.search(r"\b(?:sales|revenue|spend|budget|roi|gross|pipeline|campaign)\b", line, re.I):
+            continue
+        if re.search(r"\d\s*(?:m|mn|million|b|bn|billion)\b", line, re.I):
+            continue
+        if re.search(r"\b(?:per\s+hour|an\s+hour|hourly|/hour|/hr|per\s+day|daily|per\s+week|weekly)\b", line, re.I):
+            saw_hint = True
+            continue
         saw_hint = True
         amounts = re.findall(r"(\d{1,3}(?:,\d{3})+|\d{2,7})\s*(k)?", line, re.I)
         if len(amounts) >= 2:
@@ -1052,16 +1296,20 @@ def extract_heuristic(document: DocumentView) -> dict[str, Any]:
     education = extract_education(lines, sections)
     bachelor = select_bachelors(education)
     experiences = extract_experiences(lines, sections)
+    local_retry = False
+    if (sections.get("experience") or []) and not experiences:
+        local_retry = True
+        experiences = _parse_job_lines(lines)
     skills = extract_skills(lines, sections, text)
     studies = further_studies_from_education(education, bachelor)
     studies.extend(_studies_from_section(sections.get("further_studies") or []))
+    credentials = extract_credentials(sections)
     salary = extract_salary(text)
-    if salary["current"] and experiences:
-        for job in experiences:
-            if job.get("is_current") == "Yes" and not job.get("salary_range"):
-                job["salary_range"] = salary["current"]
-                job["salary_kind"] = "current"
-                break
+    open_current = [job for job in experiences if job.get("is_current") == "Yes" and not job.get("salary_range")]
+    if salary["current"] and len(open_current) == 1:
+        open_current[0]["salary_range"] = salary["current"]
+        open_current[0]["salary_kind"] = "current"
+    inferred = extract_inferred_skills(experiences, skills)
     evidence = further_studies_evidence(studies, education, bachelor.get("degree", ""))
     current_flags = [job.get("is_current") for job in experiences]
     if any(flag == "Yes" for flag in current_flags):
@@ -1085,6 +1333,16 @@ def extract_heuristic(document: DocumentView) -> dict[str, Any]:
         "further_studies_evidence": evidence,
         "education_records": education,
         "skills": skills,
+        "skill_records": [
+            {"name": skill, "evidence_type": "skills_section", "excerpt": skill}
+            for skill in skills
+        ],
+        "inferred_skills": inferred,
+        "certifications": credentials["certifications"],
+        "seminars": credentials["seminars"],
+        "awards": credentials["awards"],
+        "projects": credentials["projects"],
+        "local_retry": local_retry,
         "skills_section_seen": "skills" in seen,
         "further_studies_section_seen": "further_studies" in seen,
         "salary_state": salary["state"],
@@ -1092,6 +1350,158 @@ def extract_heuristic(document: DocumentView) -> dict[str, Any]:
         "email": extract_email(text),
         "education_year_confidence": bachelor.get("year_confidence", ""),
     }
+
+
+def extract_credentials(sections: dict[str, list[str]]) -> dict[str, list[dict[str, str]]]:
+    """Certifications, seminars, and awards named in their own resume sections."""
+    return {
+        "certifications": _credential_rows(sections.get("certifications") or [], "certification"),
+        "seminars": _credential_rows(sections.get("seminars") or [], "seminar"),
+        "awards": _credential_rows(sections.get("awards") or [], "award"),
+        "projects": _credential_rows(sections.get("projects") or [], "project"),
+    }
+
+
+_PLACE_HINT = re.compile(
+    r"\b(?:city|province|campus|online|virtual|philippines|manila|angeles|hall|room|"
+    r"building|street|barangay|zoom|municipality|barangay)\b",
+    re.I,
+)
+
+
+def _looks_like_place(text: str) -> bool:
+    return bool(_PLACE_HINT.search(text or ""))
+
+
+def _credential_pieces(line: str) -> tuple[list[str], str]:
+    """Split a credential line and lift a trailing year out of the other fields."""
+    raw_parts = [part.strip(" ,") for part in re.split(r"\s+[|\-–—]\s+", line) if part.strip(" ,")]
+    pieces: list[str] = []
+    year = ""
+    for part in raw_parts:
+        if re.fullmatch(r"(?:19|20)\d{2}", part):
+            year = part
+            continue
+        match = re.search(r"\b((?:19|20)\d{2})\b", part)
+        remainder = part
+        if match:
+            remainder = re.sub(r"\s*[,(-]*\s*\b(?:19|20)\d{2}\b\s*\)?", "", part).strip(" ,-()")
+            year = year or match.group(1)
+        if remainder and not re.fullmatch(r"[\d\W]+", remainder):
+            pieces.append(remainder)
+    return pieces, year
+
+
+_CREDENTIAL_TITLE = re.compile(
+    r"\b(?:certificate|certification|license|licensure|diploma|award|seminar|workshop|training|dean)\b",
+    re.I,
+)
+_ORG_HINT = re.compile(
+    r"\b(?:inc|corp|corporation|company|university|college|institute|hospital|labs|laboratory|"
+    r"services|board|council|commission|office|foundation|agency|department|prc|tesda)\b",
+    re.I,
+)
+_AWARD_NOTE = re.compile(r"^(?:recognized|awarded|for outstanding|for academic|for being)\b", re.I)
+
+
+def _blank_credential(title: str, year: str, extra: list[str], kind: str) -> dict[str, str]:
+    awarding_body = location = organizer = issuer = description = ""
+    if kind == "seminar":
+        places = [part for part in extra if _looks_like_place(part)]
+        others = [part for part in extra if part not in places]
+        location = places[0] if places else ""
+        organizer = others[0] if others else ""
+        if not location and len(others) > 1:
+            location = others[1]
+            organizer = others[0]
+    elif kind == "award":
+        issuer = extra[0] if extra else ""
+        description = " ".join(extra[1:]).strip()
+    else:
+        awarding_body = extra[0] if extra else ""
+        if len(extra) > 1:
+            description = " ".join(extra[1:]).strip()
+    if kind == "seminar":
+        detail = location
+    elif kind == "award":
+        detail = issuer
+    else:
+        detail = awarding_body
+    return {
+        "name": title,
+        "detail": detail,
+        "year": year,
+        "awarding_body": awarding_body,
+        "location": location,
+        "organizer": organizer,
+        "issuer": issuer,
+        "description": description,
+    }
+
+
+def _refresh_credential_detail(row: dict[str, str], kind: str) -> None:
+    if kind == "seminar":
+        row["detail"] = row.get("location") or row.get("organizer") or ""
+    elif kind == "award":
+        row["detail"] = row.get("issuer") or ""
+    else:
+        row["detail"] = row.get("awarding_body") or ""
+
+
+def _continue_credential(row: dict[str, str], text: str, year: str, kind: str) -> bool:
+    """Attach a following year, place, organization, or award note to the open record."""
+    if year and not text:
+        if not row.get("year"):
+            row["year"] = year
+        return True
+    if not text:
+        return False
+    if _CREDENTIAL_TITLE.search(text):
+        return False
+    if kind == "seminar" and _looks_like_place(text) and not row.get("location"):
+        row["location"] = text
+        _refresh_credential_detail(row, kind)
+        if year and not row.get("year"):
+            row["year"] = year
+        return True
+    if _ORG_HINT.search(text) and len(text.split()) <= 8:
+        target = {"seminar": "organizer", "award": "issuer"}.get(kind, "awarding_body")
+        if not row.get(target):
+            row[target] = text
+            _refresh_credential_detail(row, kind)
+            if year and not row.get("year"):
+                row["year"] = year
+            return True
+        return False
+    if kind == "award" and not row.get("description") and (_AWARD_NOTE.search(text) or len(text.split()) >= 6):
+        row["description"] = text
+        return True
+    return False
+
+
+def _credential_rows(lines: list[str], kind: str = "certification") -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for line in lines:
+        name = re.sub(r"\s+", " ", _strip_bullet(line)).strip(" -–—:|")
+        if len(name) < 3 or len(name) > 180 or _is_page_furniture(name):
+            continue
+        if re.fullmatch(r"(?:19|20)\d{2}", name):
+            if rows:
+                _continue_credential(rows[-1], "", name, kind)
+            continue
+        pieces, year = _credential_pieces(name)
+        if not pieces:
+            continue
+        title = pieces[0]
+        if rows and _continue_credential(rows[-1], title, year, kind):
+            continue
+        key = title.lower()
+        if key in seen or _is_page_furniture(title):
+            continue
+        seen.add(key)
+        rows.append(_blank_credential(title, year, pieces[1:], kind))
+    return rows
 
 
 def _studies_from_section(lines: list[str]) -> list[dict[str, str]]:
@@ -1102,6 +1512,7 @@ def _studies_from_section(lines: list[str]) -> list[dict[str, str]]:
             "school": record.get("institution", ""),
             "year_enrolled": record.get("year_enrolled", ""),
             "is_graduated": record.get("is_graduated") or "No",
+            "completion_status": record.get("completion_status") or "",
         })
     return records
 
@@ -1118,17 +1529,52 @@ def _dedupe_studies(rows: Iterable[dict[str, str]]) -> list[dict[str, str]]:
     return unique
 
 
+_COMMON_EVIDENCE_TOKENS = {
+    "with", "from", "that", "this", "have", "been", "were", "your", "their", "and",
+    "university", "college", "sample", "bachelor", "science", "degree", "master",
+    "present", "current", "company", "group", "inc", "corp", "the",
+}
+
+
 def field_evidenced(value: str, resume_text: str) -> bool:
+    """True when the value is a phrase in the resume, or its distinctive words are.
+
+    Scattered common words are not enough to support a complete record.
+    """
     if not value or not resume_text:
         return False
-    haystack = resume_text.lower()
-    needle = value.strip().lower()
-    if needle in haystack:
+    needle = re.sub(r"\s+", " ", value.strip().lower())
+    haystack = re.sub(r"\s+", " ", resume_text.lower())
+    if needle and needle in haystack:
         return True
-    tokens = [token for token in re.findall(r"[a-z0-9]{4,}", needle) if token not in {"with", "from", "that"}]
-    if not tokens:
-        return False
-    return all(token in haystack for token in tokens)
+
+    def squash(text: str) -> str:
+        return re.sub(r"[^a-z0-9]+", " ", text).strip()
+
+    if squash(needle) and squash(needle) in squash(haystack):
+        return True
+    tokens = [
+        token for token in re.findall(r"[a-z0-9]{4,}", needle)
+        if token not in _COMMON_EVIDENCE_TOKENS
+    ]
+    if len(tokens) >= 2:
+        return all(re.search(rf"\b{re.escape(token)}\b", haystack) for token in tokens)
+    if len(tokens) == 1 and len(tokens[0]) >= 6:
+        return bool(re.search(rf"\b{re.escape(tokens[0])}\b", haystack))
+    return False
+
+
+def evidence_excerpt(value: str, resume_text: str, window: int = 28) -> str:
+    needle = re.sub(r"\s+", " ", (value or "").strip())
+    if len(needle) < 2 or not resume_text:
+        return ""
+    flat = re.sub(r"\s+", " ", resume_text)
+    match = re.search(re.escape(needle), flat, re.I)
+    if not match:
+        return ""
+    start = max(0, match.start() - window)
+    end = min(len(flat), match.end() + window)
+    return flat[start:end].strip()
 
 
 def assess_extraction(data: dict[str, Any]) -> dict[str, str]:

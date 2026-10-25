@@ -99,7 +99,7 @@
     "text": "Nina Flores\nnflores@example.com\n\nEducation\nBachelor of Science in Information Technology\nSample University\n2019-2023\n\nEmployment History and Internships\nIT Intern\nSample Office\nJune 2022 - August 2022\n\nSoftware Engineer\nSample Software\n2023-Present\n\nSkills\nSQL\n",
     "expected": {
       "degree_contains": "Information Technology",
-      "first_title": "IT Intern",
+      "first_title": "Software Engineer",
       "current_title": "Software Engineer",
       "current_employer": "Sample Software"
     }
@@ -130,6 +130,37 @@
       "year_graduated": "2019",
       "further_studies": "Yes",
       "further_program_contains": "Diploma"
+    }
+  },
+  {
+    "id": "second-bachelors-is-later-study",
+    "text": "Liza Santos\nlsantos@example.com\n\nEducation\nBachelor of Science in Information Technology\nSample University\n2014-2018\nBachelor of Science in Education\nSample College\n2019-2023\n\nExperience\nTeacher\nSample School\n2023-Present\n\nSkills\nClassroom Management\n",
+    "expected": {
+      "degree_contains": "Information Technology",
+      "year_graduated": "2018",
+      "further_studies": "Yes",
+      "further_program_contains": "Education",
+      "current_title": "Teacher",
+      "skills": ["Classroom Management"]
+    }
+  },
+  {
+    "id": "skill-list-and-prefix",
+    "text": "Ana Cruz\nacruz@example.com\n\nEducation\nBachelor of Science in Information Technology\nSample University\n2018-2022\n\nExperience\nSoftware Engineer\nNorth Labs\n2022-Present\n\nSkills\nPython, SQL, and Project Management\n",
+    "expected": {
+      "degree_contains": "Information Technology",
+      "current_title": "Software Engineer",
+      "skills": ["Python", "SQL", "Project Management"]
+    }
+  },
+  {
+    "id": "job-history-heading",
+    "text": "Paolo Reyes\npreyes@example.com\nPhilippines\n\nJob History\nIT Support Specialist\nSample Office\n2022-Present\n\nSkills\nCustomer Service\n",
+    "expected": {
+      "current_title": "IT Support Specialist",
+      "current_employer": "Sample Office",
+      "country": "Philippines",
+      "skills": ["Customer Service"]
     }
   }
 ]

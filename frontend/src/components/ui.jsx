@@ -229,7 +229,8 @@ export function Field({ label, hint, note, children, required, error }) {
   const kids = Children.toArray(children);
   const control = kids.find(isControl);
   const id = control?.props?.id || autoId;
-  const describedBy = [control?.props?.["aria-describedby"], hint ? `${id}-hint` : null, error ? `${id}-error` : null, note ? `${id}-note` : null].filter(Boolean).join(" ") || undefined;
+  const showNote = Boolean(note) && !error;
+  const describedBy = [control?.props?.["aria-describedby"], hint ? `${id}-hint` : null, error ? `${id}-error` : null, showNote ? `${id}-note` : null].filter(Boolean).join(" ") || undefined;
   let assigned = false;
   return (
     <div className={`field ${error ? "has-error" : ""}`}>
@@ -263,7 +264,7 @@ export function Field({ label, hint, note, children, required, error }) {
       })}
       {hint ? <span className="hint" id={`${id}-hint`}>{hint}</span> : null}
       {error ? <span className="field-error" id={`${id}-error`}>{error}</span> : null}
-      {note ? <ResumeNote id={`${id}-note`}>{note}</ResumeNote> : null}
+      {showNote ? <ResumeNote id={`${id}-note`}>{note}</ResumeNote> : null}
     </div>
   );
 }
@@ -290,12 +291,15 @@ function ResumeNote({ id, children }) {
 
 export function CheckGroup({ legend, required, error, note, children }) {
   const noteId = useId();
+  const errorId = useId();
+  const showNote = Boolean(note) && !error;
+  const describedBy = [error ? errorId : null, showNote ? noteId : null].filter(Boolean).join(" ") || undefined;
   return (
     <fieldset
       className={`field check-group ${error ? "has-error" : ""}`}
       aria-invalid={error ? true : undefined}
       aria-required={required || undefined}
-      aria-describedby={note ? noteId : undefined}
+      aria-describedby={describedBy}
     >
       {legend ? (
         <legend>
@@ -304,8 +308,8 @@ export function CheckGroup({ legend, required, error, note, children }) {
         </legend>
       ) : null}
       {children}
-      {error ? <span className="field-error">{error}</span> : null}
-      {note ? <ResumeNote id={noteId}>{note}</ResumeNote> : null}
+      {error ? <span className="field-error" id={errorId}>{error}</span> : null}
+      {showNote ? <ResumeNote id={noteId}>{note}</ResumeNote> : null}
     </fieldset>
   );
 }
@@ -327,6 +331,7 @@ export function RadioOption({ name, value, checked, disabled, onChange, children
         value={value}
         checked={checked}
         disabled={disabled}
+        aria-invalid={error ? true : undefined}
         onChange={() => onChange(value)}
       />
       <span className="choice-option-text">{children}</span>
@@ -334,10 +339,17 @@ export function RadioOption({ name, value, checked, disabled, onChange, children
   );
 }
 
+function isBinaryChoiceList(options) {
+  if (options.length !== 2) return false;
+  const labels = options.map((item) => String(item.label || "").trim().toLowerCase());
+  return labels.includes("yes") && labels.includes("no");
+}
+
 export function RadioChoiceList({ name, options, value, onChange, disabled, error }) {
   const compact = isCompactChoiceList(options.map((item) => item.label));
+  const binary = isBinaryChoiceList(options);
   return (
-    <div className={`choice-list ${compact ? "is-compact" : ""}`} role="radiogroup">
+    <div className={`choice-list ${compact ? "is-compact" : ""} ${binary ? "is-binary" : ""}`}>
       {options.map((item) => (
         <RadioOption
           key={item.value}
@@ -402,10 +414,11 @@ export function TabList({ label, value, onChange, tabs, doneMap = {}, errorMap =
         }
       }}
     >
-      {tabs.map(([id, text]) => {
+      {tabs.map(([id, text], index) => {
         const selected = value === id;
         const done = Boolean(doneMap[id]);
         const hasError = Boolean(errorMap[id]);
+        const status = hasError ? "Needs attention" : done ? "Completed" : "Not completed";
         return (
           <button
             type="button"
@@ -414,14 +427,16 @@ export function TabList({ label, value, onChange, tabs, doneMap = {}, errorMap =
             id={`tab-${slug}-${id}`}
             aria-selected={selected}
             aria-controls={`panel-${slug}-${id}`}
+            aria-invalid={hasError || undefined}
+            aria-label={isSteps ? `${text}, ${status}${selected ? ", current section" : ""}` : undefined}
             tabIndex={selected ? 0 : -1}
-            className={`tab ${selected ? "on" : ""} ${done ? "done" : ""} ${hasError ? "has-error" : ""}`}
+            className={`tab ${selected ? "on" : ""} ${done && !hasError ? "done" : ""} ${!done && !hasError ? "is-incomplete" : ""} ${hasError ? "has-error" : ""}`}
             onClick={() => onChange(id)}
           >
             {isSteps ? (
               <>
                 <span className="tab-marker" aria-hidden="true">
-                  {hasError ? "!" : done && !selected ? <CheckIcon size={14} /> : selected ? "●" : "○"}
+                  {hasError ? "!" : selected || !done ? index + 1 : <CheckIcon size={14} />}
                 </span>
                 <span className="tab-text">{text}</span>
               </>

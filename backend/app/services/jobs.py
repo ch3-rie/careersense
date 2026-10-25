@@ -165,13 +165,13 @@ def sync_job_timeline_from_gts(db: Session, user: Account, data: dict) -> None:
 
     Dated jobs the graduate edited on the timeline are left alone.
     """
-    desired = _jobs_from_gts(data or {})
     existing = _query_jobs(db, user.id)
     auto_rows = [row for row in existing if row.start_date is None and row.end_date is None]
     manual_rows = [row for row in existing if row not in auto_rows]
     if manual_rows:
         _mark_ready(user)
         return
+    desired = _jobs_from_resume(db, user.id) or _jobs_from_gts(data or {})
     for row in existing:
         db.delete(row)
     db.flush()
@@ -182,18 +182,31 @@ def sync_job_timeline_from_gts(db: Session, user: Account, data: dict) -> None:
 
 def ensure_job_timeline(db: Session, user: Account) -> list[dict]:
     profile = user.profile
-    if profile is not None and not profile.job_timeline_ready:
-        latest = (
-            db.query(TracerSubmission)
-            .filter(TracerSubmission.account_id == user.id)
-            .order_by(TracerSubmission.submitted_at.desc())
-            .first()
-        )
-        imported = _jobs_from_gts(latest.data_json or {}) if latest else []
-        if not imported:
-            imported = _jobs_from_resume(db, user.id)
-        for item in imported:
-            db.add(AlumniJob(account_id=user.id, **item))
+    if profile is None:
+        return serialize_jobs(db, user.id)
+    existing = _query_jobs(db, user.id)
+    dated = any(row.start_date or row.end_date for row in existing)
+    if not dated:
+        resume_rows = _jobs_from_resume(db, user.id)
+        if resume_rows and (not profile.job_timeline_ready or existing):
+            for row in existing:
+                db.delete(row)
+            db.flush()
+            for item in resume_rows:
+                db.add(AlumniJob(account_id=user.id, **item))
+            profile.job_timeline_ready = True
+            db.commit()
+            return serialize_jobs(db, user.id)
+    if not profile.job_timeline_ready:
+        if not existing:
+            latest = (
+                db.query(TracerSubmission)
+                .filter(TracerSubmission.account_id == user.id)
+                .order_by(TracerSubmission.submitted_at.desc())
+                .first()
+            )
+            for item in (_jobs_from_gts(latest.data_json or {}) if latest else []):
+                db.add(AlumniJob(account_id=user.id, **item))
         profile.job_timeline_ready = True
         db.commit()
     return serialize_jobs(db, user.id)

@@ -30,7 +30,7 @@ Environment variable (set before the production build):
 
 Leave `VITE_API_URL` empty only for local `npm run dev`, which proxies `/api` to `127.0.0.1:8000`. A production build with an empty value calls the static site host, which has no API.
 
-Do not put `GEMINI_API_KEY`, `EMAIL_API_KEY`, `SECRET_KEY`, or database credentials in the frontend.
+Do not put `LLM_API_KEY`, `EMAIL_API_KEY`, `SECRET_KEY`, or database credentials in the frontend.
 
 ## Backend (Render Web Service, Docker)
 
@@ -71,8 +71,9 @@ Render’s default URL often starts with `postgresql://`. Change the scheme to `
 | `EMAIL_FROM_ADDRESS` | Verified sender. The free `onboarding@resend.dev` address only delivers to the Resend account mailbox | No |
 | `EMAIL_FROM_NAME` | Display name, default `CareerSense` | No |
 | `EMAIL_REPLY_TO` | Optional | No |
-| `GEMINI_API_KEY` | Optional. If empty, resume parsing uses the local parser | Yes |
-| `GEMINI_MODEL` | Optional, default `gemini-2.0-flash` | No |
+| `LLM_API_KEY` | Optional LlamaCloud key. If empty, resume parsing uses the local reader | Yes |
+| `LLM_MODEL` | Optional. Used only for `openai`, `groq`, or `ollama` | No |
+| `LLM_PROVIDER` | Optional. `llamaparse` (default), `openai`, `groq`, or `ollama` | No |
 | `UPLOAD_DIR` | Resume/photo directory. Ephemeral on Render unless you attach a disk | No |
 | `MAX_UPLOAD_MB` | Upload limit, default `10` | No |
 | `TESSERACT_CMD` | Optional. Leave empty in the Docker image; Tesseract is on `PATH` | No |

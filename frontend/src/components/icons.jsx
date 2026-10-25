@@ -18,15 +18,6 @@ export function Icon({ children, size = 20, className = "", ...props }) {
   );
 }
 
-export function UserIcon(props) {
-  return (
-    <Icon {...props}>
-      <circle cx="12" cy="8" r="3.5" />
-      <path d="M5.5 19.5a6.5 6.5 0 0 1 13 0" />
-    </Icon>
-  );
-}
-
 export function QrCodeIcon(props) {
   return (
     <Icon {...props}>
@@ -247,16 +238,6 @@ export function CalendarIcon(props) {
   );
 }
 
-export function BuildingIcon(props) {
-  return (
-    <Icon {...props}>
-      <path d="M4 20V7.5L12 4l8 3.5V20" />
-      <path d="M9 20v-6h6v6" />
-      <path d="M9 10h.01M15 10h.01M9 14h.01M15 14h.01" />
-    </Icon>
-  );
-}
-
 export function BriefcaseIcon(props) {
   return (
     <Icon {...props}>
@@ -286,28 +267,10 @@ export function GraduationIcon(props) {
   );
 }
 
-export function IdCardIcon(props) {
-  return (
-    <Icon {...props}>
-      <rect x="3" y="5.5" width="18" height="13" rx="2" />
-      <circle cx="9" cy="12" r="2" />
-      <path d="M14 10.5h4M14 13.5h4" />
-    </Icon>
-  );
-}
-
 export function ChevronRightIcon(props) {
   return (
     <Icon {...props}>
       <path d="m9 6 6 6-6 6" />
-    </Icon>
-  );
-}
-
-export function ShieldIcon(props) {
-  return (
-    <Icon {...props}>
-      <path d="M12 3.5 5 6.5v5.2c0 4.2 2.9 7.3 7 8.8 4.1-1.5 7-4.6 7-8.8V6.5L12 3.5Z" />
     </Icon>
   );
 }
@@ -443,29 +406,10 @@ export function UsersIcon(props) {
   );
 }
 
-export function LinkIcon(props) {
-  return (
-    <Icon {...props}>
-      <path d="M10 13a5 5 0 0 0 7.1 0l1.4-1.4a5 5 0 0 0-7.1-7.1L10 5.9" />
-      <path d="M14 11a5 5 0 0 0-7.1 0L5.5 12.4a5 5 0 0 0 7.1 7.1L14 18.1" />
-    </Icon>
-  );
-}
-
 export function HashIcon(props) {
   return (
     <Icon {...props}>
       <path d="M5 9h14M5 15h14M9.5 4 8 20M16 4l-1.5 16" />
-    </Icon>
-  );
-}
-
-export function SlidersIcon(props) {
-  return (
-    <Icon {...props}>
-      <path d="M4 7h16M4 17h16" />
-      <circle cx="9" cy="7" r="2.2" />
-      <circle cx="15" cy="17" r="2.2" />
     </Icon>
   );
 }

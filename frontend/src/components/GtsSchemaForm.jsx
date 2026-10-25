@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlignmentHint, SubmitConfirm } from "./AuthFlow";
 import { DateField } from "./DateField";
-import { Alert, CheckGroup, Field, RadioChoiceList, TabList } from "./ui";
+import { CalendarIcon, FileTextIcon, GraduationIcon, InfoIcon, StarIcon } from "./icons";
+import { Alert, CheckGroup, Dialog, Field, RadioChoiceList, TabList } from "./ui";
 import {
   emptyFormFromSchema,
   flattenQuestions,
@@ -14,6 +15,15 @@ import {
   setFormValue,
 } from "../lib/surveySchema";
 import { resumeGuidance } from "../lib/resumeGuidance";
+import {
+  BLANK_PROGRAM,
+  STUDIES_SECTION_TITLE,
+  credentialIsPopulated,
+  credentialReportChoice,
+  isSuggestedCredential,
+  isSuggestedProgram,
+  programIsPopulated,
+} from "../lib/studiesSection";
 import { omitQuestions } from "../lib/surveySchema";
 import { showToast } from "../lib/toasts";
 
@@ -86,7 +96,19 @@ function controlFor(question, value, onChange, disabled, error, required) {
   const rules = question.validation || {};
   value = coerceValue(question, value);
   if (type === "paragraph") {
-    return <textarea value={value ?? ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} disabled={disabled} minLength={rules.min_length || undefined} maxLength={rules.max_length || undefined} />;
+    const tall = question.id === "engagement_desc";
+    return (
+      <textarea
+        rows={tall ? 6 : 4}
+        className={tall ? "is-tall" : undefined}
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        disabled={disabled}
+        minLength={rules.min_length || undefined}
+        maxLength={rules.max_length || undefined}
+      />
+    );
   }
   if (type === "yes_no") {
     return (
@@ -95,6 +117,7 @@ function controlFor(question, value, onChange, disabled, error, required) {
         value={value}
         onChange={onChange}
         disabled={disabled}
+        error={error}
         options={[
           { value: "Yes", label: "Yes" },
           { value: "No", label: "No" },
@@ -102,19 +125,21 @@ function controlFor(question, value, onChange, disabled, error, required) {
       />
     );
   }
-  if (type === "dropdown" || type === "multiple_choice" || type === "scale") {
+  if (type === "multiple_choice" || type === "scale") {
     const scale = options.length ? options : type === "scale" ? ["1", "2", "3", "4", "5"] : [];
-    if (type === "multiple_choice") {
-      return (
-        <RadioChoiceList
-          name={question.id}
-          value={value}
-          onChange={onChange}
-          disabled={disabled}
-          options={scale.map((opt) => ({ value: optionValue(opt), label: optionLabel(opt) }))}
-        />
-      );
-    }
+    return (
+      <RadioChoiceList
+        name={question.id}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        error={error}
+        options={scale.map((opt) => ({ value: optionValue(opt), label: optionLabel(opt) }))}
+      />
+    );
+  }
+  if (type === "dropdown") {
+    const scale = options;
     return (
       <select value={value || ""} onChange={(e) => onChange(e.target.value)} disabled={disabled}>
         <option value="">{T("Select")}</option>
@@ -170,6 +195,365 @@ function controlFor(question, value, onChange, disabled, error, required) {
   return <input value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} disabled={disabled} />;
 }
 
+const CREDENTIAL_GROUPS = [
+  {
+    key: "certifications",
+    title: "Certifications",
+    entryLabel: "Certification",
+    flag: "report_certifications",
+    question: "Do you have certifications?",
+    icon: FileTextIcon,
+    summary: "Professional credentials and certifications.",
+    empty: "No certifications added.",
+    addLabel: "Add certification",
+    removeTitle: "Remove this certification?",
+    blank: { name: "", awarding_body: "", detail: "", year: "" },
+    fields: [
+      ["name", "Name", "Certification name"],
+      ["awarding_body", "Awarding body", "Awarding organization"],
+      ["year", "Date or year awarded", "Year or date"],
+    ],
+  },
+  {
+    key: "seminars",
+    title: "Seminars Attended",
+    entryLabel: "Seminar",
+    flag: "report_seminars",
+    question: "Did you attend seminars?",
+    icon: CalendarIcon,
+    summary: "Seminars and training you attended.",
+    empty: "No seminars added.",
+    addLabel: "Add seminar",
+    removeTitle: "Remove this seminar?",
+    blank: { name: "", location: "", organizer: "", detail: "", year: "" },
+    fields: [
+      ["name", "Name", "Seminar name"],
+      ["location", "Location of Seminar", "Where it was held"],
+      ["organizer", "Organizer", "Who organized it"],
+      ["year", "Date or year", "Year or date"],
+    ],
+  },
+  {
+    key: "awards",
+    title: "Awards and Achievements",
+    entryLabel: "Award",
+    flag: "report_awards",
+    question: "Have you received awards or achievements?",
+    icon: StarIcon,
+    summary: "Awards or achievements you received.",
+    empty: "No awards or achievements added.",
+    addLabel: "Add award or achievement",
+    removeTitle: "Remove this award?",
+    blank: { name: "", issuer: "", detail: "", year: "", description: "" },
+    fields: [
+      ["name", "Title", "Award title"],
+      ["issuer", "Awarded by", "Awarding organization"],
+      ["year", "Date or year", "Year or date"],
+      ["description", "Description", "What it recognizes"],
+    ],
+  },
+];
+
+function findQuestion(section, id) {
+  for (const sub of section?.subsections || []) {
+    const found = (sub.questions || []).find((question) => question.id === id);
+    if (found) return found;
+  }
+  return null;
+}
+
+function takeIds(questions, ids, used) {
+  const picked = [];
+  for (const id of ids) {
+    const found = questions.find((question) => question.id === id);
+    if (!found) continue;
+    picked.push(found);
+    used.add(found.id);
+  }
+  return picked;
+}
+
+function isCurriculumQuestion(question) {
+  const id = String(question?.id || "");
+  const key = String(question?.field_key || "");
+  return id.startsWith("curriculum_suggestions") || key.startsWith("curriculum_suggestions");
+}
+
+const JOB_PARTNERS = {
+  first_occ: "first_emp",
+  pres_occ: "pres_emp",
+  pres_head: "pres_head_email",
+};
+
+function Guidance({ children }) {
+  if (!children) return null;
+  return (
+    <p className="resume-guidance" role="note">
+      <InfoIcon size={16} />
+      <span>{children}</span>
+    </p>
+  );
+}
+
+function credentialValue(row, field) {
+  if (field === "awarding_body") return row.awarding_body || row.detail || "";
+  if (field === "location") {
+    if (row.location) return row.location;
+    if (row.detail && row.detail !== row.organizer && row.detail !== row.issuer) return row.detail;
+    return "";
+  }
+  if (field === "organizer") return row.organizer || "";
+  if (field === "issuer") return row.issuer || row.detail || "";
+  return row[field] || "";
+}
+
+function StudiesSection({
+  form,
+  resume,
+  disabled,
+  showLead,
+  fieldErrors,
+  onEnroll,
+  onEditDegree,
+  onChangeProgram,
+  onAddProgram,
+  onRemoveProgram,
+  onChangeCredential,
+  onReport,
+}) {
+  const [pending, setPending] = useState(null);
+  const enrolled = form.enroll_further_studies === "Yes";
+  const programs = Array.isArray(form.further_studies) ? form.further_studies : [];
+  const degree = String(form.degree || "").trim();
+  const year = String(form.year_graduated || "").trim();
+  const enrollNote = resumeGuidance("enroll_further_studies", form.enroll_further_studies || "No", resume);
+  const programNote = enrolled ? resumeGuidance("further_studies", programs, resume) : "";
+  const programHasError = Object.keys(fieldErrors).some((key) => key === "further_studies" || key.startsWith("further_studies:"));
+  const degreeNote = resumeGuidance("degree", form.degree, resume);
+  const yearNote = resumeGuidance("year_graduated", form.year_graduated, resume);
+
+  function requestRemove(kind, index, row) {
+    const populated = kind === "program" ? programIsPopulated(row) : credentialIsPopulated(row, kind);
+    if (!populated) {
+      if (kind === "program") onRemoveProgram(index);
+      else onChangeCredential(kind, index, null, null);
+      return;
+    }
+    setPending({ kind, index });
+  }
+
+  function confirmRemove() {
+    if (!pending) return;
+    if (pending.kind === "program") onRemoveProgram(pending.index);
+    else onChangeCredential(pending.kind, pending.index, null, null);
+    setPending(null);
+  }
+
+  const pendingGroup = CREDENTIAL_GROUPS.find((group) => group.key === pending?.kind);
+
+  return (
+    <div className="studies-section">
+      {showLead ? (
+        <header className="studies-lead">
+          <h3>{STUDIES_SECTION_TITLE}</h3>
+          <p>Report additional education, certifications, seminars, and awards.</p>
+        </header>
+      ) : null}
+
+      <article className="studies-degree">
+        <span className="studies-degree-icon" aria-hidden="true"><GraduationIcon size={20} /></span>
+        <div className="studies-degree-copy">
+          <p className="studies-kicker">From General Information</p>
+          <strong>{degree || "Degree not available"}</strong>
+          <p>{year ? `Year graduated: ${year}` : "Year graduated: Not available"}</p>
+        </div>
+        {onEditDegree ? (
+          <button type="button" className="btn btn-outline btn-sm" onClick={onEditDegree}>
+            Edit in General Information
+          </button>
+        ) : null}
+      </article>
+      <Guidance>{fieldErrors.degree ? "" : degreeNote}</Guidance>
+      <Guidance>{fieldErrors.year_graduated ? "" : yearNote}</Guidance>
+
+      <section className="studies-block" aria-labelledby="studies-further-heading">
+        <div className="studies-block-head">
+          <span className="studies-degree-icon" aria-hidden="true"><GraduationIcon size={18} /></span>
+          <div>
+            <h3 id="studies-further-heading">Further studies</h3>
+            <p>Programs you started after your bachelor's degree.</p>
+          </div>
+        </div>
+        <CheckGroup
+          legend="Did you enroll in further studies after graduation?"
+          error={fieldErrors.enroll_further_studies}
+          note={enrollNote}
+        >
+          <RadioChoiceList
+            name="enroll_further_studies"
+            value={form.enroll_further_studies || "No"}
+            onChange={onEnroll}
+            disabled={disabled}
+            options={[{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }]}
+          />
+        </CheckGroup>
+        {enrolled ? (
+          <div className="studies-programs">
+            {programs.length ? programs.map((row, index) => (
+              <article className="studies-program" key={`program-${index}`}>
+                <div className="studies-card-head">
+                  <div className="studies-card-title">
+                    <strong>Program {index + 1}</strong>
+                    {isSuggestedProgram(row, resume) ? <span className="studies-suggested">Suggested from your resume</span> : null}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    disabled={disabled}
+                    aria-label={`Remove program ${index + 1}`}
+                    onClick={() => requestRemove("program", index, row)}
+                  >
+                    Remove
+                  </button>
+                </div>
+                <div className="studies-grid">
+                  <Field label="Institution" required error={fieldErrors[`further_studies:${index}:school`]}>
+                    <input value={row.school || ""} disabled={disabled} placeholder="School or university" onChange={(e) => onChangeProgram(index, "school", e.target.value)} />
+                  </Field>
+                  <Field label="Address of Institution" error={fieldErrors[`further_studies:${index}:institution_address`]}>
+                    <input value={row.institution_address || ""} disabled={disabled} placeholder="School or institution address" onChange={(e) => onChangeProgram(index, "institution_address", e.target.value)} />
+                  </Field>
+                  <div className="studies-span">
+                    <Field label="Program" required error={fieldErrors[`further_studies:${index}:course_degree`]}>
+                      <input value={row.course_degree || ""} disabled={disabled} placeholder="Program or degree" onChange={(e) => onChangeProgram(index, "course_degree", e.target.value)} />
+                    </Field>
+                  </div>
+                  <div className="studies-pair studies-span">
+                    <Field label="Year enrolled" error={fieldErrors[`further_studies:${index}:year_enrolled`]}>
+                      <input value={row.year_enrolled || ""} disabled={disabled} inputMode="numeric" placeholder="Year enrolled" onChange={(e) => onChangeProgram(index, "year_enrolled", e.target.value)} />
+                    </Field>
+                    <Field label="Scholarship" error={fieldErrors[`further_studies:${index}:scholarship`]}>
+                      <input value={row.scholarship || ""} disabled={disabled} placeholder="Scholarship, if any" onChange={(e) => onChangeProgram(index, "scholarship", e.target.value)} />
+                    </Field>
+                  </div>
+                  <div className="studies-span">
+                    <CheckGroup legend="Graduated">
+                      <RadioChoiceList
+                        name={`further-graduated-${index}`}
+                        value={row.is_graduated || "No"}
+                        onChange={(value) => onChangeProgram(index, "is_graduated", value)}
+                        disabled={disabled}
+                        options={[{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }]}
+                      />
+                    </CheckGroup>
+                  </div>
+                </div>
+              </article>
+            )) : <p className="studies-empty">No programs added yet.</p>}
+            <button type="button" className="btn btn-outline" disabled={disabled} onClick={onAddProgram}>
+              Add another program
+            </button>
+            <Guidance>{programHasError ? "" : programNote}</Guidance>
+          </div>
+        ) : null}
+      </section>
+
+      {CREDENTIAL_GROUPS.map((group) => {
+        const Icon = group.icon;
+        const rows = Array.isArray(form[group.key]) ? form[group.key] : [];
+        const reporting = credentialReportChoice(form[group.flag], rows) === "Yes";
+        const choiceNote = resumeGuidance(group.flag, reporting ? "Yes" : "No", resume);
+        const note = reporting ? resumeGuidance(group.key, rows, resume) : "";
+        return (
+          <section className="studies-block" key={group.key} aria-labelledby={`studies-${group.key}-heading`}>
+            <div className="studies-block-head">
+              <span className="studies-degree-icon" aria-hidden="true"><Icon size={18} /></span>
+              <div>
+                <h3 id={`studies-${group.key}-heading`}>{group.title}</h3>
+                <p>{group.summary} Every detail is optional.</p>
+              </div>
+            </div>
+            <CheckGroup legend={group.question} note={choiceNote}>
+              <RadioChoiceList
+                name={group.flag}
+                value={reporting ? "Yes" : "No"}
+                onChange={(value) => onReport(group.flag, value)}
+                disabled={disabled}
+                options={[{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }]}
+              />
+            </CheckGroup>
+            {reporting ? (rows.length ? rows.map((row, index) => (
+              <article className="studies-entry" key={`${group.key}-${index}`}>
+                <div className="studies-card-head">
+                  <div className="studies-card-title">
+                    <strong>{group.entryLabel} {index + 1}</strong>
+                    {isSuggestedCredential(row, resume, group.key) ? <span className="studies-suggested">Suggested from your resume</span> : null}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    disabled={disabled}
+                    aria-label={`Remove ${group.title.toLowerCase()} ${index + 1}`}
+                    onClick={() => requestRemove(group.key, index, row)}
+                  >
+                    Remove
+                  </button>
+                </div>
+                <div className={`studies-fields is-${group.key}`}>
+                  {group.fields.map(([field, label, placeholder]) => (
+                    <Field label={label} key={field}>
+                      {field === "description" ? (
+                        <textarea
+                          rows={3}
+                          maxLength={800}
+                          value={credentialValue(row, field)}
+                          disabled={disabled}
+                          placeholder={placeholder}
+                          onChange={(e) => onChangeCredential(group.key, index, field, e.target.value)}
+                        />
+                      ) : (
+                        <input
+                          value={credentialValue(row, field)}
+                          disabled={disabled}
+                          placeholder={placeholder}
+                          onChange={(e) => onChangeCredential(group.key, index, field, e.target.value)}
+                        />
+                      )}
+                    </Field>
+                  ))}
+                </div>
+              </article>
+            )) : <p className="studies-empty">{group.empty}</p>) : null}
+            {reporting ? (
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={disabled}
+                onClick={() => onChangeCredential(group.key, -1, null, group.blank)}
+              >
+                {group.addLabel}
+              </button>
+            ) : null}
+            <Guidance>{note}</Guidance>
+          </section>
+        );
+      })}
+
+      {pending ? (
+        <Dialog
+          title={pending.kind === "program" ? "Remove this program?" : pendingGroup?.removeTitle || "Remove this entry?"}
+          danger
+          confirmLabel="Remove"
+          onConfirm={confirmRemove}
+          onClose={() => setPending(null)}
+        >
+          <p>The details in this entry will be removed from your survey answers.</p>
+        </Dialog>
+      ) : null}
+    </div>
+  );
+}
+
 export default function GtsSchemaForm({
   schema: sourceSchema,
   initial,
@@ -197,7 +581,9 @@ export default function GtsSchemaForm({
   const [confirming, setConfirming] = useState(false);
   const errorRef = useRef(null);
   const confirmRef = useRef(null);
+  const submitLock = useRef(false);
   const [focusTick, setFocusTick] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState(() => emptyFormFromSchema(schema, initial));
   const [skillsText, setSkillsText] = useState(() =>
     Array.isArray(initial?.skills) ? initial.skills.join(", ") : String(initial?.skills || "")
@@ -206,7 +592,10 @@ export default function GtsSchemaForm({
   schemaRef.current = schema;
 
   const sections = schema?.sections || [];
-  const tabs = sections.map((section) => [section.key || section.id, section.name]);
+  const tabs = sections.map((section) => {
+    const id = section.key || section.id;
+    return [id, id === "studies" ? STUDIES_SECTION_TITLE : section.name];
+  });
   const byId = useMemo(() => questionIndex(schema), [schema]);
   const flat = useMemo(() => flattenQuestions(schema), [schema]);
   const questionIdsKey = useMemo(
@@ -246,12 +635,13 @@ export default function GtsSchemaForm({
     let second = 0;
     const first = window.requestAnimationFrame(() => {
       second = window.requestAnimationFrame(() => {
-        const node = document.querySelector(
-          ".gts-panel .has-error input, .gts-panel .has-error select, .gts-panel .has-error textarea, .gts-panel .field.has-error"
-        );
+        const invalid = document.querySelector(".gts-panel .has-error");
+        const node = invalid?.matches?.("input, select, textarea")
+          ? invalid
+          : invalid?.querySelector?.("input, select, textarea") || invalid;
         if (!node) return;
         node.scrollIntoView({ behavior: "smooth", block: "center" });
-        node.focus?.({ preventScroll: true });
+        if (typeof node.focus === "function") node.focus({ preventScroll: true });
       });
     });
     return () => {
@@ -344,7 +734,7 @@ export default function GtsSchemaForm({
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (preview || readOnly || browse) return;
+    if (preview || readOnly || browse || busy || submitting || submitLock.current) return;
     const message = validate();
     if (message) {
       setConfirming(false);
@@ -367,6 +757,11 @@ export default function GtsSchemaForm({
       skills,
     };
     for (const questionId of hideQuestionIds) delete payload[questionId];
+    for (const group of CREDENTIAL_GROUPS) {
+      const choice = credentialReportChoice(form[group.flag], form[group.key]);
+      payload[group.flag] = choice;
+      if (choice !== "Yes") payload[group.key] = [];
+    }
     if (form.is_currently_employed === "Yes" && form.present_job_is_first !== "No") {
       payload.current_occupation = form.first_occ || "";
       payload.current_employer = form.first_emp || "";
@@ -377,7 +772,14 @@ export default function GtsSchemaForm({
       payload.current_occupation = "";
       payload.current_employer = "";
     }
-    await onSubmit?.(payload);
+    submitLock.current = true;
+    setSubmitting(true);
+    try {
+      await onSubmit?.(payload);
+    } finally {
+      submitLock.current = false;
+      setSubmitting(false);
+    }
   }
 
   const tabIndex = Math.max(0, tabIds.indexOf(tab));
@@ -424,17 +826,25 @@ export default function GtsSchemaForm({
     return false;
   }
 
-  function renderQuestion(question) {
-    const alignment = showAlignmentAfter(question) ? (
+  function renderQuestion(question, options = {}) {
+    const { embedAlignment = true, hideDescription = false } = options;
+    const alignment = embedAlignment && showAlignmentAfter(question) ? (
       <AlignmentHint alignment={alignmentHint} occupation={currentOccupation} />
     ) : null;
     const help = questionHelp(question, form);
+    const description = hideDescription ? "" : (question.description || "");
     const extraHelp = help && help !== question.description ? help : "";
+    const hint = hideDescription && help === question.description ? extraHelp : (help || description);
+    const questionClass = [
+      "gts-question",
+      question.id === "first_stat" ? "gts-status-choices" : "",
+      question.type === "scale" ? "gts-scale" : "",
+    ].filter(Boolean).join(" ");
     if (question.type === "checkboxes") {
       const value = getFormValue(form, question);
       return (
-        <div key={question.id} className="gts-question">
-          {question.description ? <p className="muted">{question.description}</p> : null}
+        <div key={question.id} className={questionClass} data-question={question.id}>
+          {description ? <p className="muted">{description}</p> : null}
           {controlFor(question, value, (next) => updateQuestion(question, next), controlsDisabled, fieldErrors[question.id], questionIsRequired(question, form))}
           {alignment}
         </div>
@@ -442,8 +852,8 @@ export default function GtsSchemaForm({
     }
     if (question.type === "skills") {
       return (
-        <div key={question.id} className="gts-question">
-          <Field label={question.label} hint={help || question.description} required={questionIsRequired(question, form)} error={fieldErrors[question.id]}>
+        <div key={question.id} className={questionClass} data-question={question.id}>
+          <Field label={question.label} hint={hint} required={questionIsRequired(question, form)} error={fieldErrors[question.id]}>
             <input
               value={skillsText}
               disabled={controlsDisabled}
@@ -463,8 +873,11 @@ export default function GtsSchemaForm({
     if (question.type === "repeatable_group") {
       const rows = Array.isArray(form.further_studies) ? form.further_studies : [];
       const fields = question.repeatable?.fields || [];
+      const studiesGuidance = Object.keys(fieldErrors).some((key) => key === question.id || key.startsWith(`${question.id}:`))
+        ? ""
+        : resumeGuidance(question.id, rows, resume);
       return (
-        <div key={question.id} className="gts-question">
+        <div key={question.id} className={questionClass} data-question={question.id}>
           {rows.map((row, index) => (
             <div className="study-card" key={`${question.id}-${index}`}>
               {fields.map((field) => (
@@ -531,6 +944,7 @@ export default function GtsSchemaForm({
           >
             {T(question.repeatable?.add_label || "Add program")}
           </button>
+          {studiesGuidance ? <p className="resume-guidance" role="note">{studiesGuidance}</p> : null}
           {alignment}
         </div>
       );
@@ -539,59 +953,155 @@ export default function GtsSchemaForm({
     const required = questionIsRequired(question, form);
     const fieldError = fieldErrors[question.id] || fieldErrors[question.field_key];
     const guidance = fieldError ? "" : resumeGuidance(question.id, value, resume);
-    if (question.type === "yes_no" || question.type === "multiple_choice") {
+    if (question.type === "yes_no" || question.type === "multiple_choice" || question.type === "scale") {
       return (
-        <div key={question.id} className={`gts-question${question.id === "first_stat" ? " gts-status-choices" : ""}`} data-question={question.id}>
+        <div key={question.id} className={questionClass} data-question={question.id}>
           <CheckGroup legend={question.label} required={required} error={fieldError} note={guidance}>
-            {question.description ? <p className="muted field-help">{question.description}</p> : null}
+            {description ? <p className="muted field-help">{description}</p> : null}
             {extraHelp ? <p className="muted field-help">{extraHelp}</p> : null}
-            {controlFor(question, value, (next) => updateQuestion(question, next), controlsDisabled)}
+            {controlFor(question, value, (next) => updateQuestion(question, next), controlsDisabled, fieldError, required)}
           </CheckGroup>
           {alignment}
         </div>
       );
     }
     return (
-      <div key={question.id} className="gts-question" data-question={question.id}>
+      <div key={question.id} className={questionClass} data-question={question.id}>
         <Field
           label={question.label}
-          hint={help || question.description}
+          hint={hint}
           required={required}
           error={fieldError}
           note={guidance}
         >
-          {controlFor(question, value, (next) => updateQuestion(question, next), controlsDisabled)}
+          {controlFor(question, value, (next) => updateQuestion(question, next), controlsDisabled, fieldError, required)}
         </Field>
         {alignment}
       </div>
     );
   }
 
-  function renderQuestionList(questions) {
+  function renderQuestionList(questions, hideDescriptionIds = []) {
+    const hidden = new Set(hideDescriptionIds);
     const nodes = [];
     const skipped = new Set();
     questions.forEach((question, index) => {
       if (skipped.has(question.id)) return;
       const next = questions[index + 1];
-      if (question.id === "first_occ" && next?.id === "first_emp") {
+      const partnerId = JOB_PARTNERS[question.id];
+      const options = { hideDescription: hidden.has(question.id) };
+      if (partnerId && next?.id === partnerId) {
         skipped.add(next.id);
         nodes.push(
-          <div className="gts-job-pair" key="first-job-pair">
-            {renderQuestion(question)}
-            {renderQuestion(next)}
+          <div className="gts-job-pair" key={`${question.id}-pair`}>
+            {renderQuestion(question, { ...options, embedAlignment: false })}
+            {renderQuestion(next, { hideDescription: hidden.has(next.id), embedAlignment: false })}
           </div>
         );
+        if (showAlignmentAfter(question)) {
+          nodes.push(
+            <div className="gts-align-slot" key={`${question.id}-alignment`}>
+              <AlignmentHint alignment={alignmentHint} occupation={currentOccupation} />
+            </div>
+          );
+        }
         return;
       }
-      nodes.push(renderQuestion(question));
+      nodes.push(renderQuestion(question, options));
     });
     return nodes;
   }
 
+  function renderGeneralGroups(questions) {
+    const used = new Set();
+    const personal = takeIds(questions, ["first_name", "middle_name", "last_name", "husband_surname"], used);
+    const country = takeIds(questions, ["country"], used);
+    const degree = takeIds(questions, ["degree", "year_graduated"], used);
+    const rest = questions.filter((question) => !used.has(question.id));
+    if (!personal.length && !country.length && !degree.length) return null;
+    return (
+      <div className="gts-groups" key="general-groups">
+        {personal.length ? (
+          <section className="form-section" aria-labelledby="gts-personal-heading">
+            <h3 id="gts-personal-heading">{T("Personal information")}</h3>
+            <p className="muted">{T("Your name as it should appear on this record.")}</p>
+            <div className="gts-field-grid">{personal.map((question) => renderQuestion(question))}</div>
+          </section>
+        ) : null}
+        {country.length ? (
+          <section className="form-section" aria-labelledby="gts-residence-heading">
+            <h3 id="gts-residence-heading">{T("Residence")}</h3>
+            <p className="muted">{T("Where you live now.")}</p>
+            {country.map((question) => renderQuestion(question))}
+          </section>
+        ) : null}
+        {degree.length ? (
+          <section className="form-section" aria-labelledby="gts-degree-heading">
+            <h3 id="gts-degree-heading">{T("Degree information")}</h3>
+            <p className="muted">{T("Your bachelor's degree and the year you graduated.")}</p>
+            {degree.length > 1 ? (
+              <div className="gts-job-pair">{degree.map((question) => renderQuestion(question))}</div>
+            ) : degree.map((question) => renderQuestion(question))}
+          </section>
+        ) : null}
+        {rest.length ? <section className="form-section" key="general-rest">{renderQuestionList(rest)}</section> : null}
+      </div>
+    );
+  }
+
+  function renderFeedbackGroups(questions) {
+    const used = new Set();
+    const seminars = takeIds(questions, ["participated_seminars", "seminars_helpful"], used);
+    const ratings = takeIds(questions, ["mentoring_rating", "advocacy_rating", "volunteering_rating", "engagement_desc"], used);
+    const curriculum = questions.filter((question) => !used.has(question.id) && isCurriculumQuestion(question));
+    curriculum.forEach((question) => used.add(question.id));
+    const rest = questions.filter((question) => !used.has(question.id));
+    if (!seminars.length && !ratings.length && !curriculum.length) return null;
+    const ratingLead = ratings.find((question) => question.id === "mentoring_rating")?.description
+      || "How much has AUF inspired you to do each of the following?";
+    const curriculumLead = curriculum.find((question) => question.description)?.description
+      || "Suggestions for improving the curriculum.";
+    const hideDescription = [
+      ratings.find((question) => question.id === "mentoring_rating" && question.description)?.id,
+      curriculum.find((question) => question.description)?.id,
+    ].filter(Boolean);
+    return (
+      <div className="gts-groups" key="feedback-groups">
+        {seminars.length ? (
+          <section className="form-section" aria-labelledby="gts-seminar-heading">
+            <h3 id="gts-seminar-heading">{T("AUF career-development seminars")}</h3>
+            <p className="muted">{T("Whether you joined AUF seminars, and whether they helped with employment.")}</p>
+            {renderQuestionList(seminars)}
+          </section>
+        ) : null}
+        {ratings.length ? (
+          <section className="form-section" aria-labelledby="gts-engagement-heading">
+            <h3 id="gts-engagement-heading">{T("Engagement and inspiration")}</h3>
+            <p className="muted">{T(ratingLead)}</p>
+            {renderQuestionList(ratings, hideDescription)}
+          </section>
+        ) : null}
+        {curriculum.length ? (
+          <section className="form-section" aria-labelledby="gts-curriculum-heading">
+            <h3 id="gts-curriculum-heading">{T("Curriculum or program suggestions")}</h3>
+            <p className="muted">{T(curriculumLead)}</p>
+            {renderQuestionList(curriculum, hideDescription)}
+          </section>
+        ) : null}
+        {rest.length ? <section className="form-section" key="feedback-rest">{renderQuestionList(rest)}</section> : null}
+      </div>
+    );
+  }
+
   const formClass = [preview ? "gts-preview-form" : "", variant === "review" || browse ? "gts-review" : "", browse ? "gts-browse" : ""].filter(Boolean).join(" ");
+  const tabListLabel = "Graduate Tracer Survey sections";
+  const tabSlug = tabListLabel.replace(/\s+/g, "-").toLowerCase();
+  const sectionId = current?.key || current?.id;
+  const savingLabel = confirming ? "Submitting tracer information…" : "Saving…";
+  const controlsBusy = Boolean(busy || submitting);
 
   return (
-    <form className={formClass} onSubmit={handleSubmit}>
+    <form className={formClass} onSubmit={handleSubmit} aria-busy={controlsBusy || undefined}>
       {schema?.intro && variant !== "review" ? <p className="muted gts-intro">{schema.intro}</p> : null}
       <p className="gts-required-legend"><span className="req" aria-hidden="true">*</span> Required field</p>
       {error ? (
@@ -606,9 +1116,19 @@ export default function GtsSchemaForm({
           <strong>{T(`Section ${tabIndex + 1} of ${tabs.length} — ${tabs[tabIndex]?.[1] || ""}`)}</strong>
           <span>{T(`${completedCount} of ${tabs.length} sections completed`)}</span>
         </p>
+        <div
+          className="gts-meter"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={tabs.length || 0}
+          aria-valuenow={completedCount}
+          aria-label={`${completedCount} of ${tabs.length} sections completed`}
+        >
+          <span style={{ width: `${tabs.length ? (completedCount / tabs.length) * 100 : 0}%` }} />
+        </div>
       </div>
       <TabList
-        label="Graduate Tracer Survey sections"
+        label={tabListLabel}
         value={tab}
         onChange={goToTab}
         appearance="steps"
@@ -618,28 +1138,97 @@ export default function GtsSchemaForm({
       />
 
       {current ? (
-        <div className="gts-panel" role="tabpanel" id={`panel-gts-${current.key || current.id}`} inert={browse ? "" : undefined}>
+        <div
+          className="gts-panel"
+          role="tabpanel"
+          id={`panel-${tabSlug}-${sectionId}`}
+          aria-labelledby={`tab-${tabSlug}-${sectionId}`}
+          inert={browse ? "" : undefined}
+        >
           {variant === "review" ? (
             <header className="gts-section-banner">
               <p className="eyebrow">{T(`Section ${tabIndex + 1} of ${tabs.length}`)}</p>
-              <h3>{T(current.name)}</h3>
+              <h3>{T((current.key === "studies" || current.id === "studies") ? STUDIES_SECTION_TITLE : current.name)}</h3>
               {current.description ? <p className="muted">{T(current.description)}</p> : null}
             </header>
           ) : null}
-          {(current.key === "employment" || current.id === "employment") && form.is_currently_employed === "Yes" ? (
-            <p className="gts-callout">
-              {form.present_job_is_first === "No"
-                ? "Your current occupation comes from your present job, not your first job."
-                : "If this is still your first job, that occupation is saved as your current occupation."}
-            </p>
+          {(current.key === "studies" || current.id === "studies") ? (
+            <StudiesSection
+              form={form}
+              resume={resume}
+              disabled={controlsDisabled}
+              showLead={variant !== "review"}
+              fieldErrors={fieldErrors}
+              onEnroll={(value) => {
+                const question = findQuestion(current, "enroll_further_studies");
+                if (question) updateQuestion(question, value);
+                else setForm((prev) => ({ ...prev, enroll_further_studies: value }));
+              }}
+              onEditDegree={() => {
+                const general = sections.find((section) => (section.key || section.id) === "general");
+                if (general) goToTab(general.key || general.id);
+              }}
+              onChangeProgram={(index, field, value) => {
+                setForm((prev) => {
+                  const next = [...(prev.further_studies || [])];
+                  next[index] = { ...next[index], [field]: value };
+                  return { ...prev, further_studies: next };
+                });
+              }}
+              onAddProgram={() => {
+                setForm((prev) => ({
+                  ...prev,
+                  further_studies: [...(prev.further_studies || []), { ...BLANK_PROGRAM }],
+                }));
+              }}
+              onRemoveProgram={(index) => {
+                setForm((prev) => ({
+                  ...prev,
+                  further_studies: (prev.further_studies || []).filter((_, item) => item !== index),
+                }));
+              }}
+              onReport={(flag, value) => setForm((prev) => ({ ...prev, [flag]: value }))}
+              onChangeCredential={(key, index, field, value) => {
+                setForm((prev) => {
+                  const rows = [...(prev[key] || [])];
+                  if (index < 0) return { ...prev, [key]: [...rows, { ...(value || { name: "", detail: "", year: "" }) }] };
+                  if (!field) return { ...prev, [key]: rows.filter((_, item) => item !== index) };
+                  const next = { ...rows[index], [field]: value };
+                  if (field === "awarding_body" || field === "issuer" || field === "location") next.detail = value;
+                  rows[index] = next;
+                  return { ...prev, [key]: rows };
+                });
+              }}
+            />
           ) : null}
           {(current.subsections || []).map((sub) => {
-            const questions = (sub.questions || []).filter((question) => isQuestionVisible(question, form, byId));
+            const sectionKey = current.key || current.id;
+            const studiesStep = sectionKey === "studies";
+            const questions = (sub.questions || []).filter((question) => {
+              if (studiesStep && (question.id === "enroll_further_studies" || question.id === "further_studies")) return false;
+              return isQuestionVisible(question, form, byId);
+            });
             if (!questions.length && !sub.name) return null;
+            if (sectionKey === "general" && !sub.name) {
+              const grouped = renderGeneralGroups(questions);
+              if (grouped) return grouped;
+            }
+            if (sectionKey === "feedback" && !sub.name) {
+              const grouped = renderFeedbackGroups(questions);
+              if (grouped) return grouped;
+            }
+            const showJobCallout = sectionKey === "employment" && sub.id === "current_employment" && form.is_currently_employed === "Yes";
             return (
               <section className={`form-section${sub.id === "first_job" ? " is-first-job" : ""}`} key={sub.id}>
                 {sub.name ? <h3>{T(sub.name)}</h3> : null}
                 {sub.description ? <p className="muted">{T(sub.description)}</p> : null}
+                {showJobCallout ? (
+                  <p className="gts-callout">
+                    {form.present_job_is_first === "No"
+                      ? "Your current occupation comes from your present job, not your first job."
+                      : "If this is still your first job, that occupation is saved as your current occupation."}
+                  </p>
+                ) : null}
                 {renderQuestionList(questions)}
               </section>
             );
@@ -651,21 +1240,21 @@ export default function GtsSchemaForm({
         <p className="muted preview-note">Live preview — answers here are not saved to alumni records.</p>
       ) : confirming ? (
         <div ref={confirmRef}>
-          <SubmitConfirm busy={busy} confirmLabel={submitLabel} onCancel={() => setConfirming(false)} />
+          <SubmitConfirm busy={controlsBusy} confirmLabel={submitLabel} onCancel={() => setConfirming(false)} />
         </div>
       ) : (
         <div className="form-nav">
           <button
             type="button"
             className="btn btn-outline"
-            disabled={tabIndex === 0 || busy}
+            disabled={tabIndex === 0 || controlsBusy}
             onClick={() => goToTab(tabIds[Math.max(0, tabIndex - 1)])}
           >
             {T("Previous")}
           </button>
           <div className="form-nav-actions">
             {!lastSection ? (
-              <button type="button" className="btn btn-navy" disabled={busy} onClick={() => goToTab(tabIds[tabIndex + 1])}>
+              <button type="button" className="btn btn-navy" disabled={controlsBusy} onClick={() => goToTab(tabIds[tabIndex + 1])}>
                 {T("Continue")}
               </button>
             ) : null}
@@ -673,15 +1262,16 @@ export default function GtsSchemaForm({
               <button
                 type="submit"
                 className={lastSection ? "btn btn-navy" : "btn btn-outline btn-submit-alt"}
-                disabled={busy}
+                disabled={controlsBusy}
+                aria-busy={controlsBusy || undefined}
               >
-                {busy ? T("Saving…") : T(submitLabel)}
+                {controlsBusy ? T(savingLabel) : T(submitLabel)}
               </button>
             )}
           </div>
         </div>
       )}
-      {!preview && busy ? <p className="save-status is-saving" role="status">Saving…</p> : null}
+      {!preview && controlsBusy ? <p className="save-status is-saving" role="status">{savingLabel}</p> : null}
     </form>
   );
 }

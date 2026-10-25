@@ -48,11 +48,39 @@ def no_model(monkeypatch):
         calls.append(True)
         return None
 
-    monkeypatch.setattr("app.services.parser._extract_with_gemini", _blocked)
+    monkeypatch.setattr("app.services.parser._extract_with_llm", _blocked)
     return calls
 
 
-def test_complete_resume_does_not_call_the_model(no_model):
+def test_structured_model_runs_only_when_the_first_pass_is_incomplete(monkeypatch):
+    order = []
+    real_heuristic = extract_heuristic
+
+    def _llm(text):
+        order.append("llm")
+        return None
+
+    def _heuristic(document):
+        order.append("heuristic")
+        return real_heuristic(document)
+
+    monkeypatch.setattr("app.services.parser._extract_with_llm", _llm)
+    monkeypatch.setattr("app.services.parser.extract_heuristic", _heuristic)
+    parsed, source = extract_resume_info(COMPLETE)
+    assert order == ["heuristic"]
+    assert source == "heuristic"
+    assert parsed["extraction_meta"]["model_called"] is False
+    assert parsed["extraction_meta"]["second_pass"] == "none"
+
+    incomplete = COMPLETE.replace("Python, SQL, Project Management\n", "")
+    order.clear()
+    parsed, _source = extract_resume_info(incomplete)
+    assert order == ["heuristic", "llm"]
+    assert parsed["extraction_meta"]["model_called"] is True
+    assert parsed["extraction_meta"]["second_pass"] == "structured_model"
+
+
+def test_complete_resume_keeps_builtin_fields_when_the_model_returns_nothing(no_model):
     parsed, source = extract_resume_info(COMPLETE)
     assert source == "heuristic"
     assert parsed["extraction_meta"]["model_called"] is False
@@ -255,8 +283,9 @@ def test_two_column_skills_are_not_jobs(no_model):
 def test_employment_heading_with_internships(no_model):
     parsed, _source = extract_resume_info(CASES[8]["text"])
     gts = map_to_gts_fields(parsed)
-    assert gts["first_occ"] == "IT Intern"
+    assert gts["first_occ"] == "Software Engineer"
     assert gts["pres_occ"] == "Software Engineer"
+    assert any("IT Intern" in job["job_title"] for job in gts["experiences"])
 
 
 def test_model_can_correct_a_shorter_title():
@@ -315,6 +344,48 @@ Project Management, Microsoft Excel, Data Analysis, Customer Service, Social Med
     assert "hospital" not in [skill.lower() for skill in skills]
 
 
+def test_two_column_llamaparse_text_keeps_name_degree_and_jobs():
+    from app.services.parser_llm import linearize_llamaparse_text
+
+    aligned = """\
+Sean Gabriel Santos               Taguig City, Metro Manila, Philippines
+SENIOR DIGITAL MARKETING SPECIALIST
+
+WORK EXPERIENCE                                                      SKILLS & TOOLS
+Senior Digital Marketing Lead                                      2023 - Present     Meta Ads Manager
+Apex Media Group Philippines                                                          Google Ads & GA4
+Spearheaded paid performance campaigns managing monthly ad spend.
+Growth Marketing Strategist                                           2021 - 2023     Copywriting
+Nexus Digital Labs
+SEO & Content Specialist                                              2019 - 2021     EDUCATION
+Vanguard Creative Agency                                                              BS Business Administration
+                                                                                      Major in Marketing
+                                                                                      De La Salle University (2015-2019)
+KEY CAMPAIGN PROJECTS
+E-Commerce Mega Sale Launch (2024)
+Achieved ₱18M in gross sales over a 3-day activation.
+"""
+    parsed, _source = extract_resume_info(linearize_llamaparse_text(aligned))
+    assert parsed["first_name"] == "Sean Gabriel"
+    assert parsed["last_name"] == "Santos"
+    assert "Business Administration" in parsed["degree"]
+    assert "Marketing" in parsed["degree"]
+    assert parsed["year_graduated"] == "2019"
+    titles = [job["job_title"] for job in parsed["experiences"]]
+    assert "Senior Digital Marketing Lead" in titles
+    assert not any(title.lower().startswith("spearheaded") for title in titles)
+    assert any("Apex Media" in job["employer"] for job in parsed["experiences"])
+    assert "Meta Certified Media Buyer" not in parsed["first_name"]
+    assert all(not job["salary_range"] for job in parsed["experiences"])
+    assert "Meta Ads Manager" in parsed["skills"]
+
+
+def test_campaign_revenue_is_not_salary():
+    parsed = extract_salary("Achieved ₱18M in gross sales over a 3-day activation.")
+    assert parsed["current"] == ""
+    assert parsed["state"] == "absent"
+
+
 def test_salary_kinds():
     monthly = extract_salary("Salary: PHP 25,000/month")
     assert monthly["current"] == "₱13,800 to ₱27,599"
@@ -333,6 +404,95 @@ def test_salary_kinds():
 def test_expected_salary_is_not_stored_as_current(no_model):
     parsed, _source = extract_resume_info(CASES[5]["text"])
     assert all(not job.get("salary_range") for job in parsed["experiences"])
+
+
+def test_a_titled_job_without_an_employer_stays_partial(no_model):
+    text = """\
+Nora Santos
+nora.santos@example.com
+
+Experience
+Staff Nurse
+Monitored patients and prepared shift reports.
+
+Education
+Bachelor of Science in Nursing
+Sample University
+2016-2020
+"""
+    parsed, _source = extract_resume_info(text)
+    assert parsed["experiences"]
+    job = parsed["experiences"][0]
+    assert job["job_title"] == "Staff Nurse"
+    assert job["employer"] == ""
+    assert job["is_current"] == ""
+    assert parsed["is_currently_employed"] == ""
+    notes = [row for row in parsed["extraction_meta"]["field_evidence"] if row["field"] == "employment"]
+    assert notes and notes[0]["status"] == "partial"
+
+
+def test_a_headline_outside_experience_is_not_a_job(no_model):
+    text = """\
+Nora Santos
+nora.santos@example.com
+Staff Nurse
+
+Education
+Bachelor of Science in Nursing
+Sample University
+2016-2020
+"""
+    parsed, _source = extract_resume_info(text)
+    assert parsed["experiences"] == []
+    assert "Nursing" in parsed["degree"]
+
+
+def test_dates_and_degrees_without_section_headings(no_model):
+    text = """\
+Carlo Ramos
+carlo.ramos@example.com
+
+Bachelor of Science in Accountancy
+Sample University
+2014-2018
+Accountant
+Sample Ledger Office
+2019-Present
+"""
+    parsed, _source = extract_resume_info(text)
+    assert "Accountancy" in parsed["degree"]
+    assert parsed["year_graduated"] == "2018"
+    assert parsed["experiences"][0]["job_title"] == "Accountant"
+    assert "Ledger" in parsed["experiences"][0]["employer"]
+    assert parsed["experiences"][0]["is_current"] == "Yes"
+    assert parsed["is_currently_employed"] == "Yes"
+
+
+def test_credential_name_is_not_replaced_by_a_job_title(no_model):
+    text = """\
+Dr. Marcus Vance, Ph.D.
+m.vance@bioresearch.org
+
+Experience
+Principal Clinical Investigator
+St. Luke's Medical Center | 2022 - Present
+Oversee clinical trials for autoimmune disorders.
+
+Education
+B.S. in Biochemistry
+Sample University
+2011-2015
+
+Skills
+Flow Cytometry
+"""
+    parsed, _source = extract_resume_info(text)
+    assert parsed["first_name"] == "Marcus"
+    assert parsed["last_name"] == "Vance"
+    assert "principal" not in parsed["first_name"].lower()
+    assert "investigator" not in parsed["last_name"].lower()
+    assert "disorders" not in parsed["last_name"].lower()
+    assert any("Principal Clinical Investigator" in job["job_title"] for job in parsed["experiences"])
 
 
 def test_name_suffix_and_curriculum_vitae(no_model):
@@ -459,6 +619,123 @@ def _metrics(rows):
     recall = tp / (tp + fn) if tp + fn else 1.0
     f1 = (2 * precision * recall / (precision + recall)) if precision + recall else 0.0
     return {"tp": tp, "fp": fp, "fn": fn, "precision": precision, "recall": recall, "f1": f1}
+
+
+def test_reading_order_keeps_a_date_with_its_job(no_model):
+    """A date beside a job must stay with that job, not move into a later column."""
+    rows = [
+        ("Ana Dela Cruz", 40, 10),
+        ("ana@example.com", 40, 24),
+        ("Education", 40, 50),
+        ("Bachelor of Science in Information Technology", 40, 68),
+        ("Sample University", 40, 86),
+        ("2018-2022", 40, 104),
+        ("Experience", 40, 130),
+        ("Software Engineer", 40, 148),
+        ("North Labs", 40, 166),
+        ("2022-Present", 320, 166),
+        ("Skills", 340, 50),
+        ("Python", 340, 68),
+        ("SQL", 340, 86),
+    ]
+    blocks = [TextBlock(text=text, x0=x, y0=y, x1=x + 140, y1=y + 12, font_size=12) for text, x, y in rows]
+    view = DocumentView(text="\n".join(block.text for block in blocks), blocks=blocks, source="digital_pdf", columns=2)
+    parsed, _source = extract_resume_info(view.text, document=view)
+    job = next(row for row in parsed["experiences"] if "Software Engineer" in row["job_title"])
+    assert job["employer"] == "North Labs"
+    assert job["is_current"] == "Yes"
+    assert "Python" not in [row["job_title"] for row in parsed["experiences"]]
+    assert "Python" in parsed["skills"]
+
+
+def test_earliest_bachelors_degree_stays_primary(no_model):
+    text = """\
+Liza Santos
+lsantos@example.com
+
+Education
+Bachelor of Science in Information Technology
+Sample University
+2014-2018
+Bachelor of Science in Education
+Sample College
+2019-2023
+
+Experience
+Teacher
+Sample School
+2023-Present
+
+Skills
+Classroom Management
+"""
+    parsed, _source = extract_resume_info(text)
+    assert "Information Technology" in parsed["degree"]
+    assert parsed["year_graduated"] == "2018"
+    programs = " ".join(row["course_degree"] for row in parsed["further_studies"])
+    assert "Education" in programs
+    assert "Information Technology" not in programs
+
+
+def test_heading_variants_and_multiline_credentials(no_model):
+    text = """\
+Paolo Reyes
+preyes@example.com
+Philippines
+
+Job History
+IT Support Specialist
+Sample Office
+2022-Present
+
+Licenses & Certifications
+AWS Cloud Practitioner
+Amazon Web Services
+2023
+
+Seminars, Trainings, and Workshops
+Career Fair
+Angeles City
+AUF Alumni Office
+2022
+
+Honors & Awards
+Dean Lister
+Sample University
+2021
+Recognized for academic rank
+
+Skills
+Python, SQL, and Project Management
+"""
+    parsed, _source = extract_resume_info(text)
+    assert parsed["experiences"][0]["job_title"] == "IT Support Specialist"
+    cert = parsed["certifications"][0]
+    assert cert["name"] == "AWS Cloud Practitioner"
+    assert cert["awarding_body"] == "Amazon Web Services"
+    assert cert["year"] == "2023"
+    seminar = parsed["seminars"][0]
+    assert seminar["name"] == "Career Fair"
+    assert seminar["location"] == "Angeles City"
+    assert seminar["organizer"] == "AUF Alumni Office"
+    assert seminar["year"] == "2022"
+    award = parsed["awards"][0]
+    assert award["name"] == "Dean Lister"
+    assert award["issuer"] == "Sample University"
+    assert award["year"] == "2021"
+    assert "academic rank" in award["description"]
+    assert parsed["skills"] == ["Python", "SQL", "Project Management"]
+    assert "Amazon Web Services" not in [row["name"] for row in parsed["certifications"]]
+
+
+def test_table_text_inside_a_table_box_is_not_duplicated():
+    from app.services.parser_document import TextBlock, _block_inside
+
+    inside = TextBlock(text="Software Engineer", x0=10, y0=10, x1=80, y1=24)
+    outside = TextBlock(text="Education", x0=10, y0=80, x1=80, y1=94)
+    boxes = [(0.0, 0.0, 200.0, 40.0)]
+    assert _block_inside(inside, boxes) is True
+    assert _block_inside(outside, boxes) is False
 
 
 def test_evaluation_dataset(no_model):

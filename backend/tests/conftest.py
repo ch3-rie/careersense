@@ -14,6 +14,9 @@ os.environ["EMAIL_API_KEY"] = ""
 os.environ["EMAIL_PROVIDER"] = ""
 os.environ["SMTP_HOST"] = ""
 os.environ["EMAIL_SCHEDULER_ENABLED"] = "false"
+os.environ["LLM_PROVIDER"] = "openai"
+os.environ["LLM_API_KEY"] = ""
+os.environ["LLM_BASE_URL"] = ""
 
 for leftover in (TEST_DIR / "_test.db", TEST_DB):
     try:

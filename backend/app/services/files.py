@@ -64,6 +64,8 @@ def detect_resume_kind(data: bytes, filename: str, content_type: str | None) -> 
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Please upload a PDF, DOCX, or TXT resume.",
         )
+    if kind == "pdf":
+        _guard_pdf(data)
 
     expected = {".pdf": "pdf", ".docx": "docx", ".txt": "txt"}
     if suffix in expected and expected[suffix] != kind:
@@ -79,6 +81,32 @@ def detect_resume_kind(data: bytes, filename: str, content_type: str | None) -> 
     stored_suffix = {"pdf": ".pdf", "docx": ".docx", "txt": ".txt"}[kind]
     original = Path(filename or f"resume{stored_suffix}").name or f"resume{stored_suffix}"
     return original, stored_suffix
+
+
+def _guard_pdf(data: bytes) -> None:
+    """Reject encrypted or over-long PDFs. A file PyMuPDF cannot open is left for the parser."""
+    try:
+        import fitz
+    except ImportError:
+        return
+    try:
+        document = fitz.open(stream=data, filetype="pdf")
+    except Exception:
+        return
+    try:
+        if getattr(document, "needs_pass", False):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This PDF is password-protected. Please upload an unlocked copy.",
+            )
+        limit = max(1, int(get_settings().parser_max_pdf_pages))
+        if document.page_count > limit:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Please upload a resume of {limit} pages or fewer.",
+            )
+    finally:
+        document.close()
 
 
 def _validated_resume(upload: UploadFile, data: bytes) -> tuple[str, str]:

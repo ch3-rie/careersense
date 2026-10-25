@@ -21,7 +21,7 @@ Nothing was deployed. Docker is not installed on this machine, so the production
 | Resume DOCX | PASS | Same suite. |
 | Resume TXT | PASS | Same suite. |
 | Scanned PDF OCR | FAIL | Tesseract is not on this machine's PATH, and the Docker image was not built. With Tesseract missing, `get_ocr_engine()` returns `NullOcrEngine` and `image_to_text` returns `""` without crashing. OCR inside the image was not proven. |
-| Gemini | SKIPPED | No Gemini call was made. If `GEMINI_API_KEY` is empty, parsing stays on the local heuristic. NOT TESTED — requires a valid development Gemini API key. |
+| LlamaIndex | SKIPPED | No model call was made. If `LLM_API_KEY` is empty, parsing stays on the local parser. NOT TESTED — requires a valid development model key. |
 | Resend configuration | PASS | Email config tests passed. No email was sent. Live Resend delivery was not attempted. |
 | File uploads | PASS | Path checks and upload rejection are in the security tests. Files go under `UPLOAD_DIR` (`uploads/` locally, `/app/uploads` on Render). Directory is created on startup. |
 | CORS | PASS | Production config rejects `CORS_ORIGINS=*`. `FRONTEND_URL` is appended to the explicit origin list. |
@@ -40,7 +40,7 @@ The Docker image and Tesseract-in-image check could not be run on this machine. 
 
 - Render Persistent Disk mounted at `/app/uploads` with `UPLOAD_DIR=/app/uploads` is required if resumes, photos, and perk images must survive deploys. The container filesystem is ephemeral.
 - Resend's free onboarding sender only delivers to the Resend account mailbox. Alumni mail needs a verified domain and `EMAIL_FROM_ADDRESS` on that domain.
-- `GEMINI_API_KEY` is optional. Without it, registration still parses locally.
+- `LLM_API_KEY` is optional. Without it, registration still parses locally. With it, LlamaIndex runs before the built-in parser.
 - Leave `EMAIL_SCHEDULER_ENABLED` blank on one web instance only, or reminders can send twice.
 - This folder is not a Git repository. `.gitignore` ignores `.env`, `.env.*` (except examples), `frontend/dist`, `backend/uploads`, local SQLite files, and virtualenvs. Do not commit `backend/.env`.
 - Name parsing keeps compound given names in `first_name` (`Sean Gabriel Santos` → first `Sean Gabriel`, last `Santos`). That is heuristic, not a legal-name guarantee.
@@ -63,10 +63,11 @@ The Docker image and Tesseract-in-image check could not be run on this machine. 
 | `EMAIL_API_KEY` | Required | Resend secret |
 | `EMAIL_FROM_ADDRESS` | Required | Verified sender |
 | `EMAIL_FROM_NAME` | Optional | Display name |
-| `GEMINI_API_KEY` | Optional | Server-side resume model |
+| `LLM_API_KEY` | Optional | LlamaCloud key for LlamaParse |
 | `UPLOAD_DIR` | Required on Render | `/app/uploads` when a disk is mounted |
 | `TRUST_X_FORWARDED_FOR` | Required | `true` behind Render |
-| `GEMINI_MODEL` | Optional | Default `gemini-2.0-flash` |
+| `LLM_MODEL` | Optional | Default `gpt-4o-mini` |
+| `LLM_PROVIDER` | Optional | `llamaparse`, `openai`, `groq`, or `ollama` |
 | `EMAIL_REPLY_TO` | Optional | Reply address |
 | `TESSERACT_CMD` | Optional | Leave empty; image puts Tesseract on `PATH` |
 | `MAX_UPLOAD_MB` | Optional | Default 10 |

@@ -44,7 +44,7 @@ from app.services.files import assert_resume_size, contained_upload_path, save_d
 
 logger = logging.getLogger("careersense")
 from app.services.gts import persist_tracer_submission
-from app.services.parser import extract_resume_from_upload, map_to_gts_fields
+from app.services.parser import apply_verified_registry, extract_resume_from_upload, map_to_gts_fields
 from app.services.password_reset import request_pin, resend_pin, reset_password, verify_pin
 from app.services.survey import (
     ensure_gts_survey,
@@ -246,9 +246,7 @@ async def register(
         parsed.get("last_name", ""),
         parsed.get("middle_name", ""),
     )
-    if record:
-        prefill["degree"] = record.degree or prefill.get("degree")
-        prefill["year_graduated"] = record.year_graduated or prefill.get("year_graduated")
+    prefill = apply_verified_registry(prefill, record)
 
     existing_draft = db.query(RegistrationDraft).filter(RegistrationDraft.personal_email == email_clean).first()
     if existing_draft:

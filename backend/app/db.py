@@ -170,6 +170,7 @@ def ensure_runtime_schema(bind=None) -> None:
             ("unemployment_details", "TEXT"),
             ("employment_answer_before", "VARCHAR(8)"),
             ("resume_document", "JSONB" if bind.dialect.name == "postgresql" else "JSON"),
+            ("resume_activity_seeded", "BOOLEAN"),
         ],
     )
     inspector = inspect(bind)

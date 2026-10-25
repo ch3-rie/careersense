@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from app.models import Account, AlumniAward, AlumniCertification, AlumniJob, AlumniProfile, AlumniSeminar, TracerSubmission
+from app.models import Account, AlumniAward, AlumniCertification, AlumniJob, AlumniProfile, AlumniSeminar, Resume, TracerSubmission
 from app.schemas import AwardIn, CertificationIn, EmploymentStatusIn, SeminarIn
 from app.services.employment import (
     apply_current_employment,
@@ -209,6 +209,122 @@ def set_employment_status(db: Session, user: Account, payload: EmploymentStatusI
     _sync_tracer_current_employment(db, user, restore)
     db.commit()
     return unemployment_public(profile)
+
+
+def seed_resume_activity(db: Session, user: Account, *, fill_empty: bool = False) -> None:
+    """Copy certifications, seminars, and awards from the latest resume onto the alumni home.
+
+    The first visit copies them once. A later resume upload can fill a section
+    that is still empty. Sections the graduate already edited are left alone.
+    The full employment history is stored with the job timeline, not here.
+    """
+    profile = user.profile
+    if profile is None or (profile.resume_activity_seeded and not fill_empty):
+        return
+    parsed: dict = {}
+    resumes = (
+        db.query(Resume)
+        .filter(Resume.account_id == user.id)
+        .order_by(Resume.created_at.desc())
+        .all()
+    )
+    for resume in resumes:
+        data = resume.parsed_json if isinstance(resume.parsed_json, dict) else {}
+        if data.get("certifications") or data.get("seminars") or data.get("awards"):
+            parsed = data
+            break
+    latest = _latest_submission(db, user.id)
+    survey = latest.data_json if latest and isinstance(latest.data_json, dict) else {}
+
+    def _rows(key: str):
+        flag = {
+            "certifications": "report_certifications",
+            "seminars": "report_seminars",
+            "awards": "report_awards",
+        }[key]
+        if str(survey.get(flag) or "").strip().lower() == "no":
+            return []
+        if key in survey and isinstance(survey.get(key), list):
+            return survey.get(key)
+        return parsed.get(key)
+
+    if not db.query(AlumniCertification).filter(AlumniCertification.account_id == user.id).first():
+        for item in _credential_items(_rows("certifications")):
+            db.add(
+                AlumniCertification(
+                    account_id=user.id,
+                    certification_name=item["name"][:200],
+                    issuing_organization=(item["awarding_body"] or item["detail"])[:200],
+                    awarded_on=item["year"],
+                )
+            )
+    if not db.query(AlumniSeminar).filter(AlumniSeminar.account_id == user.id).first():
+        for item in _credential_items(_rows("seminars")):
+            db.add(
+                AlumniSeminar(
+                    account_id=user.id,
+                    title=item["name"][:200],
+                    location=(item["location"] or item["detail"] or "")[:200],
+                    held_on=item["year"],
+                    organizer=(item["organizer"] or "")[:200],
+                )
+            )
+    if not db.query(AlumniAward).filter(AlumniAward.account_id == user.id).first():
+        for item in _credential_items(_rows("awards")):
+            db.add(
+                AlumniAward(
+                    account_id=user.id,
+                    title=item["name"][:200],
+                    issuer=(item["issuer"] or item["detail"])[:200],
+                    awarded_on=item["year"],
+                    description=(item["description"] or "")[:800],
+                )
+            )
+    profile.resume_activity_seeded = True
+    db.flush()
+
+
+def _credential_items(rows) -> list[dict]:
+    items = []
+    seen = set()
+    if not isinstance(rows, list):
+        return items
+    for row in rows:
+        if isinstance(row, str):
+            name, detail, year = row.strip(), "", ""
+            awarding_body = location = organizer = issuer = description = ""
+        elif isinstance(row, dict):
+            name = str(row.get("name") or row.get("title") or "").strip()
+            detail = str(row.get("detail") or "").strip()
+            year = str(row.get("year") or row.get("awarded_on") or row.get("held_on") or "").strip()[:20]
+            awarding_body = str(row.get("awarding_body") or "").strip()
+            location = str(row.get("location") or "").strip()
+            organizer = str(row.get("organizer") or "").strip()
+            issuer = str(row.get("issuer") or "").strip()
+            description = str(row.get("description") or "").strip()
+            if not awarding_body and detail and not location and not organizer and not issuer:
+                awarding_body = detail
+            if not issuer:
+                issuer = str(row.get("issuer") or "").strip()
+            if not location and detail and not awarding_body and not issuer:
+                location = detail
+        else:
+            continue
+        key = name.lower()
+        if not name or key in seen or re.fullmatch(r"(?:page|pg)\.?\s*\d{1,4}(?:\s*(?:of|/)\s*\d{1,4})?", name, re.I):
+            continue
+        seen.add(key)
+        items.append({
+            "name": name,
+            "detail": detail,
+            "year": year,
+            "awarding_body": awarding_body,
+            "location": location or (detail if not awarding_body and not issuer else ""),
+            "organizer": organizer,
+            "issuer": issuer or (detail if not awarding_body and not location else ""),
+            "description": description,
+        })
+    return items
 
 
 def serialize_activity(db: Session, account_id: int) -> dict:

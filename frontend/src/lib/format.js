@@ -101,9 +101,13 @@ export function fullName(obj = {}) {
 export function parserLabel(source) {
   const labels = {
     gemini: "AI extraction",
+    llamaindex: "AI extraction",
+    llamaparse: "LlamaParse",
     heuristic: "Built-in parser",
     ocr: "OCR extraction",
     "gemini+heuristic": "AI + built-in parser",
+    "llamaindex+heuristic": "AI + built-in parser",
+    "llamaparse+heuristic": "LlamaParse + built-in parser",
     empty: "No text extracted",
     failed: "Extraction failed",
   };
@@ -115,7 +119,7 @@ export function sectionLabel(key) {
     {
       general: "General information",
       employment: "Employment",
-      studies: "Further Studies / Degrees Earned",
+      studies: "Further Education and Professional Development",
       feedback: "Institutional feedback",
     }[key] || key
   );

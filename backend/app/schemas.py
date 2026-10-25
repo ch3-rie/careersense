@@ -136,6 +136,12 @@ class GtsPayload(BaseModel):
     present_related_degree: Optional[str] = None
     enroll_further_studies: str = "No"
     further_studies: list[dict[str, Any]] = Field(default_factory=list)
+    certifications: list[dict[str, Any]] = Field(default_factory=list)
+    seminars: list[dict[str, Any]] = Field(default_factory=list)
+    awards: list[dict[str, Any]] = Field(default_factory=list)
+    report_certifications: str = ""
+    report_seminars: str = ""
+    report_awards: str = ""
     participated_seminars: Optional[str] = None
     seminars_helpful: Optional[str] = None
     mentoring_rating: Optional[int] = None

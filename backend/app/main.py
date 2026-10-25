@@ -14,6 +14,7 @@ from app.db import SessionLocal, ensure_runtime_schema
 from app.routers import admin, admin_academics, admin_badges, admin_cards, admin_partner_activity, admin_perks, admin_profile_reminders, admin_profile_updates, admin_survey, admin_users, alumni, auth
 from app.seed import seed_if_empty
 from app.services.email import email_health, scheduler_is_enabled
+from app.services.parser_llm import llm_is_configured
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("careersense")
@@ -197,7 +198,7 @@ def health():
         return payload
     return {
         **payload,
-        "gemini_configured": bool(settings.gemini_api_key),
+        "llm_configured": llm_is_configured(),
         "docs_enabled": settings.docs_enabled,
         "email_configured": mail["email_configured"],
         "email_enabled": mail["email_enabled"],

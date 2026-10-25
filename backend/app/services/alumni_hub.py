@@ -29,7 +29,7 @@ from app.services.email.dispatch import send_notice
 from app.services.employment import apply_profile_unemployment, resolve_current_employment, unemployment_public
 from app.services.jobs import ensure_job_timeline
 from app.services.profile_completion import refresh_alumni_progress
-from app.services.profile_records import serialize_activity
+from app.services.profile_records import seed_resume_activity, serialize_activity
 from app.services.studies import serialize_studies
 from app.services.validation import sanitize_alumni_path, sanitize_http_url
 
@@ -949,6 +949,7 @@ def assemble_profile(db: Session, user: Account, *, notify_badges: bool = False)
     record = user.university_record
     alignment = user.alignment
     jobs = ensure_job_timeline(db, user)
+    seed_resume_activity(db, user)
     card = ensure_card(db, user)
     ensure_starter_notifications(db, user, card, latest is not None)
     if latest is None:

@@ -66,10 +66,13 @@ class Settings(BaseSettings):
     secret_key: str = ""
     access_token_expire_minutes: int = 720
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
-    gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.0-flash"
+    llm_provider: str = "llamaparse"
+    llm_api_key: str = ""
+    llm_model: str = "gpt-4o-mini"
+    llm_base_url: str = ""
     upload_dir: str = "uploads"
     max_upload_mb: int = 10
+    parser_max_pdf_pages: int = 20
     enable_docs: Optional[bool] = None
     rate_limit_enabled: bool = True
     trust_x_forwarded_for: bool = False

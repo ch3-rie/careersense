@@ -500,6 +500,10 @@ def get_published_schema(db: Session) -> dict[str, Any]:
 def serialize_survey(row: SurveyDefinition, versions: list[SurveyVersion] | None = None) -> dict[str, Any]:
     draft = clone_schema(row.draft_schema)
     published = clone_schema(row.published_schema)
+    apply_study_field_requirements(draft)
+    apply_study_field_requirements(published)
+    apply_registration_instructions(draft)
+    apply_registration_instructions(published)
     return {
         "id": row.id,
         "slug": row.slug,

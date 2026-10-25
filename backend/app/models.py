@@ -153,6 +153,7 @@ class AlumniProfile(Base):
     guardian_type: Mapped[str] = mapped_column(String(80), default="")
     guardian_degree_completed: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
     job_timeline_ready: Mapped[bool] = mapped_column(Boolean, default=False)
+    resume_activity_seeded: Mapped[bool] = mapped_column(Boolean, default=False)
     phone: Mapped[str] = mapped_column(String(40), default="")
     city: Mapped[str] = mapped_column(String(120), default="")
     photo_path: Mapped[str] = mapped_column(String(500), default="")

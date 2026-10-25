@@ -323,6 +323,84 @@ def test_irrelevant_text_is_ignored():
     assert "curriculum" not in parsed["first_name"].lower()
 
 
+def test_sidebar_headings_work_for_other_titles_and_names():
+    """A label column is a layout, not a clinical resume. Headings can use other wording."""
+    data = _pdf([
+        (48, 48, "Engr. Liza B. Santos Jr.", 18),
+        (48, 70, "liza.santos@example.com", 9),
+        (48, 130, "WORK HISTORY", 11),
+        (170, 130, "Civil Engineer"),
+        (170, 148, "Sample Builders | 2020 - Present"),
+        (48, 210, "ACADEMIC BACKGROUND", 11),
+        (170, 210, "Bachelor of Science in Civil Engineering"),
+        (170, 228, "Sample University | 2015-2019"),
+        (48, 290, "CORE SKILLS", 11),
+        (170, 290, "AutoCAD"),
+        (400, 48, "Philippines", 9),
+    ], width=596, height=842)
+    view = extract_document("resume.pdf", data, enable_ocr=False)
+    parsed, _source = extract_resume_info(view.text, document=view)
+    assert parsed["first_name"] == "Liza"
+    assert parsed["middle_name"] == "B."
+    assert parsed["last_name"] == "Santos Jr."
+    assert "Civil Engineering" in parsed["degree"]
+    assert parsed["year_graduated"] == "2019"
+    titles = [job["job_title"] for job in parsed["experiences"]]
+    assert any("Civil Engineer" in title for title in titles)
+    assert "AutoCAD" not in titles
+    assert "AutoCAD" in parsed["skills"]
+
+
+def test_right_side_labels_stay_with_their_sections():
+    data = _pdf([
+        (48, 48, "Paolo Reyes", 18),
+        (48, 70, "paolo.reyes@example.com", 9),
+        (48, 140, "Account Officer"),
+        (48, 158, "Sample Credit Co. | 2023 - Present"),
+        (48, 220, "Bachelor of Science in Accountancy"),
+        (48, 238, "Sample University 2022"),
+        (400, 140, "EMPLOYMENT", 11),
+        (400, 220, "EDUCATION", 11),
+        (400, 300, "SKILLS", 11),
+        (48, 300, "Excel"),
+    ], width=596, height=842)
+    view = extract_document("resume.pdf", data, enable_ocr=False)
+    parsed, _source = extract_resume_info(view.text, document=view)
+    assert parsed["first_name"] == "Paolo"
+    assert parsed["last_name"] == "Reyes"
+    assert "Accountancy" in parsed["degree"]
+    assert any("Account Officer" in job["job_title"] for job in parsed["experiences"])
+    assert "Excel" in parsed["skills"]
+
+
+def test_sidebar_headings_stay_with_the_name_and_job():
+    data = _pdf([
+        (45, 50, "Dr. Marcus Vance, Ph.D.", 20),
+        (45, 72, "Lead Clinical Research Scientist"),
+        (430, 50, "m.vance@bioresearch.org", 9),
+        (45, 130, "PROFILE", 11),
+        (160, 130, "Senior researcher in clinical trials."),
+        (45, 180, "EXPERIENCE", 11),
+        (160, 180, "Principal Clinical Investigator"),
+        (160, 196, "St. Luke's Medical Center | 2022 - Present"),
+        (45, 260, "EDUCATION", 11),
+        (160, 260, "B.S. in Biochemistry"),
+        (160, 276, "Sample University 2015"),
+        (45, 340, "PUBLICATIONS", 11),
+        (160, 340, "Vance, M. (2024). Targeted therapies."),
+        (45, 400, "SKILLS", 11),
+        (160, 400, "Flow Cytometry"),
+    ], width=596, height=842)
+    view = extract_document("resume.pdf", data, enable_ocr=False)
+    parsed, _source = extract_resume_info(view.text, document=view)
+    assert parsed["first_name"] == "Marcus"
+    assert parsed["last_name"] == "Vance"
+    titles = [job["job_title"] for job in parsed["experiences"]]
+    assert any("Principal Clinical Investigator" in title for title in titles)
+    assert "Flow Cytometry" not in titles
+    assert "Biochemistry" in parsed["degree"]
+
+
 def test_two_column_pdf_keeps_column_order():
     data = _pdf([
         (72, 50, "Diego Ramos", 16),
@@ -347,12 +425,36 @@ def test_two_column_pdf_keeps_column_order():
     assert any("Software Engineer" in job["job_title"] for job in parsed["experiences"])
 
 
+def test_llamaparse_text_is_used_before_the_local_reader(monkeypatch):
+    calls = []
+
+    def _llama(filename, file_bytes):
+        calls.append(filename)
+        return (
+            "Ana Cruz\n"
+            "Bachelor of Science in Information Technology\n"
+            "Software Engineer\nNorth Labs\n2022-Present\n"
+            "Skills: Python\n"
+        )
+
+    def _local(*_args, **_kwargs):
+        raise AssertionError("local reader should wait until LlamaParse returns nothing")
+
+    monkeypatch.setattr("app.services.parser.parse_with_llamaparse", _llama)
+    monkeypatch.setattr("app.services.parser.extract_document", _local)
+    parsed, source, text = extract_resume_from_upload("resume.pdf", b"%PDF-1.4")
+    assert calls == ["resume.pdf"]
+    assert "Ana" in parsed["first_name"]
+    assert "Ana Cruz" in text
+    assert source == "llamaparse+heuristic"
+
+
 def test_table_based_docx():
     parsed, source, text = extract_resume_from_upload("resume.docx", _docx_table())
     assert "Ana" in parsed["first_name"]
     assert text_is_sufficient(text)
     assert parsed["experiences"] or "analyst" in text.lower()
-    assert source in {"heuristic", "gemini+heuristic"}
+    assert source in {"heuristic", "llamaindex+heuristic"}
 
 
 def test_scanned_pdf_without_ocr_is_empty():
@@ -606,3 +708,206 @@ def test_no_current_job_course_alignment_is_unknown():
     assert parsed["is_currently_employed"] == "No"
     assert parsed["course_alignment"]["status"] == "Unknown"
     assert parsed["course_alignment"]["related_to_degree"] == ""
+
+
+def test_page_number_is_not_a_certification_and_credential_fields_match_the_profile():
+    resume = """\
+Ana Santos
+ana@example.com
+Bachelor of Science in Information Technology
+Angeles University Foundation
+2018-2022
+
+Certifications
+Google Analytics Certificate | Google | 2023
+Page 1 of 1
+
+Seminars Attended
+Career Readiness Seminar | OAAPS | Angeles City | 2022
+
+Awards and Achievements
+Dean's Lister | AUF | College honors
+"""
+    parsed, _source = extract_resume_info(resume)
+    assert all("page" not in item["name"].lower() for item in parsed["certifications"])
+    certificate = next(item for item in parsed["certifications"] if "Google Analytics" in item["name"])
+    assert certificate["awarding_body"] == "Google"
+    assert certificate["year"] == "2023"
+    assert certificate["detail"] != "2023"
+    seminar = parsed["seminars"][0]
+    assert seminar["organizer"] == "OAAPS"
+    assert seminar["location"] == "Angeles City"
+    assert seminar["year"] == "2022"
+    award = parsed["awards"][0]
+    assert award["issuer"] == "AUF"
+    assert award["description"] == "College honors"
+    assert award["year"] == ""
+
+
+def test_survey_uses_work_after_graduation_and_keeps_credentials():
+    resume = """\
+Ana Santos
+ana@example.com
+Bachelor of Science in Information Technology
+Angeles University Foundation
+2018-2022
+
+Work Experience
+Marketing Intern
+Sample Office
+January 2017 - March 2018
+
+Software Engineer
+North Labs
+July 2022 - Present
+
+Certifications
+Google Analytics Certificate | 2023
+
+Seminars Attended
+Career Readiness Seminar | Angeles City
+
+Awards and Achievements
+Dean's Lister | AUF
+"""
+    parsed, _source = extract_resume_info(resume)
+    gts = map_to_gts_fields(parsed)
+    assert gts["ever_employed"] == "Yes"
+    assert gts["first_occ"] == "Software Engineer"
+    assert gts["first_emp"] == "North Labs"
+    assert gts["time_to_first_job"] == "1 to 6 months"
+    assert gts["present_related_degree"] in {"Yes", "No"}
+    assert "Information Technology" in gts["degree"]
+    assert any("Intern" in job["job_title"] for job in gts["experiences"])
+    assert any("Google Analytics" in item["name"] for item in gts["certifications"])
+    assert any("Career Readiness" in item["name"] for item in gts["seminars"])
+    assert any("Dean" in item["name"] for item in gts["awards"])
+
+
+def test_same_year_without_a_month_counts_as_one_to_six_months():
+    gts = map_to_gts_fields({
+        "year_graduated": "2019",
+        "degree": "BS Business Administration",
+        "experiences": [
+            {"job_title": "Specialist", "employer": "Agency", "start_date": "2019", "is_current": "No", "related_to_degree": "Yes"},
+            {"job_title": "Lead", "employer": "Media", "start_date": "2023-01", "is_current": "Yes", "related_to_degree": "Yes"},
+        ],
+    })
+    assert gts["ever_employed"] == "Yes"
+    assert gts["first_occ"] == "Specialist"
+    assert gts["time_to_first_job"] == "1 to 6 months"
+    assert gts["pres_occ"] == "Lead"
+
+
+def test_marketing_jobs_answer_relatedness_and_alignment():
+    from app.services.parser import normalize_extracted_resume_data
+
+    parsed = normalize_extracted_resume_data({
+        "degree": "BS Business Administration Major in Marketing",
+        "year_graduated": "2019",
+        "experiences": [
+            {
+                "job_title": "SEO & Content Specialist",
+                "employer": "Vanguard Creative Agency",
+                "start_date": "2019",
+                "end_date": "2021",
+                "is_current": "No",
+                "description": "Managed technical SEO audits, keyword mapping, and content campaigns.",
+            },
+            {
+                "job_title": "Growth Marketing Strategist",
+                "employer": "Nexus Digital Labs",
+                "start_date": "2021",
+                "end_date": "2023",
+                "is_current": "No",
+            },
+            {
+                "job_title": "Senior Digital Marketing Lead",
+                "employer": "Apex Media Group Philippines",
+                "start_date": "2023",
+                "is_current": "Yes",
+                "description": "Led digital marketing campaigns across paid ads and SEO.",
+            },
+        ],
+        "skills": ["SEO", "Google Ads", "Copywriting"],
+    }, "")
+    gts = map_to_gts_fields(parsed)
+    assert gts["first_related"] == "Yes"
+    assert gts["present_related_degree"] == "Yes"
+    assert gts["time_to_first_job"] == "1 to 6 months"
+    assert parsed["course_alignment"]["status"] == "Aligned"
+    assert parsed["course_alignment"]["related_to_degree"] == "Yes"
+
+
+def test_work_that_ended_before_graduation_is_not_employment_after_graduation():
+    gts = map_to_gts_fields({
+        "year_graduated": "2022",
+        "experiences": [
+            {"job_title": "Intern", "employer": "Shop", "start_date": "2017-01", "end_date": "2018-03", "is_current": "No"},
+        ],
+    })
+    assert gts["ever_employed"] == "No"
+    assert gts["first_occ"] == ""
+    assert gts["time_to_first_job"] == ""
+
+
+def test_resume_history_and_credentials_reach_the_alumni_home(client, db_session):
+    from app.models import Account, AlumniAward, AlumniCertification, AlumniProfile, AlumniSeminar, Resume, TracerSubmission
+    from app.services.jobs import serialize_jobs, sync_job_timeline_from_gts
+    from app.services.profile_records import seed_resume_activity
+
+    account = Account(
+        personal_email="timeline-seed@example.com",
+        password_hash="x",
+        role="Alumni",
+        status="Pending",
+        privacy_consent=True,
+    )
+    db_session.add(account)
+    db_session.flush()
+    db_session.add(AlumniProfile(
+        account_id=account.id,
+        first_name="Ana",
+        last_name="Santos",
+        degree="BS Information Technology",
+        year_graduated="2022",
+    ))
+    db_session.add(Resume(
+        account_id=account.id,
+        original_filename="resume.pdf",
+        stored_path="uploads/resume.pdf",
+        parsed_json={
+            "experiences": [
+                {"job_title": "Intern", "employer": "Shop", "start_date": "2017-01", "end_date": "2018-03", "is_current": "No"},
+                {"job_title": "Engineer", "employer": "North Labs", "start_date": "2022-07", "end_date": "2023-06", "is_current": "No"},
+                {"job_title": "Lead", "employer": "Media", "start_date": "2023-07", "is_current": "Yes"},
+            ],
+            "certifications": [{"name": "Google Analytics Certificate", "detail": "Google", "year": "2023"}],
+            "seminars": [{"name": "Career Readiness Seminar", "detail": "Angeles City", "year": "2022"}],
+            "awards": [{"name": "Dean's Lister", "detail": "AUF", "year": "2021"}],
+        },
+    ))
+    db_session.add(TracerSubmission(
+        account_id=account.id,
+        data_json={"first_occ": "Engineer", "first_emp": "North Labs", "pres_occ": "Lead", "is_currently_employed": "Yes"},
+        extra_answers={},
+    ))
+    db_session.flush()
+    db_session.refresh(account)
+    sync_job_timeline_from_gts(db_session, account, {"first_occ": "Engineer", "pres_occ": "Lead", "is_currently_employed": "Yes", "present_job_is_first": "No"})
+    db_session.flush()
+    titles = [job["job_title"] for job in serialize_jobs(db_session, account.id)]
+    assert titles == ["Intern", "Engineer", "Lead"]
+    seed_resume_activity(db_session, account)
+    db_session.commit()
+    certificate = db_session.query(AlumniCertification).filter_by(account_id=account.id).one()
+    seminar = db_session.query(AlumniSeminar).filter_by(account_id=account.id).one()
+    award = db_session.query(AlumniAward).filter_by(account_id=account.id).one()
+    assert certificate.issuing_organization == "Google"
+    assert certificate.awarded_on == "2023"
+    assert seminar.location == "Angeles City"
+    assert seminar.held_on == "2022"
+    assert award.issuer == "AUF"
+    assert award.awarded_on == "2021"
+    seed_resume_activity(db_session, account)
+    assert db_session.query(AlumniCertification).filter_by(account_id=account.id).count() == 1

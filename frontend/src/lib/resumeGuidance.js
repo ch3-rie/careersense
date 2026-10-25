@@ -56,14 +56,108 @@ function employmentNote(resume, choice) {
   return "";
 }
 
+function firstAfterGraduation(resume) {
+  const marked = resume.first_job_after_graduation;
+  if (marked && typeof marked === "object" && (text(marked.job_title) || text(marked.employer))) return marked;
+  if (yesNo(resume.ever_employed) === "No") return null;
+  return experiencesOf(resume).find((item) => text(item.job_title) || text(item.employer)) || null;
+}
+
 function everEmployedNote(resume, choice) {
-  if (choice !== "No") return "";
-  const job = experiencesOf(resume).find((item) => text(item.job_title) || text(item.employer));
-  if (!job) return "";
-  const phrase = rolePhrase(job);
-  return phrase
-    ? `Your resume appears to list work experience as ${phrase}. Please verify whether you have been employed after graduation.`
-    : SOFT;
+  const job = firstAfterGraduation(resume);
+  if (choice === "No" && job) {
+    const phrase = rolePhrase(job);
+    return phrase
+      ? `Your resume appears to list work after graduation as ${phrase}. Please verify whether you have been employed after graduation.`
+      : SOFT;
+  }
+  if (choice === "Yes" && yesNo(resume.ever_employed) === "No" && experiencesOf(resume).length) {
+    return "The jobs on your resume appear to start before graduation. Please verify whether you have been employed after graduation.";
+  }
+  return "";
+}
+
+function changedNote(suggested, chosen, message) {
+  const fromResume = text(suggested);
+  const current = text(chosen);
+  if (!fromResume || !current || fromResume.toLowerCase() === current.toLowerCase()) return "";
+  return message(fromResume);
+}
+
+function timeToJobNote(resume, answer) {
+  return changedNote(
+    resume.time_to_first_job,
+    answer,
+    (suggested) => `Your resume suggests it took ${suggested} to be employed after graduation. Please verify this answer.`,
+  );
+}
+
+function degreeNote(resume, answer) {
+  return changedNote(
+    resume.degree,
+    answer,
+    (suggested) => `Your resume lists ${clip(suggested, 120)} as your bachelor's degree. Please verify this answer.`,
+  );
+}
+
+function yearNote(resume, answer) {
+  return changedNote(
+    resume.year_graduated,
+    answer,
+    (suggested) => `Your resume lists ${suggested} as your graduation year. Please verify this answer.`,
+  );
+}
+
+function occupationNote(resume, questionId, answer) {
+  const experiences = experiencesOf(resume);
+  const job = questionId === "pres_occ"
+    ? (currentJob(experiences) || experiences[experiences.length - 1])
+    : firstAfterGraduation(resume);
+  return changedNote(
+    job?.job_title,
+    answer,
+    (suggested) => `Your resume lists ${clip(suggested)} for this role. Changing it can change the career alignment for this job. Please verify this answer.`,
+  );
+}
+
+function credentialItems(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.map((item) => text(item?.name || item?.title)).filter(Boolean);
+}
+
+function credentialChoiceNote(resume, key, choice, label) {
+  const detected = credentialItems(resume[key]).length > 0;
+  if (detected && choice === "No") {
+    return `We found a possible ${label} in your resume. Please review your answer to make sure it is correct.`;
+  }
+  if (!detected && choice === "Yes") {
+    return `Add the ${label} you want to report. One was not found in your resume.`;
+  }
+  return "";
+}
+
+function credentialNote(resume, key, answer, label) {
+  const suggested = credentialItems(resume[key]);
+  if (!suggested.length || !Array.isArray(answer)) return "";
+  const current = credentialItems(answer).map((name) => name.toLowerCase());
+  const missing = suggested.filter((name) => !current.includes(name.toLowerCase()));
+  if (!missing.length && current.length === suggested.length) return "";
+  if (missing.length) {
+    const shown = missing.slice(0, 2).map((name) => clip(name)).join("; ");
+    return `Your resume lists ${shown}. Please verify your ${label}.`;
+  }
+  return `Your resume lists ${suggested.length} ${label}. Please verify this answer.`;
+}
+
+function furtherProgramsNote(resume, answer) {
+  const suggested = (Array.isArray(resume.further_studies) ? resume.further_studies : [])
+    .map((item) => text(item?.course_degree))
+    .filter(Boolean);
+  if (!suggested.length || !Array.isArray(answer)) return "";
+  const current = answer.map((item) => text(item?.course_degree).toLowerCase());
+  const missing = suggested.filter((item) => !current.includes(item.toLowerCase()));
+  if (!missing.length) return "";
+  return `Your resume lists ${missing.slice(0, 2).map((item) => clip(item)).join("; ")} after your bachelor's degree. Please verify this answer.`;
 }
 
 function studiesEvidence(resume) {
@@ -80,33 +174,19 @@ function studiesEvidence(resume) {
   return { status: entries.length ? "detected" : "not_detected", entries };
 }
 
-function studyPhrase(entry) {
-  const program = clip(entry?.program);
-  const school = clip(entry?.institution, 60);
-  if (program && school) return `${program} at ${school}`;
-  return program || school;
-}
-
 function studiesNote(resume, choice) {
   const evidence = studiesEvidence(resume);
   if (evidence.status === "unclear") {
     return "Your resume does not clearly show whether you have further studies. Please answer based on your own records.";
   }
-  const phrases = (evidence.entries || []).map(studyPhrase).filter(Boolean).slice(0, 2);
   if (evidence.status === "detected") {
-    const detail = phrases.length ? ` (${phrases.join("; ")})` : "";
     if (choice === "No") {
-      return `Your resume appears to include further studies${detail}. Please review your answer before continuing.`;
+      return "We found a possible further-study record in your resume. Please review your answer to make sure it is correct.";
     }
-    if (choice === "Yes") {
-      return phrases.length
-        ? `Suggested from your resume: ${phrases.join("; ")}. Review this information and edit it if it is not correct. It is not saved until you submit.`
-        : "Your resume appears to include further studies. Please review your answer and confirm whether this information is correct.";
-    }
-    return `Your resume appears to include further studies${detail}. Please review your answer and confirm whether this information is correct.`;
+    return "";
   }
-  if (choice === "Yes" || choice === "No") {
-    return "We did not find clear evidence of further studies in your resume. Please confirm whether you have completed or are currently pursuing further studies.";
+  if (choice === "Yes") {
+    return "Add the program you enrolled in. A further-study record was not found in your resume.";
   }
   return "";
 }
@@ -131,7 +211,7 @@ function presentAlignmentNote(resume, choice) {
 }
 
 function firstAlignmentNote(resume, choice) {
-  const related = yesNo(experiencesOf(resume)[0]?.related_to_degree);
+  const related = yesNo(firstAfterGraduation(resume)?.related_to_degree);
   const low = text(resume.extraction_meta?.confidence?.job_title).toLowerCase() === "low";
   if (!related || choice === related) return "";
   if (low) return SOFT;
@@ -146,7 +226,7 @@ function firstAlignmentNote(resume, choice) {
 
 function sameJobNote(resume, choice) {
   const experiences = experiencesOf(resume);
-  const first = experiences[0];
+  const first = firstAfterGraduation(resume);
   const current = currentJob(experiences);
   if (!first || !current) return "";
   const firstTitle = text(first.job_title).toLowerCase();
@@ -170,10 +250,22 @@ function sameJobNote(resume, choice) {
 }
 
 export function resumeGuidance(questionId, answer, resume) {
-  const choice = yesNo(answer);
-  if (!choice || !resume || typeof resume !== "object") return "";
+  if (!resume || typeof resume !== "object") return "";
   const source = text(resume.parser_source).toLowerCase();
   if (source === "failed" || source === "empty") return "";
+  if (questionId === "time_to_first_job") return timeToJobNote(resume, answer);
+  if (questionId === "degree") return degreeNote(resume, answer);
+  if (questionId === "year_graduated") return yearNote(resume, answer);
+  if (questionId === "first_occ" || questionId === "pres_occ") return occupationNote(resume, questionId, answer);
+  if (questionId === "further_studies") return furtherProgramsNote(resume, answer);
+  if (questionId === "report_certifications") return credentialChoiceNote(resume, "certifications", yesNo(answer), "certification");
+  if (questionId === "report_seminars") return credentialChoiceNote(resume, "seminars", yesNo(answer), "seminar");
+  if (questionId === "report_awards") return credentialChoiceNote(resume, "awards", yesNo(answer), "award or achievement");
+  if (questionId === "certifications") return credentialNote(resume, "certifications", answer, "certifications");
+  if (questionId === "seminars") return credentialNote(resume, "seminars", answer, "seminars attended");
+  if (questionId === "awards") return credentialNote(resume, "awards", answer, "awards or achievements");
+  const choice = yesNo(answer);
+  if (!choice) return "";
   if (questionId === "is_currently_employed") return employmentNote(resume, choice);
   if (questionId === "ever_employed") return everEmployedNote(resume, choice);
   if (questionId === "enroll_further_studies") return studiesNote(resume, choice);

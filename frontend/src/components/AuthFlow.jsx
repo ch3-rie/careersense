@@ -267,6 +267,11 @@ export function ParseProgress({ startedAt }) {
 
 export function RegistryMatch({ match }) {
   if (match?.matched) {
+    const facts = [
+      ["Student ID", match.student_id],
+      ["Degree", match.degree],
+      ["Graduation year", match.year_graduated],
+    ].filter(([, value]) => String(value ?? "").trim());
     return (
       <div className="status-callout ok" role="status">
         <span className="status-callout-icon" aria-hidden="true">
@@ -274,27 +279,28 @@ export function RegistryMatch({ match }) {
         </span>
         <div>
           <strong>AUF graduate record matched</strong>
-          <p>
-            {[
-              match.student_id && `Student ID: ${match.student_id}`,
-              match.degree,
-              match.year_graduated,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
+          {facts.length ? (
+            <dl className="registry-match-facts">
+              {facts.map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
         </div>
       </div>
     );
   }
   return (
-    <div className="status-callout warn" role="status">
+    <div className="status-callout info" role="status">
       <span className="status-callout-icon" aria-hidden="true">
-        <AlertTriangleIcon size={20} />
+        <InfoIcon size={20} />
       </span>
       <div>
         <strong>No AUF record matched yet</strong>
-        <p>You can still continue. OAAPS may verify your identity using your name or student ID.</p>
+        <p>You can continue and complete the survey. OAAPS may verify this information.</p>
       </div>
     </div>
   );
@@ -323,7 +329,13 @@ export function AlignmentHint({ alignment, occupation }) {
   let title = "Unable to determine";
   let tone = "unknown";
   let Icon = InfoIcon;
-  if (status === "aligned") {
+  let detail = `Based on your current occupation${occupation ? ` (${occupation})` : ""}. Confirm whether this work relates to your bachelor's degree.`;
+  if (stale) {
+    title = "Career alignment changed";
+    tone = "warn";
+    Icon = AlertTriangleIcon;
+    detail = `This occupation differs from ${alignment.job_title} on your resume, so the earlier career alignment no longer applies. Confirm whether this work relates to your bachelor's degree.`;
+  } else if (status === "aligned") {
     title = "Aligned with your degree";
     tone = "ok";
     Icon = CheckCircleIcon;
@@ -339,9 +351,7 @@ export function AlignmentHint({ alignment, occupation }) {
         <Icon size={16} />
         <span>{title}</span>
       </p>
-      <p>
-        Based on your current occupation{occupation ? ` (${occupation})` : ""}. Confirm whether this work relates to your bachelor's degree.
-      </p>
+      <p>{detail}</p>
     </aside>
   );
 }
@@ -355,14 +365,14 @@ export function SubmitConfirm({
   onCancel,
 }) {
   return (
-    <div className="submit-confirm" role="region" aria-labelledby="submit-confirm-title">
+    <div className="submit-confirm" role="region" aria-labelledby="submit-confirm-title" aria-busy={busy || undefined}>
       <h3 id="submit-confirm-title">{title}</h3>
-      <p className="muted">{children}</p>
+      <p className="submit-confirm-copy">{children}</p>
       <div className="submit-confirm-actions">
         <button type="button" className="btn btn-outline" disabled={busy} onClick={onCancel}>
           {cancelLabel}
         </button>
-        <button type="submit" className="btn btn-navy" disabled={busy}>
+        <button type="submit" className="btn btn-navy" disabled={busy} aria-busy={busy || undefined}>
           {busy ? "Submitting…" : confirmLabel}
         </button>
       </div>

@@ -101,7 +101,7 @@ CORE_GTS_SECTIONS = [
     },
     {
         "key": "studies",
-        "name": "Further Studies / Degrees Earned",
+        "name": "Further Education and Professional Development",
         "locked": True,
         "fields": [
             "Enrolled in further studies",

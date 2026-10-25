@@ -10,7 +10,7 @@ This is the operational checklist for a campus deployment. The application can r
 - Local or PostgreSQL database
 - Disk file storage under `UPLOAD_DIR`
 - Resend transactional email and an outbox/scheduler
-- Optional Gemini resume extraction with a local heuristic fallback
+- Optional LlamaParse reading, followed by the local field parser
 - `GET /api/health` liveness probe
 - First-admin helper: `backend/scripts/create_admin.py`
 
@@ -68,13 +68,13 @@ Sign in and change the temporary password immediately. Additional admins are cre
 
 ## Health check
 
-`GET /api/health` returns `{ "ok": true }` when the process is up. In production it does not advertise Gemini, docs, or provider details.
+`GET /api/health` returns `{ "ok": true }` when the process is up. In production it does not advertise the resume model, docs, or provider details.
 
 ## Optional services
 
 | Service | Required to go live? | If missing |
 |---|---|---|
 | Resend | Yes in production | API refuses to start |
-| Gemini | No | Heuristic parser still extracts name, jobs, education, skills |
+| LlamaParse | No | Built-in parser still extracts name, jobs, education, skills |
 | Object storage | No for a single-server campus | Replace `app/services/files.py` when you outgrow local disk |
 | Redis rate limits | No for a single process | Add when you scale to multiple API workers |

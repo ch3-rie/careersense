@@ -346,8 +346,8 @@ def default_gts_schema() -> dict[str, Any]:
             {
                 "id": "studies",
                 "key": "studies",
-                "name": "Further Studies / Degrees Earned",
-                "description": "Programs you started after your bachelor's degree.",
+                "name": "Further Education and Professional Development",
+                "description": "Additional education, certifications, seminars, and awards.",
                 "subsections": [
                     {
                         "id": "studies_main",
@@ -584,7 +584,7 @@ def apply_core_first_job_schema(schema: dict[str, Any] | None) -> bool:
 SECTION_INSTRUCTIONS = {
     "general": "Your name, degree, and household background.",
     "employment": "Your first job after graduation and your current work.",
-    "studies": "Programs you started after your bachelor's degree.",
+    "studies": "Additional education, certifications, seminars, and awards.",
     "feedback": "Seminars, engagement, and suggestions for AUF.",
 }
 
@@ -605,8 +605,11 @@ def apply_study_field_requirements(schema: dict[str, Any] | None) -> bool:
     data = schema if isinstance(schema, dict) else {}
     changed = False
     for section in data.get("sections") or []:
-        if (section.get("key") or section.get("id")) == "studies" and section.get("name") == "Further Studies":
-            section["name"] = "Further Studies / Degrees Earned"
+        if (section.get("key") or section.get("id")) == "studies" and section.get("name") in {
+            "Further Studies",
+            "Further Studies / Degrees Earned",
+        }:
+            section["name"] = "Further Education and Professional Development"
             changed = True
     for question in flatten_questions(data):
         if question.get("id") != "further_studies" or question.get("type") != "repeatable_group":

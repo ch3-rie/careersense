@@ -66,6 +66,9 @@ DOMAINS: dict[str, dict[str, tuple[str, ...]]] = {
         ),
         "occupations": (
             "marketing specialist", "marketing officer", "marketing coordinator",
+            "digital marketing", "marketing lead", "marketing strategist", "growth marketing",
+            "content specialist", "seo specialist", "content strategist", "media buyer",
+            "social media manager", "marketing manager", "marketing assistant",
             "sales associate", "sales executive", "sales manager", "business development",
             "operations manager", "operations officer", "entrepreneur", "business owner",
             "human resources officer", "hr officer", "hr specialist", "human resource",
@@ -75,9 +78,14 @@ DOMAINS: dict[str, dict[str, tuple[str, ...]]] = {
         "duties": (
             "marketing campaign", "sales target", "customer acquisition", "brand",
             "human resources", "recruitment", "payroll", "operations",
+            "seo", "keyword", "campaign", "social media", "content", "copywriting",
+            "funnel", "ads",
         ),
-        "employer": ("marketing", "retail", "sales", "consulting", "bpo"),
-        "skills": ("excel", "powerpoint", "crm", "salesforce"),
+        "employer": ("marketing", "retail", "sales", "consulting", "bpo", "media", "agency"),
+        "skills": (
+            "excel", "powerpoint", "crm", "salesforce", "seo", "google ads",
+            "meta ads", "analytics", "copywriting",
+        ),
     },
     "accountancy": {
         "degree": (
@@ -280,7 +288,8 @@ def _score_domain(
     if title_score >= 0.85:
         return min(0.98, title_score + 0.3 * duty_score)
     if _title_is_ambiguous(title):
-        return min(0.9, 0.2 + duty_score + employer_score + skill_score)
+        # A generic title plus an employer's industry is not evidence of alignment.
+        return min(0.9, 0.2 + duty_score + skill_score)
     if title_score >= 0.7:
         return min(0.95, title_score + 0.5 * duty_score + 0.3 * employer_score)
     return min(0.7, title_score + duty_score + employer_score + 0.5 * skill_score)
@@ -361,7 +370,7 @@ def align_occupation_to_degree(
             "Unknown",
             0.42,
             "",
-            f"The current title “{title}” is too generic to classify without stronger evidence.",
+            f"The current title “{title}” is too generic to classify without stronger evidence from the duties. The employer's industry is not treated as proof that the role matches the degree.",
             own_domain,
             suggestions,
         )

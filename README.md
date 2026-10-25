@@ -12,7 +12,7 @@ This is a full-stack rebuild of the earlier Streamlit prototype (`Resume-NLP-Par
 
 | Area | Decision |
 |------|----------|
-| Resume → GTS extraction | **Retained and ported.** Gemini when `GEMINI_API_KEY` is set; otherwise the same local heuristic parser. |
+| Resume → GTS extraction | **Retained and ported.** LlamaParse reads the file when `LLM_PROVIDER=llamaparse` and `LLM_API_KEY` is set. The built-in parser extracts the fields and is used alone when no key is set. |
 | Identity matching against university records | **Retained** (email, then name). |
 | Career alignment via PSOC/SOC | **Retained** and persisted (no longer a success toast without a write). |
 | GTS four-tab instrument | **Retained** (general, employment, further studies, institutional feedback). |
@@ -79,7 +79,7 @@ Interactive docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
 | Method | Path | Who | Purpose |
 |--------|------|-----|---------|
-| GET | `/api/health` | Public | Liveness + whether Gemini is configured |
+| GET | `/api/health` | Public | Liveness + whether the resume model is configured |
 | GET | `/api/auth/options` | Public | GTS option lists + supplementary questions |
 | POST | `/api/auth/register` | Public | Validate + parse resume into a **draft** (no account yet) |
 | POST | `/api/auth/register/complete` | Public | Submit GTS; **then** create the alumni account |
@@ -156,8 +156,10 @@ See `.env.example`. Copy it to `backend/.env`.
 | `CORS_ORIGINS` | No | Comma-separated frontend origins. |
 | `ENABLE_DOCS` | No | Override API docs. Default: on in development, off in production. |
 | `RATE_LIMIT_ENABLED` | No | Default true. Limits login, registration, and password-change attempts per IP. |
-| `GEMINI_API_KEY` | No | If empty, the local parser still extracts name/education/jobs/skills. |
-| `GEMINI_MODEL` | No | Default `gemini-2.0-flash`. |
+| `LLM_PROVIDER` | No | `llamaparse` (default), `openai`, `groq`, or `ollama`. LlamaParse uses a LlamaCloud key. |
+| `LLM_API_KEY` | No | Required for `openai` and `groq`. If empty, the built-in parser still extracts name/education/jobs/skills. |
+| `LLM_MODEL` | No | Default `gpt-4o-mini`. |
+| `LLM_BASE_URL` | No | Ollama only. Default `http://127.0.0.1:11434`. |
 | `UPLOAD_DIR` | No | Resume storage directory. |
 | `MAX_UPLOAD_MB` | No | Default 10. |
 | `EMAIL_ENABLED` | No | `true` to send Resend mail. `false` for local work without a key. |
@@ -192,7 +194,7 @@ Sample resumes, GTS answers, and extra registry rows: [backend/data/samples/](ba
 
 ## External services and assumptions
 
-- **Gemini** is optional. Without a key, extraction still runs locally. Connect later by setting `GEMINI_API_KEY`; no other architecture change is required.
+- **LlamaParse** is optional. Without `LLM_API_KEY`, extraction still runs locally. With a LlamaCloud key and `LLM_PROVIDER=llamaparse`, the uploaded file is read by LlamaParse first and the built-in parser extracts the fields.
 - **Email** is sent from the API through Resend (`EMAIL_ENABLED`, `EMAIL_API_KEY` in `backend/.env`). The frontend never receives the key. Forgot Password PINs, profile update notices, automated profile reminders, and account approval mail all use this path. Full setup: [docs/resend-email.md](docs/resend-email.md).
 - **Supabase** is no longer required. Data lives in SQLite or PostgreSQL.
 - Resume files are stored on local disk (`backend/uploads`). For production, point this at a network volume or replace `app/services/files.py` with object storage.

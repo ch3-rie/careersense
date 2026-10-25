@@ -1,3 +1,5 @@
+import { credentialReportChoice } from "./studiesSection.js";
+
 export const QUESTION_TYPES = [
   ["short_answer", "Short Answer"],
   ["paragraph", "Paragraph"],
@@ -234,6 +236,25 @@ export function omitQuestions(schema, hiddenIds = []) {
   return { ...schema, sections };
 }
 
+function credentialRows(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.map((row) => {
+    const rawDetail = String(row?.detail || "").trim();
+    const yearOnly = /^(?:19|20)\d{2}$/.test(rawDetail);
+    const year = String(row?.year || row?.awarded_on || row?.held_on || (yearOnly ? rawDetail : "")).trim();
+    return {
+      name: String(row?.name || row?.title || "").trim(),
+      detail: yearOnly ? "" : rawDetail,
+      year,
+      awarding_body: String(row?.awarding_body || "").trim(),
+      location: String(row?.location || "").trim(),
+      organizer: String(row?.organizer || "").trim(),
+      issuer: String(row?.issuer || "").trim(),
+      description: String(row?.description || "").trim(),
+    };
+  }).filter((row) => row.name);
+}
+
 export function emptyFormFromSchema(schema, initial = {}) {
   const form = {
     first_name: "",
@@ -303,6 +324,12 @@ export function emptyFormFromSchema(schema, initial = {}) {
       is_graduated: row.is_graduated || row.Graduated || "No",
     })),
     skills: initial?.skills || [],
+    certifications: credentialRows(initial?.certifications),
+    seminars: credentialRows(initial?.seminars),
+    awards: credentialRows(initial?.awards),
+    report_certifications: credentialReportChoice(initial?.report_certifications, initial?.certifications),
+    report_seminars: credentialReportChoice(initial?.report_seminars, initial?.seminars),
+    report_awards: credentialReportChoice(initial?.report_awards, initial?.awards),
     reason_past: initial?.reason_past || [],
     reason_current: initial?.reason_current || [],
   };

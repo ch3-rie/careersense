@@ -37,7 +37,7 @@ Confirm the API is up:
 curl http://127.0.0.1:8000/api/health
 ```
 
-Expected JSON includes `"ok": true`. `gemini_configured` may be `false`; the local parser still extracts name, education, jobs, and skills.
+Expected JSON includes `"ok": true`. `llm_configured` may be `false`; the local parser still extracts name, education, jobs, and skills.
 
 Automated checks (from `backend/`):
 
@@ -345,7 +345,7 @@ If email is off, still test the on-screen Forgot Password errors and admin reque
 
 Too many attempts return HTTP **429**: *Too many attempts. Please wait a few minutes and try again.*
 
-Gemini is optional. Without `GEMINI_API_KEY`, extraction is heuristic; testers can still complete the GTS by hand.
+LlamaParse is optional. Without `LLM_API_KEY`, extraction uses the built-in parser; testers can still complete the GTS by hand. With a LlamaCloud key, LlamaParse reads the file first.
 
 ---
 

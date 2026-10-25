@@ -57,6 +57,7 @@ from app.services.studies import create_study, delete_study, serialize_studies, 
 from app.services.parser import extract_resume_from_upload, map_to_gts_fields
 from app.services.parser_course import select_current_experience
 from app.services.profile_completion import refresh_alumni_progress
+from app.services.profile_records import seed_resume_activity
 from app.services.resume_pdf import (
     build_resume_pdf,
     merge_resume_content,
@@ -837,6 +838,8 @@ async def upload_resume(
         parser_source=source,
     )
     db.add(row)
+    db.flush()
+    seed_resume_activity(db, user, fill_empty=True)
     db.commit()
     db.refresh(row)
 
