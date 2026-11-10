@@ -14,10 +14,11 @@ from urllib.parse import unquote
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Account, AdminLog, AlumniPerk, AlumniProfile, PartnerActivity, UniversityRecord
+from app.services.academic_filters import program_term_clause
 from app.services.alumni_qr import account_id_from_token
 
 MANILA = ZoneInfo("Asia/Manila")
@@ -344,9 +345,10 @@ def _apply_scope(query, db: Session, *, date_from: str, date_to: str, partner: s
             .outerjoin(AlumniProfile, AlumniProfile.account_id == Account.id)
             .outerjoin(UniversityRecord, UniversityRecord.student_id == Account.linked_student_id)
         )
+        token_clauses = []
         for term in terms:
             like = f"%{term}%"
-            query = query.filter(
+            token_clauses.append(
                 or_(
                     Account.personal_email.ilike(like),
                     Account.linked_student_id.ilike(like),
@@ -363,6 +365,9 @@ def _apply_scope(query, db: Session, *, date_from: str, date_to: str, partner: s
                     PartnerActivity.benefit_label.ilike(like),
                 )
             )
+        academic = program_term_clause(db, search, account_id=Account.id, student_id=Account.linked_student_id)
+        person = and_(*token_clauses)
+        query = query.filter(or_(person, academic) if academic is not None else person)
     return query
 
 
@@ -501,9 +506,10 @@ def search_alumni(db: Session, search: str) -> list[dict]:
         .outerjoin(UniversityRecord, UniversityRecord.student_id == Account.linked_student_id)
         .filter(Account.role == "Alumni", Account.status == "Active")
     )
+    token_clauses = []
     for term in text.split():
         like = f"%{term}%"
-        query = query.filter(
+        token_clauses.append(
             or_(
                 Account.personal_email.ilike(like),
                 Account.linked_student_id.ilike(like),
@@ -516,6 +522,14 @@ def search_alumni(db: Session, search: str) -> list[dict]:
                 UniversityRecord.student_id.ilike(like),
             )
         )
+    academic = program_term_clause(db, text)
+    person = and_(*token_clauses) if token_clauses else None
+    if person is not None and academic is not None:
+        query = query.filter(or_(person, academic))
+    elif person is not None:
+        query = query.filter(person)
+    elif academic is not None:
+        query = query.filter(academic)
     rows = query.order_by(Account.personal_email.asc()).limit(8).all()
     return [
         {

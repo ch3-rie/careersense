@@ -93,6 +93,7 @@ def preview_registry_import(db: Session, data: bytes, filename: str) -> dict:
 def commit_registry_import(db: Session, data: bytes, filename: str, admin_id: int | None) -> dict:
     parsed, rows = _prepare(db, data, filename)
     ready = [row for row in rows if row["status"] == "ready"]
+    uploaded_at = datetime.now(timezone.utc)
     try:
         for row in ready:
             record = UniversityRecord(
@@ -105,6 +106,7 @@ def commit_registry_import(db: Session, data: bytes, filename: str, admin_id: in
                 year_graduated=row["year_graduated"],
                 course_code=row["course_code"],
                 college=row["college"],
+                uploaded_at=uploaded_at,
             )
             try:
                 with db.begin_nested():

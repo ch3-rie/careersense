@@ -1,0 +1,54 @@
+{
+  "stamp": "bcdf200d",
+  "phase": 1,
+  "results": [
+    {
+      "id": "TC-REG-002",
+      "data": "password length 7",
+      "http": 400,
+      "status": "Pass",
+      "actual": "Password must be at least 8 characters and include letters and numbers.",
+      "evidence": "EV-REG-002"
+    },
+    {
+      "id": "TC-REG-003",
+      "data": "abcdefgh",
+      "http": 400,
+      "status": "Pass",
+      "actual": "Password must be at least 8 characters and include letters and numbers.",
+      "evidence": "EV-REG-003"
+    },
+    {
+      "id": "TC-REG-004",
+      "data": "empty.txt",
+      "http": 400,
+      "status": "Pass",
+      "actual": "The uploaded file is empty.",
+      "evidence": "EV-REG-004"
+    },
+    {
+      "id": "TC-REG-005",
+      "data": "photo.jpg",
+      "http": 400,
+      "status": "Pass",
+      "actual": "Please upload a PDF, DOCX, or TXT resume.",
+      "evidence": "EV-REG-005"
+    },
+    {
+      "id": "TC-REG-007",
+      "data": "10485761 bytes",
+      "http": 400,
+      "status": "Pass",
+      "actual": "Resume must be 10 MB or smaller.",
+      "evidence": "EV-REG-007"
+    },
+    {
+      "id": "TC-REG-001",
+      "data": "qa.reg001.bcdf200d@example.com",
+      "http": 200,
+      "status": "Pass",
+      "actual": "register 200 account_created=False; login 401 Incorrect email or password.",
+      "evidence": "EV-REG-001"
+    }
+  ]
+}

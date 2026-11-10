@@ -14,7 +14,7 @@ from app.services.alumni_qr import (
     verified_alumni_for_token,
     verify_url,
 )
-from app.models import Account, AlumniCertification, AlumniSkill, Resume, TracerSubmission
+from app.models import Account, AlumniBadge, AlumniCertification, AlumniSkill, BadgeDefinition, Resume, TracerSubmission
 from app.schemas import (
     AwardIn,
     CardApplicationIn,
@@ -22,10 +22,12 @@ from app.schemas import (
     EmploymentStatusIn,
     GtsPayload,
     JobIn,
+    ParticipationIn,
     ProfileUpdateIn,
     SeminarIn,
     StudyIn,
 )
+from app.services.achievements import PROFILE_COMPLETE_ALIASES, PROFILE_COMPLETE_KEY
 from app.services.alignment import analyze_career_alignment, alignment_score
 from app.services.alumni_hub import (
     apply_card_application,
@@ -38,6 +40,7 @@ from app.services.alumni_hub import (
     list_perks,
     mark_all_notifications_read,
     mark_notification_read,
+    set_participation,
     update_contact_profile,
 )
 from app.services.employment import resolve_current_employment
@@ -113,6 +116,16 @@ def edit_profile(
     update_contact_profile(db, user, payload)
     evaluate_profile_update_completions(db, user)
     return assemble_profile(db, user, notify_badges=True)
+
+
+@router.put("/participation")
+def save_participation(
+    payload: ParticipationIn,
+    user: Account = Depends(require_active_alumni),
+    db: Session = Depends(get_db),
+):
+    set_participation(db, user, payload.roles)
+    return assemble_profile(db, user)
 
 
 @router.post("/profile/photo")
@@ -250,6 +263,30 @@ def alumni_achievements(
         "is_complete": bool(progress.get("is_complete")),
         "next_achievement": progress.get("next_achievement"),
     }
+
+
+@router.get("/achievements/{badge_key}/image")
+def achievement_image(
+    badge_key: str,
+    user: Account = Depends(require_active_alumni),
+    db: Session = Depends(get_db),
+):
+    row = db.query(BadgeDefinition).filter(BadgeDefinition.key == badge_key).first()
+    if not row or not row.image_path:
+        raise HTTPException(status_code=404, detail="Image not found.")
+    if not row.active:
+        keys = {row.key}
+        if row.key == PROFILE_COMPLETE_KEY:
+            keys.update(PROFILE_COMPLETE_ALIASES)
+        earned = (
+            db.query(AlumniBadge)
+            .filter(AlumniBadge.account_id == user.id, AlumniBadge.badge_key.in_(keys))
+            .first()
+        )
+        if not earned:
+            raise HTTPException(status_code=404, detail="Image not found.")
+    path = resolve_stored_file(row.image_path, missing_detail="Image not found.")
+    return FileResponse(path, media_type=row.image_mime or "image/png")
 
 
 @router.get("/notifications")

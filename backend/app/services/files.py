@@ -219,6 +219,61 @@ def save_certificate_file(account_id: int, data: bytes, filename: str) -> tuple[
     return stored, mime, original
 
 
+BADGE_IMAGE_MIN_EDGE = 64
+BADGE_IMAGE_MAX_EDGE = 2048
+BADGE_IMAGE_MAX_BYTES = 5 * 1024 * 1024
+
+
+def save_badge_image(badge_id: int, data: bytes) -> tuple[Path, str]:
+    """Store a custom badge image. Existing icon badges are left unchanged."""
+    if not data:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The uploaded file is empty.")
+    if len(data) > BADGE_IMAGE_MAX_BYTES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image must be 5 MB or smaller.")
+    try:
+        kind = detect_photo_kind(data)
+    except HTTPException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Upload a JPG, PNG, or WebP image.",
+        ) from exc
+    _assert_badge_dimensions(data)
+    mime, suffix = PHOTO_TYPES[kind]
+    dest_dir = get_settings().upload_path / "badges"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    stored = dest_dir / f"{badge_id}-{uuid4().hex}{suffix}"
+    stored.write_bytes(data)
+    return stored, mime
+
+
+def _assert_badge_dimensions(data: bytes) -> None:
+    from PIL import Image, UnidentifiedImageError
+    from PIL.Image import DecompressionBombError
+
+    limit = f"{BADGE_IMAGE_MIN_EDGE} and {BADGE_IMAGE_MAX_EDGE} pixels on each side"
+    try:
+        with Image.open(BytesIO(data)) as image:
+            width, height = image.size
+            if (
+                width < BADGE_IMAGE_MIN_EDGE
+                or height < BADGE_IMAGE_MIN_EDGE
+                or width > BADGE_IMAGE_MAX_EDGE
+                or height > BADGE_IMAGE_MAX_EDGE
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Badge image must be between {limit}.",
+                )
+            image.load()
+    except HTTPException:
+        raise
+    except (UnidentifiedImageError, DecompressionBombError, OSError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The file is not a valid image.",
+        ) from exc
+
+
 def save_perk_image(perk_id: int, data: bytes) -> tuple[Path, str]:
     settings = get_settings()
     kind = detect_photo_kind(data)

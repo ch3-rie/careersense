@@ -1,15 +1,15 @@
 import csv
 import io
-from datetime import datetime
+from datetime import datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from openpyxl import load_workbook
-from sqlalchemy import String, and_, cast, func, literal, or_
+from sqlalchemy import String, and_, cast, func, literal, nulls_last, or_, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.constants import CORE_GTS_SECTIONS, QUESTION_TYPES
 from app.db import get_db
 from app.deps import require_admin
 from app.models import (
@@ -26,7 +26,7 @@ from app.models import (
     UniversityRecord,
 )
 from app.routers.auth import _norm, match_university_record
-from app.schemas import GtsPayload, MappingIn, QuestionIn, QuestionUpdate, RejectRequest, SocIn, UniversityRecordIn
+from app.schemas import GtsPayload, MappingIn, RejectRequest, SocIn, UniversityRecordIn
 from app.services.admin_directory import (
     directory_export_rows,
     directory_filename,
@@ -40,7 +40,10 @@ from app.services.academic_filters import (
     academic_programs,
     apply_registry_academic_filters,
     apply_tracer_academic_filters,
+    course_selection_clause,
     ensure_academic_catalog,
+    program_term_clause,
+    readable_program_name,
     resolve_program_selection,
 )
 from app.services.academic_catalog import course_code_owner, sync_catalog_from_records
@@ -69,9 +72,7 @@ from app.services.reports import (
     parse_report_date,
     prepare_employment_row,
 )
-from app.services.survey import add_legacy_extra, delete_legacy_extra, ensure_gts_survey, extras_payload, save_draft
 from app.services.validation import csv_safe, student_id_in_use
-from app.survey_default import clone_schema, iter_questions
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -317,15 +318,15 @@ def approvals(
     term = (q or "").strip()
     if term:
         like = f"%{term}%"
-        query = query.filter(
-            or_(
-                Account.personal_email.ilike(like),
-                Account.linked_student_id.ilike(like),
-                AlumniProfile.first_name.ilike(like),
-                AlumniProfile.middle_name.ilike(like),
-                AlumniProfile.last_name.ilike(like),
-            )
+        person = or_(
+            Account.personal_email.ilike(like),
+            Account.linked_student_id.ilike(like),
+            AlumniProfile.first_name.ilike(like),
+            AlumniProfile.middle_name.ilike(like),
+            AlumniProfile.last_name.ilike(like),
         )
+        academic = program_term_clause(db, term)
+        query = query.filter(or_(person, academic) if academic is not None else person)
     college_name = (college or "").strip()
     if college_name:
         record_college = func.lower(func.trim(UniversityRecord.college))
@@ -346,12 +347,7 @@ def approvals(
         )
     course_name = (course or "").strip()
     if course_name:
-        query = query.filter(
-            or_(
-                func.lower(func.trim(AlumniProfile.degree)) == course_name.casefold(),
-                func.lower(func.trim(UniversityRecord.degree)) == course_name.casefold(),
-            )
-        )
+        query = query.filter(course_selection_clause(db, course_name))
     batch_year = (year or "").strip()
     if batch_year:
         query = query.filter(
@@ -404,8 +400,10 @@ def approvals(
         )
         profile_degree = (user.profile.degree if user.profile else "") or ""
         record_degree = (user.university_record.degree if user.university_record else "") or ""
+        record_code = (user.university_record.course_code if user.university_record else "") or ""
         profile_year = (user.profile.year_graduated if user.profile else "") or ""
         record_year = (user.university_record.year_graduated if user.university_record else "") or ""
+        shown_degree = profile_degree.strip() or record_degree.strip()
         items.append({
             "id": user.id,
             "email": user.personal_email,
@@ -414,7 +412,7 @@ def approvals(
             "created_at": user.created_at,
             "name": _account_name(user),
             "college": _approval_college(user, course_colleges),
-            "degree": profile_degree.strip() or record_degree.strip(),
+            "degree": readable_program_name(db, shown_degree, record_code, _approval_college(user, course_colleges)),
             "year_graduated": profile_year.strip() or record_year.strip(),
             "matched": bool(user.linked_student_id),
             "has_submission": bool(latest),
@@ -684,6 +682,12 @@ def tracer_records(
         )
     )
     terms = [part for part in email.split() if part.strip()]
+    academic = program_term_clause(
+        db,
+        email,
+        extra_degree_columns=(TracerSubmission.data_json["degree"].as_string(),),
+    )
+    token_clauses = []
     if terms:
         saved_first = cast(func.coalesce(func.json_extract(TracerSubmission.data_json, "$.first_name"), ""), String)
         saved_middle = cast(func.coalesce(func.json_extract(TracerSubmission.data_json, "$.middle_name"), ""), String)
@@ -696,8 +700,8 @@ def tracer_records(
         for term in terms:
             like = f"%{term}%"
             profile_match = (
-                db.query(AlumniProfile.id)
-                .filter(
+                select(AlumniProfile.id)
+                .where(
                     AlumniProfile.account_id == Account.id,
                     or_(
                         AlumniProfile.first_name.ilike(like),
@@ -705,11 +709,12 @@ def tracer_records(
                         AlumniProfile.last_name.ilike(like),
                     ),
                 )
+                .correlate(Account)
                 .exists()
             )
             registry_match = (
-                db.query(UniversityRecord.student_id)
-                .filter(
+                select(UniversityRecord.student_id)
+                .where(
                     UniversityRecord.student_id == Account.linked_student_id,
                     or_(
                         UniversityRecord.first_name.ilike(like),
@@ -717,9 +722,10 @@ def tracer_records(
                         UniversityRecord.last_name.ilike(like),
                     ),
                 )
+                .correlate(Account)
                 .exists()
             )
-            q = q.filter(
+            token_clauses.append(
                 or_(
                     Account.personal_email.ilike(like),
                     Account.first_name.ilike(like),
@@ -735,6 +741,10 @@ def tracer_records(
                     registry_match,
                 )
             )
+        person = and_(*token_clauses)
+        q = q.filter(or_(person, academic) if academic is not None else person)
+    elif academic is not None:
+        q = q.filter(academic)
     if alignment and alignment != "All":
         q = q.filter(TracerSubmission.alignment_status == alignment)
     day = (submitted_on or "").strip()
@@ -744,7 +754,7 @@ def tracer_records(
         except ValueError as exc:
             raise HTTPException(status_code=400, detail="Use a YYYY-MM-DD submission date.") from exc
         q = q.filter(cast(func.date(TracerSubmission.submitted_at), String) == day)
-    q = apply_tracer_academic_filters(q, college, course)
+    q = apply_tracer_academic_filters(q, college, course, db)
     total = q.count()
     rows = q.order_by(TracerSubmission.submitted_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     items = []
@@ -857,104 +867,6 @@ def update_tracer_record(
     updated["further_studies"] = serialize_studies(db, submission.account_id)
     updated["profile_activity"] = serialize_activity(db, submission.account_id)
     return updated
-
-
-@router.get("/questions")
-def list_questions(admin: Account = Depends(require_admin), db: Session = Depends(get_db)):
-    survey = ensure_gts_survey(db)
-    db.commit()
-    draft = survey.draft_schema or {}
-    extras = extras_payload(draft)
-    core_sections = []
-    items = []
-    for section, _sub, question in iter_questions(draft):
-        is_extra = question.get("storage") == "extra"
-        extra_id = question.get("extra_key") if is_extra else question.get("id")
-        items.append(
-            {
-                "id": extra_id,
-                "schema_id": question.get("id"),
-                "section_key": section.get("key"),
-                "label": question.get("label"),
-                "input_type": question.get("type"),
-                "options": question.get("options") or [],
-                "required": bool(question.get("required")),
-                "order_index": 0,
-                "is_core": not is_extra,
-                "active": True,
-                "system": bool(question.get("system")),
-            }
-        )
-    for section in draft.get("sections") or []:
-        labels = [
-            question.get("label")
-            for sub in section.get("subsections") or []
-            for question in sub.get("questions") or []
-            if question.get("storage") != "extra"
-        ]
-        core_sections.append(
-            {
-                "key": section.get("key"),
-                "name": section.get("name"),
-                "locked": False,
-                "fields": labels,
-            }
-        )
-    return {
-        "core_sections": core_sections or CORE_GTS_SECTIONS,
-        "question_types": QUESTION_TYPES,
-        "items": extras,
-        "all_items": items,
-    }
-
-
-@router.post("/questions")
-def create_question(payload: QuestionIn, admin: Account = Depends(require_admin), db: Session = Depends(get_db)):
-    if payload.input_type not in QUESTION_TYPES:
-        raise HTTPException(status_code=400, detail="Unsupported question type.")
-    if not payload.label.strip():
-        raise HTTPException(status_code=400, detail="Question title is required.")
-    return add_legacy_extra(db, admin, payload)
-
-
-@router.patch("/questions/{question_id}")
-def update_question(question_id: int, payload: QuestionUpdate, admin: Account = Depends(require_admin), db: Session = Depends(get_db)):
-    survey = ensure_gts_survey(db)
-    draft = clone_schema(survey.draft_schema)
-    target = None
-    for _section, _sub, question in iter_questions(draft):
-        if str(question.get("extra_key") or "") == str(question_id) or question.get("id") == f"extra_{question_id}":
-            target = question
-            break
-    if not target:
-        raise HTTPException(status_code=404, detail="Question not found.")
-    data = payload.model_dump(exclude_unset=True)
-    if "label" in data and data["label"]:
-        target["label"] = data["label"]
-    if "input_type" in data and data["input_type"]:
-        target["type"] = data["input_type"]
-    if "options" in data and data["options"] is not None:
-        target["options"] = data["options"]
-    if "required" in data and data["required"] is not None:
-        target["required"] = data["required"]
-    if "section_key" in data and data["section_key"]:
-        moved = target
-        for section in draft.get("sections") or []:
-            for sub in section.get("subsections") or []:
-                sub["questions"] = [item for item in sub.get("questions") or [] if item.get("id") != moved.get("id")]
-        dest = next((section for section in draft.get("sections") or [] if section.get("key") == data["section_key"]), None)
-        if dest:
-            dest.setdefault("subsections", [{"id": f"{dest['id']}_main", "name": "", "questions": []}])
-            dest["subsections"][-1].setdefault("questions", []).append(moved)
-    save_draft(db, admin, draft)
-    _log(db, admin.id, "UPDATE_QUESTION", question_id, None, data)
-    return {"ok": True}
-
-
-@router.delete("/questions/{question_id}")
-def delete_question(question_id: int, admin: Account = Depends(require_admin), db: Session = Depends(get_db)):
-    delete_legacy_extra(db, admin, question_id)
-    return {"ok": True}
 
 
 @router.get("/soc")
@@ -1504,11 +1416,66 @@ def export_reports(
     )
 
 
+MANILA = ZoneInfo("Asia/Manila")
+
+
+def _upload_day(value: str, label: str):
+    text = (value or "").strip()
+    if not text:
+        return None
+    try:
+        return datetime.strptime(text, "%Y-%m-%d").date()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Use a YYYY-MM-DD {label}.") from exc
+
+
+def _apply_upload_window(query, uploaded_from: str, uploaded_to: str):
+    """Inclusive Manila calendar days. One date alone means that day."""
+    start_day = _upload_day(uploaded_from, "upload start date")
+    end_day = _upload_day(uploaded_to, "upload end date")
+    if start_day and not end_day:
+        end_day = start_day
+    elif end_day and not start_day:
+        start_day = end_day
+    if start_day and end_day and start_day > end_day:
+        raise HTTPException(status_code=400, detail="The upload start date must be on or before the end date.")
+    if start_day:
+        start = datetime.combine(start_day, time.min, tzinfo=MANILA).astimezone(timezone.utc)
+        end = datetime.combine(end_day + timedelta(days=1), time.min, tzinfo=MANILA).astimezone(timezone.utc)
+        query = query.filter(
+            UniversityRecord.uploaded_at.is_not(None),
+            UniversityRecord.uploaded_at >= start,
+            UniversityRecord.uploaded_at < end,
+        )
+    return query
+
+
+def _approval_dates(db: Session, student_ids: list[str]) -> dict[str, datetime]:
+    """First recorded approval of the alumni account linked to each graduate."""
+    if not student_ids:
+        return {}
+    rows = (
+        db.query(Account.linked_student_id, func.min(AdminLog.created_at))
+        .join(AdminLog, AdminLog.target_id == cast(Account.id, String))
+        .filter(
+            Account.linked_student_id.in_(student_ids),
+            AdminLog.action_type == "APPROVE",
+        )
+        .group_by(Account.linked_student_id)
+        .all()
+    )
+    return {student_id: approved_at for student_id, approved_at in rows if student_id and approved_at}
+
+
 @router.get("/university-records")
 def list_university_records(
     q: str = "",
     college: str = "",
     course: str = "",
+    uploaded_from: str = "",
+    uploaded_to: str = "",
+    sort_by: str = "uploaded_at",
+    sort_dir: str = "desc",
     page: int = 1,
     page_size: int = 25,
     admin: Account = Depends(require_admin),
@@ -1517,25 +1484,35 @@ def list_university_records(
     query = db.query(UniversityRecord)
     if q.strip():
         like = f"%{q.strip()}%"
-        query = query.filter(
-            or_(
-                UniversityRecord.student_id.ilike(like),
-                UniversityRecord.personal_email.ilike(like),
-                UniversityRecord.first_name.ilike(like),
-                UniversityRecord.middle_name.ilike(like),
-                UniversityRecord.last_name.ilike(like),
-                UniversityRecord.college.ilike(like),
-                UniversityRecord.degree.ilike(like),
-                UniversityRecord.course_code.ilike(like),
-            )
+        person = or_(
+            UniversityRecord.student_id.ilike(like),
+            UniversityRecord.personal_email.ilike(like),
+            UniversityRecord.first_name.ilike(like),
+            UniversityRecord.middle_name.ilike(like),
+            UniversityRecord.last_name.ilike(like),
+            UniversityRecord.college.ilike(like),
+            UniversityRecord.degree.ilike(like),
+            UniversityRecord.course_code.ilike(like),
         )
-    query = apply_registry_academic_filters(query, college, course)
+        academic = program_term_clause(
+            db,
+            q,
+            degree_column=UniversityRecord.degree,
+            code_column=UniversityRecord.course_code,
+        )
+        query = query.filter(or_(person, academic) if academic is not None else person)
+    query = apply_registry_academic_filters(query, college, course, db)
+    query = _apply_upload_window(query, uploaded_from, uploaded_to)
     page = max(1, page)
     page_size = min(100, max(5, page_size))
     total = query.count()
+    direction = (sort_dir or "desc").strip().lower()
+    uploaded_order = UniversityRecord.uploaded_at.asc() if direction == "asc" else UniversityRecord.uploaded_at.desc()
     rows = query.order_by(
-        UniversityRecord.last_name, UniversityRecord.first_name, UniversityRecord.student_id
+        nulls_last(uploaded_order),
+        UniversityRecord.student_id.asc(),
     ).offset((page - 1) * page_size).limit(page_size).all()
+    approved = _approval_dates(db, [row.student_id for row in rows])
     return {
         "items": [
             {
@@ -1544,10 +1521,12 @@ def list_university_records(
                 "middle_name": r.middle_name,
                 "last_name": r.last_name,
                 "personal_email": r.personal_email or "",
-                "degree": r.degree,
+                "degree": readable_program_name(db, r.degree, r.course_code, r.college),
                 "year_graduated": r.year_graduated,
                 "course_code": r.course_code,
                 "college": r.college,
+                "uploaded_at": r.uploaded_at,
+                "approved_at": approved.get(r.student_id),
             }
             for r in rows
         ],
@@ -1591,6 +1570,7 @@ def create_university_record(payload: UniversityRecordIn, admin: Account = Depen
         year_graduated=payload.year_graduated.strip(),
         course_code=course_code,
         college=college,
+        uploaded_at=datetime.now(timezone.utc),
     )
     db.add(row)
     db.flush()

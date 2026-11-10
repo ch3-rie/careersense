@@ -298,3 +298,119 @@ def test_import_requires_an_admin(client):
     data = _workbook([("imp-7001", "Ana", "Lopez", "Garcia", NURSING, BSN, "BSN")])
     response = client.post("/api/admin/university-records/import/preview", files=_files(data))
     assert response.status_code == 401
+
+
+def test_registry_upload_window_order_and_approval_date(client, db_session):
+    from datetime import datetime, timezone
+
+    from app.models import Account, AdminLog
+
+    headers = _admin(client)
+    stamps = {
+        "upl-1": datetime(2026, 10, 4, 16, 0, tzinfo=timezone.utc),
+        "upl-2": datetime(2026, 10, 3, 16, 0, tzinfo=timezone.utc),
+        "upl-3": datetime(2026, 10, 2, 16, 0, tzinfo=timezone.utc),
+        "upl-4": datetime(2026, 10, 1, 16, 0, tzinfo=timezone.utc),
+        "upl-5": datetime(2026, 10, 1, 15, 30, tzinfo=timezone.utc),
+        "upl-6": datetime(2026, 9, 30, 16, 30, tzinfo=timezone.utc),
+        "upl-7": None,
+    }
+    ids = list(stamps)
+    try:
+        for student_id, uploaded_at in stamps.items():
+            db_session.add(
+                UniversityRecord(
+                    student_id=student_id,
+                    first_name="Upload",
+                    middle_name="",
+                    last_name=student_id,
+                    personal_email=f"{student_id}@example.com",
+                    degree=BSIT,
+                    year_graduated="2024",
+                    course_code="BSIT",
+                    college=CCS,
+                    uploaded_at=uploaded_at,
+                )
+            )
+        db_session.flush()
+        account = Account(
+            personal_email="upl-approved@example.com",
+            password_hash="not-a-login",
+            linked_student_id="upl-1",
+            status="Active",
+            role="Alumni",
+            is_verified=True,
+        )
+        db_session.add(account)
+        db_session.flush()
+        db_session.add(
+            AdminLog(
+                action_type="APPROVE",
+                target_id=str(account.id),
+                created_at=datetime(2026, 10, 5, 1, 0, tzinfo=timezone.utc),
+            )
+        )
+        db_session.commit()
+
+        listed = client.get(
+            "/api/admin/university-records",
+            headers=headers,
+            params={"q": "upl-", "page_size": 5, "page": 1},
+        )
+        assert listed.status_code == 200, listed.text
+        page_one = [row["student_id"] for row in listed.json()["items"]]
+        assert page_one == ["upl-1", "upl-2", "upl-3", "upl-4", "upl-5"]
+        approved = next(row for row in listed.json()["items"] if row["student_id"] == "upl-1")
+        assert approved["approved_at"]
+        assert "2026-10-05" in approved["approved_at"]
+        assert listed.json()["items"][1]["approved_at"] is None
+
+        page_two = client.get(
+            "/api/admin/university-records",
+            headers=headers,
+            params={"q": "upl-", "page_size": 5, "page": 2},
+        )
+        assert [row["student_id"] for row in page_two.json()["items"]] == ["upl-6", "upl-7"]
+        assert page_two.json()["items"][1]["uploaded_at"] is None
+
+        same_day = client.get(
+            "/api/admin/university-records",
+            headers=headers,
+            params={"q": "upl-", "uploaded_from": "2026-10-01", "page_size": 5},
+        )
+        assert [row["student_id"] for row in same_day.json()["items"]] == ["upl-5", "upl-6"]
+
+        span = client.get(
+            "/api/admin/university-records",
+            headers=headers,
+            params={"q": "upl-", "uploaded_from": "2026-10-01", "uploaded_to": "2026-10-03", "page_size": 5},
+        )
+        assert [row["student_id"] for row in span.json()["items"]] == ["upl-3", "upl-4", "upl-5", "upl-6"]
+
+        oldest_first = client.get(
+            "/api/admin/university-records",
+            headers=headers,
+            params={"q": "upl-", "sort_dir": "asc", "page_size": 5, "page": 1},
+        )
+        assert [row["student_id"] for row in oldest_first.json()["items"]] == ["upl-6", "upl-5", "upl-4", "upl-3", "upl-2"]
+
+        inverted = client.get(
+            "/api/admin/university-records",
+            headers=headers,
+            params={"uploaded_from": "2026-10-03", "uploaded_to": "2026-10-01"},
+        )
+        assert inverted.status_code == 400
+
+        seeded = client.get("/api/admin/university-records", headers=headers, params={"q": "2020-0001"})
+        seed_row = next(row for row in seeded.json()["items"] if row["student_id"] == "2020-0001")
+        assert seed_row["uploaded_at"] is None
+        assert seed_row["approved_at"] is None
+    finally:
+        db_session.rollback()
+        linked = db_session.query(Account).filter(Account.linked_student_id.in_(ids)).all()
+        target_ids = [str(row.id) for row in linked]
+        if target_ids:
+            db_session.query(AdminLog).filter(AdminLog.target_id.in_(target_ids)).delete(synchronize_session=False)
+        db_session.query(Account).filter(Account.linked_student_id.in_(ids)).delete(synchronize_session=False)
+        db_session.commit()
+        _cleanup(db_session, ids)

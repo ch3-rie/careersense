@@ -1,0 +1,23 @@
+{
+  "limited_email": "qa.admin.667341@example.com",
+  "create_limited": 200,
+  "create_detail": "{'ok': True, 'message': 'Administrator created successfully', 'item': {'id': 26, 'first_name': 'Limited', 'last_name': 'Admin', 'name': 'Limited Admin', 'email'",
+  "privileges": "add_users",
+  "login": 200,
+  "full_admin": false,
+  "must_change_password": true,
+  "approvals": [
+    403,
+    "This account can only add users."
+  ],
+  "users": 200,
+  "tracer": 403,
+  "me": 200,
+  "inactive_email": "qa.inactive.667341@example.com",
+  "create_inactive": 200,
+  "inactive_privileges": "add_users",
+  "inactive_login": [
+    403,
+    "This administrator account is inactive."
+  ]
+}

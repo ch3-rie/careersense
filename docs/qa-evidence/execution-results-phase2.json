@@ -1,0 +1,53 @@
+{
+  "stamp": "140aba18",
+  "results": [
+    {
+      "id": "TC-REG-006",
+      "status": "Pass",
+      "actual": "HTTP 200; size-limit message was not returned; account_created=False",
+      "data": "10485760 bytes"
+    },
+    {
+      "id": "TC-REG-008",
+      "status": "Fail",
+      "actual": "HTTP 400; matched=None; parser=None",
+      "data": "paolo.navarro@gmail.com"
+    },
+    {
+      "id": "TC-REG-009",
+      "status": "Pass",
+      "actual": "HTTP 200; matched={'matched': False, 'student_id': None, 'degree': None, 'year_graduated': None, 'first_name': None, 'last_name': None}; token_issued=True",
+      "data": "qa.unmatched.140aba18@example.com"
+    },
+    {
+      "id": "ADMIN-LOGIN",
+      "status": "Pass",
+      "actual": "HTTP 200 access token issued and redacted",
+      "data": "admin@auf.edu.ph"
+    },
+    {
+      "id": "TC-GTS-001",
+      "status": "Fail",
+      "actual": "blank sex -> HTTP 400 Please upload your resume again, then submit the survey.; admin survey route HTTP 404",
+      "data": "qa.unmatched.140aba18@example.com"
+    },
+    {
+      "id": "TC-GTS-002",
+      "status": "Fail",
+      "actual": "complete HTTP 400; login status=None role=None id=None; tracer HTTP 200 occupation_seen=False",
+      "data": "qa.pending.140aba18@example.com"
+    },
+    {
+      "id": "TC-APR-001",
+      "status": "Fail",
+      "actual": "approve HTTP 422 Input should be a valid integer, unable to parse string as an integer; next login status=None",
+      "data": "qa.pending.140aba18@example.com"
+    },
+    {
+      "id": "TC-APR-002",
+      "status": "Fail",
+      "actual": "empty HTTP 422 Input should be a valid integer, unable to parse string as an integer; String sh; short HTTP 422 Input should be a valid integer, unable to parse string as an integer; String sh; reject HTTP 422; login status=None reason=None",
+      "data": "qa.reject.140aba18@example.com"
+    }
+  ]
+}

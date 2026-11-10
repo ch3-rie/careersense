@@ -249,14 +249,14 @@ export default function AdminProfileUpdates() {
                   <input
                     value={filters.q}
                     onChange={(e) => setFilters({ ...filters, q: e.target.value })}
-                    placeholder="Name, email, or student ID"
+                    placeholder="Name, email, student ID, or program"
                   />
                 </Field>
                 <Field label="Class year">
                   <input value={filters.year} onChange={(e) => setFilters({ ...filters, year: e.target.value })} placeholder="2022" />
                 </Field>
                 <Field label="Program">
-                  <input value={filters.degree} onChange={(e) => setFilters({ ...filters, degree: e.target.value })} placeholder="Degree or program" />
+                  <input value={filters.degree} onChange={(e) => setFilters({ ...filters, degree: e.target.value })} placeholder="Program name or abbreviation" />
                 </Field>
                 <Field label="Profile completion">
                   <select value={filters.completion} onChange={(e) => setFilters({ ...filters, completion: e.target.value })}>

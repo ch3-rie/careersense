@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { CompletionRing } from "./AlumniChrome";
+import { AuthImage, CompletionRing } from "./AlumniChrome";
 import {
   BriefcaseIcon,
   CheckIcon,
@@ -37,6 +37,18 @@ function AchievementIcon({ name, size = 22 }) {
   if (name === "id-card") return <CreditCardIcon size={size} />;
   if (name === "star") return <StarIcon size={size} />;
   return <CheckIcon size={size} />;
+}
+
+function AchievementMark({ item, size = 18, lockedOnly = false }) {
+  const custom = Boolean(item?.image_url);
+  if (lockedOnly && !item?.earned && !custom) return <LockIcon size={size} />;
+  return (
+    <>
+      <AchievementIcon name={item?.icon} size={size} />
+      {custom ? <AuthImage className="badge-custom-image" src={item.image_url} alt="" /> : null}
+      {!item?.earned && (!lockedOnly || custom) ? <span className="achievement-lock"><LockIcon size={12} /></span> : null}
+    </>
+  );
 }
 
 function actionControl(section, onEdit, onPhoto, label, buttonClass) {
@@ -315,7 +327,7 @@ export function ProfileProgress({
     >
       <div className="alumni-badge-dialog">
         <span className={`achievement-seal achievement-seal-lg${openItem.earned ? " is-earned" : ""}`} aria-hidden="true">
-          {openItem.earned ? <AchievementIcon name={openItem.icon} size={28} /> : <LockIcon size={24} />}
+          <AchievementMark item={openItem} size={openItem.earned ? 28 : 24} lockedOnly />
         </span>
         <p className="eyebrow">{openItem.earned ? "Earned" : "To earn this badge"}</p>
         <p>{openItem.earned ? openItem.description : badgeRequirement(openItem)}</p>
@@ -375,8 +387,7 @@ export function ProfileProgress({
                 >
                   <span className="badge-hub-card-top">
                     <span className={`achievement-seal${item.earned ? " is-earned" : ""}`} aria-hidden="true">
-                      <AchievementIcon name={item.icon} size={18} />
-                      {item.earned ? null : <span className="achievement-lock"><LockIcon size={12} /></span>}
+                      <AchievementMark item={item} size={18} />
                     </span>
                     <span className="badge-hub-status">{item.earned ? "Earned" : "Not earned"}</span>
                   </span>
@@ -509,8 +520,7 @@ export function ProfileProgress({
                   }
                 >
                   <span className={`achievement-seal${item.earned ? " is-earned" : ""}`} aria-hidden="true">
-                    <AchievementIcon name={item.icon} size={compact ? 22 : 18} />
-                    {item.earned ? null : <span className="achievement-lock"><LockIcon size={12} /></span>}
+                    <AchievementMark item={item} size={compact ? 22 : 18} />
                   </span>
                   <span className="alumni-achievement-copy">
                     <strong>{item.name}</strong>

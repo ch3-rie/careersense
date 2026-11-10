@@ -6,6 +6,7 @@ import { JobTimeline } from "../../components/JobTimeline";
 import { AwardList, CertificationList, SeminarList } from "../../components/ProfileRecords";
 import { StudyTimeline } from "../../components/StudyTimeline";
 import { PortalShell } from "../../components/Layout";
+import { ParticipationInterest } from "../../components/ParticipationInterest";
 import { ProfileProgress } from "../../components/ProfileProgress";
 import { Alert, Dialog, Field, LoadError, PageSkeleton } from "../../components/ui";
 import { api } from "../../lib/api";
@@ -452,6 +453,10 @@ export default function AlumniDashboard() {
               <AwardList
                 awards={data.awards || []}
                 onChange={(next) => setData((current) => ({ ...current, awards: next }))}
+              />
+              <ParticipationInterest
+                participation={profile.participation}
+                onSaved={(next) => setData(next)}
               />
               <ProfileProgress
                 variant="full"

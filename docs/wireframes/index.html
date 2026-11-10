@@ -97,7 +97,7 @@
     .tabs { display: flex; gap: 0; margin-bottom: 14px; }
     .tab { border: 1px solid #222; padding: 8px 12px; font-size: 13px; margin-right: -1px; }
     .tab.on { background: #222; color: #fff; }
-    .chart { height: 180px; border: 1px solid #222; display: flex; align-items: flex-end; gap: 18px; padding: 16px; }
+    .chart { height: 160px; border: 1px solid #222; display: flex; align-items: flex-end; gap: 18px; padding: 16px; }
     .col { width: 36px; background: #222; }
     .note { font-size: 12px; color: #444; }
     .steps { display: flex; gap: 8px; margin-bottom: 16px; }
@@ -106,6 +106,8 @@
     ol { margin: 8px 0 0; padding-left: 18px; font-size: 14px; }
     .check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; margin-top: 12px; }
     .sq { width: 14px; height: 14px; border: 1px solid #222; flex: none; margin-top: 1px; }
+    .qr { width: 140px; height: 140px; border: 1px solid #222; display: grid; place-items: center; font-size: 13px; }
+    .flow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
   </style>
 </head>
 <body>
@@ -120,14 +122,22 @@
   <a href="#rejected">Rejected</a>
   <a href="#reset">Reset password</a>
   <a href="#alumni-home">Alumni home</a>
-  <a href="#card">Card</a>
+  <a href="#qr">Alumni QR</a>
   <a href="#perks">Perks</a>
-  <a href="#tracer">Tracer</a>
+  <a href="#resume">Extract resume</a>
+  <a href="#account">Account</a>
+  <a href="#verify">Verify QR</a>
   <a href="#admin">Dashboard</a>
   <a href="#approvals">Approvals</a>
   <a href="#review">Review</a>
+  <a href="#records">Tracer record</a>
   <a href="#reports">Reports</a>
-  <a href="#registry">Registry</a>
+  <a href="#registry">Import list</a>
+  <a href="#academics">Colleges</a>
+  <a href="#updates">Profile updates</a>
+  <a href="#soc">SOC mapping</a>
+  <a href="#users">Users</a>
+  <a href="#qr-use">QR usage</a>
 </nav>
 
 <section class="sheet" id="landing">
@@ -143,9 +153,9 @@
     </header>
     <div class="hero">
       <div>
-        <div class="kicker">Alumni Affairs and Placement Services</div>
+        <div class="kicker">Office of Alumni Affairs and Placement Services</div>
         <h1>Know where AUF graduates build their careers.</h1>
-        <p>Upload a resume, review the tracer form, and send your career record to the alumni office.</p>
+        <p>Upload a resume, review the Graduate Tracer Survey, and send the record to OAAPS.</p>
         <div class="nav">
           <span class="btn solid">Upload resume</span>
           <span class="btn">Sign in</span>
@@ -154,17 +164,17 @@
       <div class="box">
         <strong>How a record is created</strong>
         <ol>
-          <li>Upload a resume.</li>
-          <li>Review the tracer survey.</li>
+          <li>Upload a resume. This saves a draft only.</li>
+          <li>Review and submit the tracer survey.</li>
           <li>OAAPS checks the graduate record.</li>
           <li>Approved alumni open the portal.</li>
         </ol>
       </div>
     </div>
     <div class="grid3">
-      <article class="box"><h3>1. Resume capture</h3><p>Upload a PDF, DOCX, or TXT file.</p></article>
-      <article class="box"><h3>2. Review before submit</h3><p>Correct the extracted fields.</p></article>
-      <article class="box"><h3>3. Career alignment</h3><p>Jobs are matched to occupation codes.</p></article>
+      <article class="box"><h3>1. Resume capture</h3><p>One PDF, DOCX, or TXT file during registration.</p></article>
+      <article class="box"><h3>2. Review before submit</h3><p>Correct the extracted survey fields.</p></article>
+      <article class="box"><h3>3. OAAPS review</h3><p>Approval opens the alumni portal.</p></article>
     </div>
     <footer class="foot">Angeles University Foundation · Personal data is processed under the Data Privacy Act.</footer>
   </div>
@@ -177,11 +187,12 @@
     <div class="center">
       <div class="card">
         <h2>Sign in</h2>
-        <p>Use your graduate or administrator email.</p>
+        <p>Use the email and password for an alumni or administrator account.</p>
         <label>Email</label><div class="field"></div>
         <label>Password</label><div class="field"></div>
         <p class="note" style="margin-top:10px">Forgot password?</p>
         <p style="margin-top:16px"><span class="btn solid">Sign in</span></p>
+        <p class="note">Incorrect email or password is rejected. An inactive administrator cannot sign in.</p>
         <p class="note">New graduate? Upload a resume to register.</p>
       </div>
     </div>
@@ -194,15 +205,15 @@
     <header class="top"><div class="brand">CareerSense</div><div class="nav"><span>Sign in</span></div></header>
     <div class="center">
       <div class="card" style="width:480px">
-        <h2>Create your account</h2>
-        <p>This step saves a draft. The account is created after the survey.</p>
+        <h2>Start registration</h2>
+        <p>This step saves a draft. The alumni account is created after the survey is submitted.</p>
         <label>Email</label><div class="field"></div>
         <label>Password</label><div class="field"></div>
         <label>Confirm password</label><div class="field"></div>
         <label>Resume</label>
-        <div class="drop">Drop a PDF, DOCX, or TXT file · max 10 MB</div>
+        <div class="drop">One PDF, DOCX, or TXT file · max 10 MB</div>
         <div class="check"><span class="sq"></span><span>I consent to the processing of my personal data.</span></div>
-        <p style="margin-top:16px"><span class="btn solid">Continue</span></p>
+        <p style="margin-top:16px"><span class="btn solid">Continue to survey</span></p>
       </div>
     </div>
   </div>
@@ -214,7 +225,7 @@
     <header class="top"><div class="brand">CareerSense</div><span class="note">Draft · no account yet</span></header>
     <div class="main">
       <h2>Check your Graduate Tracer Survey</h2>
-      <p>Correct anything the resume parser missed, then submit.</p>
+      <p>Correct anything the resume did not supply, then submit. Submission creates a Pending account.</p>
       <div class="tabs">
         <span class="tab on">General</span>
         <span class="tab">Employment</span>
@@ -223,15 +234,20 @@
       </div>
       <div class="split">
         <div class="box">
-          <label>Full name</label><div class="field"></div>
-          <label>Degree</label><div class="field"></div>
-          <label>Year graduated</label><div class="field"></div>
+          <label>Name</label><div class="field"></div>
+          <label>Degree · from the graduate registry when matched</label><div class="field"></div>
+          <label>Year graduated · from the graduate registry when matched</label><div class="field"></div>
           <label>Current job title</label><div class="field"></div>
+          <div class="box muted" style="margin-top:12px">
+            <strong>Career alignment</strong>
+            <p>Hint shown from the current occupation and the degree. Result stored on submit: Aligned, Misaligned, or Unknown.</p>
+          </div>
         </div>
         <div class="box muted">
           <h3>From your resume</h3>
-          <p>Education, jobs, and skills extracted from the file.</p>
-          <p class="note">University match: found / not found</p>
+          <p>Education, jobs, and skills suggested from the file.</p>
+          <p class="note">Graduate registry: matched / not matched</p>
+          <p class="note">A match keeps the registry degree and graduation year.</p>
         </div>
       </div>
       <p style="margin-top:16px"><span class="btn solid">Submit survey</span></p>
@@ -245,9 +261,9 @@
     <header class="top"><div class="brand">CareerSense</div><span class="btn">Sign out</span></header>
     <div class="center">
       <div class="card">
-        <div class="kicker">Account status</div>
+        <div class="kicker">Account status · Pending</div>
         <h2>Waiting for approval</h2>
-        <p>OAAPS still needs to check your graduate record. You can sign in, but the alumni portal stays closed.</p>
+        <p>OAAPS still needs to check the graduate record. Sign-in is allowed. The alumni portal stays closed.</p>
       </div>
     </div>
   </div>
@@ -259,9 +275,10 @@
     <header class="top"><div class="brand">CareerSense</div><span class="btn">Sign out</span></header>
     <div class="center">
       <div class="card">
-        <div class="kicker">Account status</div>
+        <div class="kicker">Account status · Rejected</div>
         <h2>Registration was not approved</h2>
-        <div class="box muted"><strong>Reason from OAAPS</strong><p style="margin-top:8px">Submitted documents did not match the graduate record.</p></div>
+        <div class="box muted"><strong>Reason from OAAPS</strong><p style="margin-top:8px">The submitted record did not match the graduate registry.</p></div>
+        <p class="note">The alumni portal stays closed.</p>
       </div>
     </div>
   </div>
@@ -271,15 +288,30 @@
   <p class="cap">Wireframe 7. Reset password</p>
   <div class="frame">
     <header class="top"><div class="brand">CareerSense</div><span>Sign in</span></header>
-    <div class="center">
-      <div class="card">
-        <h2>Forgot password</h2>
-        <p>We will email a 6-digit PIN that lasts 10 minutes.</p>
-        <label>Email</label><div class="field"></div>
-        <p style="margin-top:16px"><span class="btn solid">Send PIN</span></p>
-        <label>PIN</label><div class="field"></div>
-        <label>New password</label><div class="field"></div>
-        <p style="margin-top:16px"><span class="btn">Set new password</span></p>
+    <div class="main">
+      <h2>Forgot password</h2>
+      <p>Three separate steps. Available to an alumni account in any status, and to an Active Super Admin or Active Admin.</p>
+      <div class="flow">
+        <div class="box">
+          <div class="kicker">Step 1</div>
+          <h3>Request a PIN</h3>
+          <label>Registered email</label><div class="field"></div>
+          <p style="margin-top:12px"><span class="btn solid">Send PIN</span></p>
+        </div>
+        <div class="box">
+          <div class="kicker">Step 2</div>
+          <h3>Enter the PIN</h3>
+          <p class="note">Sent only when the email belongs to an eligible account. The PIN expires.</p>
+          <label>6-digit PIN</label><div class="field"></div>
+          <p style="margin-top:12px"><span class="btn solid">Verify PIN</span></p>
+        </div>
+        <div class="box">
+          <div class="kicker">Step 3</div>
+          <h3>Set a new password</h3>
+          <label>New password</label><div class="field"></div>
+          <label>Confirm password</label><div class="field"></div>
+          <p style="margin-top:12px"><span class="btn solid">Save password</span></p>
+        </div>
       </div>
     </div>
   </div>
@@ -294,16 +326,17 @@
         <div class="group">Home</div>
         <div class="item on">Home</div>
         <div class="group">Services</div>
-        <div class="item">Alumni Card</div>
-        <div class="item">Perks & Discounts</div>
+        <div class="item">Alumni QR</div>
+        <div class="item">Perks &amp; Discounts</div>
         <div class="group">My Record</div>
-        <div class="item">Resume & Tracer</div>
+        <div class="item">Extract Resume</div>
         <div class="group">Account</div>
         <div class="item">Account</div>
       </aside>
       <div class="main">
         <div class="row"><h2>Maria Reyes</h2><span class="btn">Edit profile</span></div>
-        <p class="note">BS Information Technology · Class of 2022</p>
+        <p class="note">BS Information Technology · College of Computing · Class of 2022</p>
+        <p class="note">Student number, course, and graduation year stay locked.</p>
         <p>Profile completion</p>
         <div class="bar"><span></span></div>
         <p class="note">72%</p>
@@ -319,14 +352,14 @@
         <div class="split" style="margin-top:18px">
           <div class="box">
             <h3>Work history</h3>
-            <p>Software Engineer · Present</p>
-            <p>Junior Software Developer · 2022–2024</p>
-            <p class="note">Alignment: Aligned · PSOC 2512</p>
+            <p>Software Engineer · Present · 2 years</p>
+            <p>Junior Software Developer · 2022–2024 · 2 years</p>
+            <p class="note">Further studies, seminars, certifications, and awards are on this page.</p>
           </div>
           <div class="box muted">
-            <h3>Notices</h3>
+            <h3>Profile update requested</h3>
             <p>OAAPS asked you to update your phone number and city.</p>
-            <span class="btn">View</span>
+            <span class="btn">Update profile</span>
           </div>
         </div>
       </div>
@@ -334,41 +367,51 @@
   </div>
 </section>
 
-<section class="sheet" id="card">
-  <p class="cap">Wireframe 9. Alumni card</p>
+<section class="sheet" id="qr">
+  <p class="cap">Wireframe 9. Alumni QR and alumni card</p>
   <div class="frame">
     <div class="shell">
       <aside class="side">
         <div class="brand">CareerSense</div>
         <div class="item">Home</div>
-        <div class="item on">Alumni Card</div>
-        <div class="item">Perks & Discounts</div>
-        <div class="item">Resume & Tracer</div>
+        <div class="item on">Alumni QR</div>
+        <div class="item">Perks &amp; Discounts</div>
+        <div class="item">Extract Resume</div>
         <div class="item">Account</div>
       </aside>
       <div class="main">
-        <h2>Alumni card</h2>
+        <h2>Alumni QR</h2>
+        <p>Showing the code does not record a scan or change the card status.</p>
+        <div class="split">
+          <div class="box">
+            <div class="qr">QR code</div>
+            <p style="margin-top:12px"><span class="btn">Show QR code</span></p>
+            <p class="note">Student number, name, course, college, and year graduated appear beside the code.</p>
+          </div>
+          <div class="box muted">
+            <h3>Angelenean Alumni Card</h3>
+            <p>Status: Not yet applied</p>
+            <p class="note">The survey must be on file before an application.</p>
+            <p class="note">Name, alumni ID, degree, and batch. Card number appears after Claimed.</p>
+            <span class="btn solid">Get Alumni Card</span>
+          </div>
+        </div>
+        <h3 style="margin-top:18px">Application</h3>
         <div class="steps">
-          <div class="step">Not yet applied</div>
-          <div class="step on">For verification</div>
+          <div class="step on">Not yet applied</div>
+          <div class="step">For verification</div>
           <div class="step">Approved</div>
           <div class="step">Ready for pickup</div>
           <div class="step">Claimed</div>
         </div>
-        <div class="split">
-          <div class="box">
-            <label>Birthday</label><div class="field"></div>
-            <label>Phone</label><div class="field"></div>
-            <label>City</label><div class="field"></div>
-            <label>Mailing address</label><div class="field"></div>
-            <p style="margin-top:14px"><span class="btn solid">Submit application</span></p>
-          </div>
-          <div class="box muted">
-            <h3>Card preview</h3>
-            <p>AUF alumni card</p>
-            <p class="note">Number appears after the card is claimed.</p>
-          </div>
+        <div class="grid4" style="padding:0">
+          <div><label>Mobile number</label><div class="field"></div></div>
+          <div><label>Home address</label><div class="field"></div></div>
+          <div><label>Appointment date</label><div class="field"></div></div>
+          <div><label>Appointment time</label><div class="field"></div></div>
         </div>
+        <p class="note">Registry identity is locked. The alumnus cannot set the later card statuses.</p>
+        <p><span class="btn solid">Submit application</span></p>
       </div>
     </div>
   </div>
@@ -381,63 +424,114 @@
       <aside class="side">
         <div class="brand">CareerSense</div>
         <div class="item">Home</div>
-        <div class="item">Alumni Card</div>
-        <div class="item on">Perks & Discounts</div>
-        <div class="item">Resume & Tracer</div>
+        <div class="item">Alumni QR</div>
+        <div class="item on">Perks &amp; Discounts</div>
+        <div class="item">Extract Resume</div>
         <div class="item">Account</div>
       </aside>
       <div class="main">
         <h2>Perks and discounts</h2>
+        <p>Active alumni only. A perk can require a claimed alumni card.</p>
         <div class="grid3" style="padding:16px 0 0">
           <article class="box"><h3>Partner cafe</h3><p>15% off</p><span class="btn solid">Claim</span></article>
-          <article class="box"><h3>Library access</h3><p>Requires an alumni card</p><span class="btn">Locked</span></article>
-          <article class="box muted"><h3>Career fair</h3><p>This offer has ended</p></article>
+          <article class="box"><h3>Library access</h3><p>Requires the alumni card</p><span class="btn">Locked</span></article>
+          <article class="box muted"><h3>Career fair</h3><p>Already claimed</p></article>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<section class="sheet" id="tracer">
-  <p class="cap">Wireframe 11. Resume and tracer</p>
+<section class="sheet" id="resume">
+  <p class="cap">Wireframe 11. Extract resume</p>
   <div class="frame">
     <div class="shell">
       <aside class="side">
         <div class="brand">CareerSense</div>
         <div class="item">Home</div>
-        <div class="item">Alumni Card</div>
-        <div class="item">Perks & Discounts</div>
-        <div class="item on">Resume & Tracer</div>
+        <div class="item">Alumni QR</div>
+        <div class="item">Perks &amp; Discounts</div>
+        <div class="item on">Extract Resume</div>
         <div class="item">Account</div>
       </aside>
       <div class="main">
-        <div class="row"><h2>Resume and tracer</h2><span class="chip on">Aligned · 2512</span></div>
+        <div class="row"><h2>Extract Resume</h2><span class="btn solid">Export PDF</span></div>
+        <p>Build and edit a resume from the saved profile and the resume uploaded at registration. This page does not upload a new registration file or change the submitted survey.</p>
         <div class="tabs">
-          <span class="tab on">General</span>
-          <span class="tab">Employment</span>
-          <span class="tab">Further studies</span>
-          <span class="tab">Feedback</span>
+          <span class="tab on">Edit</span>
+          <span class="tab">Preview</span>
         </div>
         <div class="split">
           <div class="box">
-            <label>Occupation</label><div class="field"></div>
-            <label>Employer</label><div class="field"></div>
-            <label>Skills</label><div class="area"></div>
-            <p style="margin-top:14px"><span class="btn solid">Save survey</span></p>
+            <h3>Sections</h3>
+            <p>Summary, work experience, education, further studies, skills, certifications, seminars, awards.</p>
+            <label>Professional summary</label><div class="area"></div>
+            <p style="margin-top:14px"><span class="btn solid">Save resume</span></p>
           </div>
           <div class="box muted">
-            <h3>Uploaded resume</h3>
-            <div class="drop">Replace file</div>
-            <p class="note" style="margin-top:8px">Parser: local or Gemini</p>
+            <h3>Source already on file</h3>
+            <p>Profile, work history, and the registration resume.</p>
+            <p class="note">No second resume upload.</p>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="account">
+  <p class="cap">Wireframe 12. Alumni account</p>
+  <div class="frame">
+    <div class="shell">
+      <aside class="side">
+        <div class="brand">CareerSense</div>
+        <div class="item">Home</div>
+        <div class="item">Alumni QR</div>
+        <div class="item">Perks &amp; Discounts</div>
+        <div class="item">Extract Resume</div>
+        <div class="item on">Account</div>
+      </aside>
+      <div class="main">
+        <h2>Account</h2>
+        <div class="split">
+          <div class="box">
+            <h3>Sign-in details</h3>
+            <p>Email · maria.reyes@gmail.com</p>
+            <p>Student number · 2022-0001</p>
+            <p class="note">The sign-in email cannot be changed here.</p>
+          </div>
+          <div class="box muted">
+            <h3>Change password</h3>
+            <p>A PIN is sent to the registered email. The current password is not required.</p>
+            <span class="btn solid">Send PIN</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="verify">
+  <p class="cap">Wireframe 13. Public QR verification</p>
+  <div class="frame">
+    <header class="top"><div class="brand">CareerSense</div><span class="note">No sign-in</span></header>
+    <div class="center">
+      <div class="card" style="width:480px">
+        <div class="kicker">Alumni identity</div>
+        <h2>Verified</h2>
+        <p>Name · Maria Reyes</p>
+        <p>Student number · 2022-0001</p>
+        <p>Course · BS Information Technology</p>
+        <p>College · College of Computing</p>
+        <p>Year graduated · 2022</p>
+        <p class="note">Contact details, employment, and the alumni card are not shown.</p>
       </div>
     </div>
   </div>
 </section>
 
 <section class="sheet" id="admin">
-  <p class="cap">Wireframe 12. Administrator dashboard</p>
+  <p class="cap">Wireframe 14. Super Admin dashboard</p>
   <div class="frame">
     <div class="shell">
       <aside class="side">
@@ -446,32 +540,45 @@
         <div class="item on">Dashboard</div>
         <div class="group">Operations</div>
         <div class="item">Approvals</div>
-        <div class="item">Alumni Cards</div>
+        <div class="item">Alumni Card</div>
+        <div class="item">Profile Updates</div>
         <div class="item">Records</div>
-        <div class="item">Registry</div>
+        <div class="item">Alumni QR Usage</div>
         <div class="item">Reports</div>
         <div class="group">Setup</div>
-        <div class="item">Survey</div>
+        <div class="item">Import List</div>
+        <div class="item">Colleges and Courses</div>
         <div class="item">Perks</div>
         <div class="item">SOC Mapping</div>
         <div class="item">Users</div>
+        <div class="item">Account</div>
       </aside>
       <div class="main">
-        <h2>OAAPS dashboard</h2>
+        <h2>Dashboard</h2>
+        <p class="note">Super Admin only. An Admin account does not open this page.</p>
         <div class="metrics" style="padding:12px 0">
           <div class="box"><div class="note">Pending approvals</div><h2>4</h2></div>
           <div class="box"><div class="note">Tracer submissions</div><h2>128</h2></div>
-          <div class="box"><div class="note">Approved alumni</div><h2>96</h2></div>
+          <div class="box"><div class="note">Active alumni</div><h2>96</h2></div>
           <div class="box"><div class="note">Share aligned</div><h2>71%</h2></div>
         </div>
-        <div class="box">
-          <h3>Alignment</h3>
-          <div class="chart">
-            <div class="col" style="height:80%"></div>
-            <div class="col" style="height:35%"></div>
-            <div class="col" style="height:20%"></div>
+        <div class="split">
+          <div class="box">
+            <h3>Submission trend</h3>
+            <div class="chart">
+              <div class="col" style="height:40%"></div>
+              <div class="col" style="height:70%"></div>
+              <div class="col" style="height:55%"></div>
+              <div class="col" style="height:85%"></div>
+            </div>
           </div>
-          <p class="note">Aligned · Misaligned · Unknown</p>
+          <div class="box muted">
+            <h3>Employment alignment</h3>
+            <p>Aligned · 72</p>
+            <p>Unknown · 18</p>
+            <p>Misaligned · 11</p>
+            <p class="note">Records without a classification are not included.</p>
+          </div>
         </div>
       </div>
     </div>
@@ -479,7 +586,7 @@
 </section>
 
 <section class="sheet" id="approvals">
-  <p class="cap">Wireframe 13. Registration approvals</p>
+  <p class="cap">Wireframe 15. Registration approvals</p>
   <div class="frame">
     <div class="shell">
       <aside class="side">
@@ -491,9 +598,9 @@
       </aside>
       <div class="main">
         <h2>Approvals</h2>
-        <p>Applications waiting for a decision.</p>
+        <p>Pending accounts waiting for a Super Admin decision.</p>
         <table>
-          <tr><th>Name</th><th>Email</th><th>Match</th><th>Status</th><th></th></tr>
+          <tr><th>Name</th><th>Email</th><th>Registry match</th><th>Status</th><th></th></tr>
           <tr><td>Juan Dela Cruz</td><td>juan.delacruz@gmail.com</td><td>Found</td><td>Pending</td><td>Open</td></tr>
           <tr><td>Carlos Mendoza</td><td>carlos.mendoza@gmail.com</td><td>Found</td><td>Pending</td><td>Open</td></tr>
           <tr><td>Unmatched applicant</td><td>tester.unmatched@example.com</td><td>None</td><td>Pending</td><td>Open</td></tr>
@@ -504,7 +611,7 @@
 </section>
 
 <section class="sheet" id="review">
-  <p class="cap">Wireframe 14. Review one registration</p>
+  <p class="cap">Wireframe 16. Review one registration</p>
   <div class="frame">
     <div class="shell">
       <aside class="side">
@@ -513,17 +620,19 @@
       </aside>
       <div class="main">
         <h2>Juan Dela Cruz</h2>
-        <p class="note">Pending · student no. 2020-0002</p>
+        <p class="note">Pending · student no. 2020-0002 · BS Computer Science · 2020</p>
         <div class="split">
           <div class="box">
-            <h3>Survey and resume</h3>
-            <p>Degree, job, and extracted resume text.</p>
+            <h3>Survey, resume, and registry</h3>
+            <p>Degree and graduation year from the matched graduate record.</p>
+            <p>Alignment stored with the survey: Aligned.</p>
             <span class="btn">Download resume</span>
-            <p style="margin-top:12px"><span class="btn">Verify identity</span></p>
+            <p style="margin-top:12px"><span class="btn">Verify against registry</span></p>
           </div>
           <div class="box">
             <h3>Decision</h3>
             <p><span class="btn solid">Approve</span></p>
+            <p class="note">Sets the status to Active and opens the alumni portal.</p>
             <label>Rejection reason</label>
             <div class="area"></div>
             <p style="margin-top:12px"><span class="btn">Reject</span></p>
@@ -534,8 +643,45 @@
   </div>
 </section>
 
+<section class="sheet" id="records">
+  <p class="cap">Wireframe 17. Tracer record</p>
+  <div class="frame">
+    <div class="shell">
+      <aside class="side">
+        <div class="brand">CareerSense</div>
+        <div class="item">Approvals</div>
+        <div class="item on">Records</div>
+        <div class="item">Reports</div>
+      </aside>
+      <div class="main">
+        <div class="row"><h2>Maria Reyes</h2><span class="chip on">Aligned</span></div>
+        <p class="note">Official tracer record. Profile updates do not replace this survey.</p>
+        <div class="tabs">
+          <span class="tab on">General</span>
+          <span class="tab">Employment</span>
+          <span class="tab">Further studies</span>
+          <span class="tab">Feedback</span>
+        </div>
+        <div class="split">
+          <div class="box">
+            <label>Current occupation</label><div class="field"></div>
+            <label>Employer</label><div class="field"></div>
+            <p class="note">Occupational classification is stored with this record.</p>
+            <p style="margin-top:14px"><span class="btn solid">Save official tracer record</span></p>
+          </div>
+          <div class="box muted">
+            <h3>Alignment</h3>
+            <p>Aligned, Misaligned, or Unknown.</p>
+            <p class="note">Compared with the completed degree.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="sheet" id="reports">
-  <p class="cap">Wireframe 15. Reports</p>
+  <p class="cap">Wireframe 18. Reports</p>
   <div class="frame">
     <div class="shell">
       <aside class="side">
@@ -545,36 +691,42 @@
         <div class="item on">Reports</div>
       </aside>
       <div class="main">
-        <div class="row">
-          <h2>Reports</h2>
-          <div class="nav"><span class="btn">Export CSV</span><span class="btn solid">Export OAAPS document</span></div>
+        <h2>Employment overview</h2>
+        <div class="grid4" style="padding:0">
+          <div><label>College</label><div class="field"></div></div>
+          <div><label>Course</label><div class="field"></div></div>
+          <div><label>Year</label><div class="field"></div></div>
+          <div><label>Employment status</label><div class="field"></div></div>
         </div>
-        <div class="row" style="margin:12px 0">
-          <div style="flex:1"><label>Year</label><div class="field"></div></div>
-          <div style="flex:1"><label>College</label><div class="field"></div></div>
-        </div>
-        <div class="metrics" style="padding:0">
-          <div class="box"><div class="note">Graduates</div><h2>128</h2></div>
+        <div class="metrics" style="padding:14px 0">
+          <div class="box"><div class="note">Tracer records</div><h2>128</h2></div>
           <div class="box"><div class="note">Employed</div><h2>101</h2></div>
-          <div class="box"><div class="note">Aligned</div><h2>71%</h2></div>
+          <div class="box"><div class="note">Unemployed</div><h2>21</h2></div>
+          <div class="box"><div class="note">Employment rate</div><h2>82.79%</h2></div>
         </div>
+        <p><span class="btn">Export CSV</span></p>
+        <h3 style="margin-top:8px">Graduate productivity report</h3>
+        <p>Employment relevance to the degree, results by program, and time from graduation to the first job.</p>
+        <p><span class="btn solid">Download Word</span></p>
       </div>
     </div>
   </div>
 </section>
 
 <section class="sheet" id="registry">
-  <p class="cap">Wireframe 16. Graduate registry</p>
+  <p class="cap">Wireframe 19. Import list</p>
   <div class="frame">
     <div class="shell">
       <aside class="side">
         <div class="brand">CareerSense</div>
         <div class="item">Records</div>
-        <div class="item on">Registry</div>
+        <div class="item on">Import List</div>
+        <div class="item">Colleges and Courses</div>
       </aside>
       <div class="main">
-        <h2>Graduate registry</h2>
-        <p>Official list used to match a new registration.</p>
+        <h2>Import list</h2>
+        <p>Official graduate list used to match a registration by email, then by name.</p>
+        <div class="drop">Upload the graduate workbook</div>
         <label>Search name or student number</label>
         <div class="field"></div>
         <table style="margin-top:14px">
@@ -582,14 +734,150 @@
           <tr><td>2022-0001</td><td>Maria Reyes</td><td>BS Information Technology</td><td>2022</td></tr>
           <tr><td>2021-0088</td><td>Carlos Mendoza</td><td>BS Computer Science</td><td>2021</td></tr>
         </table>
-        <h3 style="margin-top:18px">Add a graduate</h3>
-        <div class="grid4" style="padding:0">
-          <div><label>Student no.</label><div class="field"></div></div>
-          <div><label>Name</label><div class="field"></div></div>
-          <div><label>Degree</label><div class="field"></div></div>
-          <div><label>Year</label><div class="field"></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="academics">
+  <p class="cap">Wireframe 20. Colleges and courses</p>
+  <div class="frame">
+    <div class="shell">
+      <aside class="side">
+        <div class="brand">CareerSense</div>
+        <div class="item">Import List</div>
+        <div class="item on">Colleges and Courses</div>
+        <div class="item">Reports</div>
+      </aside>
+      <div class="main">
+        <h2>Colleges and courses</h2>
+        <p>List used in alumni records and report filters.</p>
+        <div class="split">
+          <div class="box">
+            <h3>Colleges</h3>
+            <p>College of Computing</p>
+            <p>School of Business</p>
+            <span class="btn">Add college</span>
+          </div>
+          <div class="box">
+            <h3>Courses</h3>
+            <p>BS Information Technology · College of Computing</p>
+            <p>BS Computer Science · College of Computing</p>
+            <span class="btn">Add course</span>
+          </div>
         </div>
-        <p style="margin-top:12px"><span class="btn solid">Save record</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="updates">
+  <p class="cap">Wireframe 21. Profile update request</p>
+  <div class="frame">
+    <div class="shell">
+      <aside class="side">
+        <div class="brand">CareerSense</div>
+        <div class="item">Approvals</div>
+        <div class="item on">Profile Updates</div>
+        <div class="item">Records</div>
+      </aside>
+      <div class="main">
+        <h2>Profile updates</h2>
+        <p>Ask an Active alumnus to review specific profile information. This does not edit the official tracer survey.</p>
+        <div class="split">
+          <div class="box">
+            <label>Alumnus</label><div class="field"></div>
+            <label>Information to review</label><div class="area"></div>
+            <p style="margin-top:14px"><span class="btn solid">Send request</span></p>
+          </div>
+          <div class="box muted">
+            <h3>Previous requests</h3>
+            <p>Maria Reyes · Phone and city · Sent</p>
+            <p class="note">The alumnus updates the profile after the notice.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="soc">
+  <p class="cap">Wireframe 22. SOC mapping</p>
+  <div class="frame">
+    <div class="shell">
+      <aside class="side">
+        <div class="brand">CareerSense</div>
+        <div class="item">Reports</div>
+        <div class="item on">SOC Mapping</div>
+        <div class="item">Users</div>
+      </aside>
+      <div class="main">
+        <h2>SOC mapping</h2>
+        <p>Philippine Standard Occupational Classification codes and approved job-title mappings.</p>
+        <div class="row"><span class="btn solid">Add SOC code</span><span class="btn">Map a job title</span></div>
+        <table style="margin-top:14px">
+          <tr><th>Code</th><th>Description</th><th>Example titles</th></tr>
+          <tr><td>2512</td><td>Software developers</td><td>software engineer, developer</td></tr>
+          <tr><td>2411</td><td>Accountants</td><td>accountant, auditor</td></tr>
+        </table>
+        <p class="note">An approved title mapping is used before a pattern match. Alignment is then stored as Aligned, Misaligned, or Unknown.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="users">
+  <p class="cap">Wireframe 23. Users</p>
+  <div class="frame">
+    <div class="shell">
+      <aside class="side">
+        <div class="brand">CareerSense</div>
+        <div class="group">Super Admin sees the full menu</div>
+        <div class="item">Dashboard</div>
+        <div class="item on">Users</div>
+        <div class="item">Account</div>
+        <div class="group">Admin sees only</div>
+        <div class="item">Users</div>
+        <div class="item">Account</div>
+      </aside>
+      <div class="main">
+        <div class="row"><h2>Users</h2><span class="btn solid">Add Admin</span></div>
+        <p>A Super Admin or an Admin can add an Admin. Only a Super Admin can edit, activate, deactivate, or reset a password.</p>
+        <table>
+          <tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th></tr>
+          <tr><td>OAAPS Admin</td><td>oaaps.admin@auf.edu.ph</td><td>Super Admin</td><td>Active</td></tr>
+          <tr><td>Ana Cruz</td><td>ana.cruz@auf.edu.ph</td><td>Admin · Add users</td><td>Active</td></tr>
+        </table>
+        <p class="note">A new Admin receives a temporary password and must change it at first sign-in. The last Active Super Admin cannot be deactivated.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="qr-use">
+  <p class="cap">Wireframe 24. Alumni QR usage</p>
+  <div class="frame">
+    <div class="shell">
+      <aside class="side">
+        <div class="brand">CareerSense</div>
+        <div class="item">Alumni Card</div>
+        <div class="item on">Alumni QR Usage</div>
+        <div class="item">Reports</div>
+      </aside>
+      <div class="main">
+        <h2>Alumni QR usage</h2>
+        <p>A Super Admin records a partner check. Opening the alumni QR page does not create a record.</p>
+        <div class="split">
+          <div class="box">
+            <label>QR code or alumnus</label><div class="field"></div>
+            <label>Partner</label><div class="field"></div>
+            <p style="margin-top:14px"><span class="btn solid">Record use</span></p>
+          </div>
+          <div class="box muted">
+            <h3>Recent checks</h3>
+            <p>Maria Reyes · Partner cafe · Recorded</p>
+          </div>
+        </div>
       </div>
     </div>
   </div>

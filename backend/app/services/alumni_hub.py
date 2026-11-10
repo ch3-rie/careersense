@@ -409,6 +409,37 @@ def claim_perk(db: Session, user: Account, perk_id: int) -> list[dict]:
     return list_perks(db, user)
 
 
+PARTICIPATION_ROLES = ("speaker", "mentor", "sponsor")
+
+
+def participation_payload(profile) -> dict[str, bool]:
+    if profile is None:
+        return {"speaker": False, "mentor": False, "sponsor": False}
+    return {
+        "speaker": bool(profile.interest_speaker),
+        "mentor": bool(profile.interest_mentor),
+        "sponsor": bool(profile.interest_sponsor),
+    }
+
+
+def set_participation(db: Session, user: Account, roles: list[str]) -> None:
+    profile = user.profile
+    if profile is None:
+        raise HTTPException(status_code=400, detail="No alumni profile is on file.")
+    chosen: list[str] = []
+    for item in roles:
+        role = str(item or "").strip().lower()
+        if role not in PARTICIPATION_ROLES:
+            raise HTTPException(status_code=400, detail="Choose Speaker, Mentor, or Sponsor.")
+        if role not in chosen:
+            chosen.append(role)
+    selected = set(chosen)
+    profile.interest_speaker = "speaker" in selected
+    profile.interest_mentor = "mentor" in selected
+    profile.interest_sponsor = "sponsor" in selected
+    db.commit()
+
+
 def update_contact_profile(db: Session, user: Account, payload: ProfileUpdateIn) -> None:
     profile = user.profile
     if profile is None:
@@ -994,6 +1025,7 @@ def assemble_profile(db: Session, user: Account, *, notify_badges: bool = False)
             "city": (profile.city if profile else "") or "",
             "address": (profile.address if profile else "") or "",
             "bio": (profile.bio if profile else "") or "",
+            "participation": participation_payload(profile),
             "has_photo": bool(profile and profile.photo_path),
             "has_cover": bool(profile and profile.cover_path),
             "college": record.college if record else "",

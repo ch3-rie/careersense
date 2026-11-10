@@ -265,8 +265,8 @@ export default function AdminCards() {
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search by alumni name or student number…"
-                aria-label="Search by alumni name or student number"
+                placeholder="Search by name, student number, or program"
+                aria-label="Search by name, student number, or program"
               />
             </div>
           </Field>

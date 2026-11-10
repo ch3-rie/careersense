@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { DateField } from "../../components/DateField";
 import { FileDrop } from "../../components/FileDrop";
 import { Panel } from "../../components/RecordViews";
 import { PortalShell } from "../../components/Layout";
 import { PlusIcon, SearchIcon, UploadIcon } from "../../components/icons";
 import { Alert, Badge, Dialog, Empty, Field, LoadError, Pager, SortButton, TableSkeleton, sortBy, toggleSort } from "../../components/ui";
-import { courseCodeFor, courseLabel, programChoices } from "../../lib/academicFilters";
+import { courseCodeFor, courseLabel, createProgramIndex, programChoices } from "../../lib/academicFilters";
 import { api } from "../../lib/api";
 
 const EMPTY_FORM = {
@@ -67,6 +68,18 @@ function formatManila(value) {
   }).format(date);
 }
 
+function formatManilaDate(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-PH", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
+
 function graduateName(row) {
   return [row.first_name, row.middle_name, row.last_name].filter(Boolean).join(" ") || "—";
 }
@@ -124,9 +137,19 @@ export default function AdminRegistry() {
   const [recordQuery, setRecordQuery] = useState("");
   const [recordCollege, setRecordCollege] = useState("");
   const [recordCourse, setRecordCourse] = useState("");
-  const [recordSort, setRecordSort] = useState({ key: "last_name", dir: "asc" });
+  const [uploadedFrom, setUploadedFrom] = useState("");
+  const [uploadedTo, setUploadedTo] = useState("");
+  const [recordSort, setRecordSort] = useState({ key: "uploaded_at", dir: "desc" });
 
-  async function loadRecords({ term = recordQuery, nextCollege = recordCollege, nextCourse = recordCourse, nextPage = 1 } = {}) {
+  async function loadRecords({
+    term = recordQuery,
+    nextCollege = recordCollege,
+    nextCourse = recordCourse,
+    nextFrom = uploadedFrom,
+    nextTo = uploadedTo,
+    nextPage = 1,
+    sort = recordSort,
+  } = {}) {
     setRecordsError("");
     setRecordsBusy(true);
     try {
@@ -137,6 +160,12 @@ export default function AdminRegistry() {
         page: String(nextPage),
         page_size: String(RECORD_PAGE_SIZE),
       });
+      if (nextFrom) params.set("uploaded_from", nextFrom);
+      if (nextTo) params.set("uploaded_to", nextTo);
+      if (sort?.key === "uploaded_at") {
+        params.set("sort_by", "uploaded_at");
+        params.set("sort_dir", sort.dir === "asc" ? "asc" : "desc");
+      }
       const result = await api(`/api/admin/university-records?${params}`);
       setRecords(result);
       setLastImport(result?.last_import || null);
@@ -179,7 +208,9 @@ export default function AdminRegistry() {
       setRecordQuery("");
       setRecordCollege("");
       setRecordCourse("");
-      await loadRecords({ term: "", nextCollege: "", nextCourse: "", nextPage: 1 });
+      setUploadedFrom("");
+      setUploadedTo("");
+      await loadRecords({ term: "", nextCollege: "", nextCourse: "", nextFrom: "", nextTo: "", nextPage: 1 });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -242,7 +273,9 @@ export default function AdminRegistry() {
         setRecordQuery("");
         setRecordCollege("");
         setRecordCourse("");
-        await loadRecords({ term: "", nextCollege: "", nextCourse: "", nextPage: 1 });
+        setUploadedFrom("");
+        setUploadedTo("");
+        await loadRecords({ term: "", nextCollege: "", nextCourse: "", nextFrom: "", nextTo: "", nextPage: 1 });
       }
     } catch (err) {
       setImportError(err.message);
@@ -265,31 +298,37 @@ export default function AdminRegistry() {
   const stepIndex = importResult ? 3 : confirmOpen || phase === "commit" ? 2 : preview ? 1 : 0;
   const previewRows = useMemo(() => {
     const term = previewQuery.trim().toLowerCase();
+    const index = createProgramIndex([
+      ...(catalog.programs || []),
+      ...(preview?.rows || []).map((row) => ({ college: row.college, course: row.course, course_code: row.course_code })),
+    ]);
     return (preview?.rows || []).filter((row) => {
       if (previewStatus !== "all" && row.status !== previewStatus) return false;
       if (!term) return true;
-      return [row.student_number, graduateName(row), row.college, row.course, row.course_code, row.message]
+      const plain = [row.student_number, graduateName(row), row.college, row.course, row.course_code, row.message]
         .join(" ")
-        .toLowerCase()
-        .includes(term);
+        .toLowerCase();
+      return plain.includes(term) || index.matchesRecord(term, { degree: row.course, courseCode: row.course_code, college: row.college });
     });
-  }, [preview, previewQuery, previewStatus]);
+  }, [preview, previewQuery, previewStatus, catalog]);
   const previewSlice = previewRows.slice((previewPage - 1) * PREVIEW_PAGE_SIZE, previewPage * PREVIEW_PAGE_SIZE);
   const newCatalogCount = useMemo(
     () => (preview?.rows || []).filter((row) => introductionNote(row, catalog, catalogReady)).length,
     [preview, catalog, catalogReady],
   );
-  const recordRows = sortBy(records?.items || [], recordSort, {
-    student_number: (row) => String(row.student_id || "").toLowerCase(),
-    first_name: (row) => String(row.first_name || "").toLowerCase(),
-    middle_name: (row) => String(row.middle_name || "").toLowerCase(),
-    last_name: (row) => String(row.last_name || "").toLowerCase(),
-    college: (row) => String(row.college || "").toLowerCase(),
-    course: (row) => String(row.degree || "").toLowerCase(),
-    course_code: (row) => String(row.course_code || "").toLowerCase(),
-  });
+  const recordRows = recordSort.key === "uploaded_at"
+    ? (records?.items || [])
+    : sortBy(records?.items || [], recordSort, {
+      student_number: (row) => String(row.student_id || "").toLowerCase(),
+      first_name: (row) => String(row.first_name || "").toLowerCase(),
+      middle_name: (row) => String(row.middle_name || "").toLowerCase(),
+      last_name: (row) => String(row.last_name || "").toLowerCase(),
+      college: (row) => String(row.college || "").toLowerCase(),
+      course: (row) => String(row.degree || "").toLowerCase(),
+      course_code: (row) => String(row.course_code || "").toLowerCase(),
+    });
   const recordCourseChoices = programChoices(catalog, recordCollege);
-  const recordFilters = Boolean(recordQuery.trim() || recordCollege || recordCourse);
+  const recordFilters = Boolean(recordQuery.trim() || recordCollege || recordCourse || uploadedFrom || uploadedTo);
   const formPrograms = form.college ? programChoices(catalog, form.college) : [];
   const codeLocked = Boolean(courseCodeFor(catalog, form.college, form.degree));
   const filtersActive = Boolean(previewQuery.trim() || previewStatus !== "all");
@@ -311,7 +350,25 @@ export default function AdminRegistry() {
     setRecordQuery("");
     setRecordCollege("");
     setRecordCourse("");
-    loadRecords({ term: "", nextCollege: "", nextCourse: "", nextPage: 1 });
+    setUploadedFrom("");
+    setUploadedTo("");
+    loadRecords({ term: "", nextCollege: "", nextCourse: "", nextFrom: "", nextTo: "", nextPage: 1 });
+  }
+
+  function chooseUploadFrom(value) {
+    setUploadedFrom(value);
+    loadRecords({ nextFrom: value, nextPage: 1 });
+  }
+
+  function chooseUploadTo(value) {
+    setUploadedTo(value);
+    loadRecords({ nextTo: value, nextPage: 1 });
+  }
+
+  function changeRecordSort(key) {
+    const next = toggleSort(recordSort, key);
+    setRecordSort(next);
+    if (key === "uploaded_at") loadRecords({ sort: next, nextPage: 1 });
   }
 
   function openAdd() {
@@ -380,7 +437,7 @@ export default function AdminRegistry() {
             <input
               value={recordQuery}
               onChange={(event) => setRecordQuery(event.target.value)}
-              placeholder="Search"
+              placeholder="Name, student number, or program"
             />
           </Field>
           <Field label="College">
@@ -399,6 +456,22 @@ export default function AdminRegistry() {
               {recordCourseChoices.map((item) => <option key={`${item.college}-${item.course}`} value={item.course}>{courseLabel(item)}</option>)}
             </select>
           </Field>
+          <Field label="Uploaded from">
+            <DateField
+              value={uploadedFrom}
+              max={uploadedTo || undefined}
+              aria-label="Uploaded from date"
+              onChange={(event) => chooseUploadFrom(event.target.value)}
+            />
+          </Field>
+          <Field label="Uploaded to">
+            <DateField
+              value={uploadedTo}
+              min={uploadedFrom || undefined}
+              aria-label="Uploaded to date"
+              onChange={(event) => chooseUploadTo(event.target.value)}
+            />
+          </Field>
           <button className="btn btn-navy" disabled={recordsBusy} type="submit">
             <SearchIcon size={16} />
             {recordsBusy ? "Searching…" : "Search"}
@@ -410,7 +483,7 @@ export default function AdminRegistry() {
         {recordsError && !records ? (
           <LoadError onRetry={() => loadRecords({ nextPage: records?.page || 1 })}>{recordsError}</LoadError>
         ) : recordsBusy && !records ? (
-          <TableSkeleton rows={8} cols={7} />
+          <TableSkeleton rows={8} cols={9} />
         ) : !recordRows.length ? (
           <Empty
             title={recordFilters ? "No graduates found" : "No graduate records"}
@@ -432,13 +505,15 @@ export default function AdminRegistry() {
             <table className="data stack">
               <thead>
                 <tr>
-                  <th><SortButton column="student_number" sort={recordSort} onSort={(key) => setRecordSort((prev) => toggleSort(prev, key))}>Student Number</SortButton></th>
-                  <th><SortButton column="first_name" sort={recordSort} onSort={(key) => setRecordSort((prev) => toggleSort(prev, key))}>First Name</SortButton></th>
-                  <th><SortButton column="middle_name" sort={recordSort} onSort={(key) => setRecordSort((prev) => toggleSort(prev, key))}>Middle Name</SortButton></th>
-                  <th><SortButton column="last_name" sort={recordSort} onSort={(key) => setRecordSort((prev) => toggleSort(prev, key))}>Last Name</SortButton></th>
-                  <th><SortButton column="college" sort={recordSort} onSort={(key) => setRecordSort((prev) => toggleSort(prev, key))}>College</SortButton></th>
-                  <th><SortButton column="course" sort={recordSort} onSort={(key) => setRecordSort((prev) => toggleSort(prev, key))}>Course</SortButton></th>
-                  <th><SortButton column="course_code" sort={recordSort} onSort={(key) => setRecordSort((prev) => toggleSort(prev, key))}>Course Code</SortButton></th>
+                  <th><SortButton column="student_number" sort={recordSort} onSort={changeRecordSort}>Student Number</SortButton></th>
+                  <th><SortButton column="first_name" sort={recordSort} onSort={changeRecordSort}>First Name</SortButton></th>
+                  <th><SortButton column="middle_name" sort={recordSort} onSort={changeRecordSort}>Middle Name</SortButton></th>
+                  <th><SortButton column="last_name" sort={recordSort} onSort={changeRecordSort}>Last Name</SortButton></th>
+                  <th><SortButton column="college" sort={recordSort} onSort={changeRecordSort}>College</SortButton></th>
+                  <th><SortButton column="course" sort={recordSort} onSort={changeRecordSort}>Course</SortButton></th>
+                  <th><SortButton column="course_code" sort={recordSort} onSort={changeRecordSort}>Course Code</SortButton></th>
+                  <th><SortButton column="uploaded_at" sort={recordSort} onSort={changeRecordSort}>Upload Date</SortButton></th>
+                  <th>Approval Date</th>
                 </tr>
               </thead>
               <tbody>
@@ -451,6 +526,8 @@ export default function AdminRegistry() {
                     <td data-label="College">{row.college || "—"}</td>
                     <td className="cell-title" data-label="Course">{row.degree || "—"}</td>
                     <td data-label="Course Code">{row.course_code || "—"}</td>
+                    <td data-label="Upload Date">{formatManilaDate(row.uploaded_at)}</td>
+                    <td data-label="Approval Date">{row.approved_at ? formatManilaDate(row.approved_at) : "Not approved"}</td>
                   </tr>
                 ))}
               </tbody>

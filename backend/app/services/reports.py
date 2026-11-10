@@ -225,6 +225,7 @@ def _person_context(row: TracerSubmission) -> dict[str, Any]:
     return {
         "college": college or "Unspecified",
         "program": program or course_code or "Unspecified",
+        "course_code": course_code,
         "year": year or "Unknown",
         "name": " ".join(part for part in (first, last) if part) or "Unnamed graduate",
         "organization": current.employer,
@@ -279,7 +280,7 @@ def prepare_employment_row(
 ):
     """Return prepared tracer data when the row is inside the employment filters."""
     selected = normalize_employment_filter(employment)
-    if not _matches_filters(_academic_context(row), college, program, year):
+    if not _matches_filters(_academic_context(row), college, program, year, _index_from(row)):
         return None
     if not _matches_location(_profile_city(row), location):
         return None
@@ -338,13 +339,25 @@ def _choice_caption(value: str, recorded: str, empty: str) -> str:
     return chosen
 
 
-def _matches_filters(ctx: dict[str, Any], college: str, program: str, year: str) -> bool:
+def _index_from(row):
+    from app.services.academic_filters import program_index_for
+
+    return program_index_for(row)
+
+
+def _matches_filters(ctx: dict[str, Any], college: str, program: str, year: str, index=None) -> bool:
     if college and ctx["college"] != college:
         return False
     if year and ctx["year"] != year:
         return False
-    if program and ctx["program"] != program:
-        return False
+    if program:
+        degree = ctx.get("program") or ""
+        course_code = ctx.get("course_code") or ""
+        if index is None:
+            if degree != program and course_code != program:
+                return False
+        elif not index.selection_matches(program, degree, course_code):
+            return False
     return True
 
 
@@ -352,9 +365,10 @@ def _record_matches(record: UniversityRecord, college: str, program: str, year: 
     ctx = {
         "college": _text(record.college) or "Unspecified",
         "program": _text(record.degree) or _text(record.course_code) or "Unspecified",
+        "course_code": _text(record.course_code),
         "year": _text(record.year_graduated) or "Unknown",
     }
-    return _matches_filters(ctx, college, program, year)
+    return _matches_filters(ctx, college, program, year, _index_from(record))
 
 
 def classify_graduate(row: TracerSubmission) -> dict[str, Any]:
@@ -417,7 +431,15 @@ def filter_options(db: Session) -> dict[str, Any]:
     records = db.query(UniversityRecord).all()
     colleges = {_text(row.college) for row in records if _text(row.college)}
     colleges.update(catalog["colleges"])
-    programs = {_text(row.degree) for row in records if _text(row.degree)}
+    from app.services.program_match import ProgramIndex
+
+    index = ProgramIndex(catalog["programs"])
+    programs = set()
+    for row in records:
+        degree = _text(row.degree)
+        if not degree and not _text(row.course_code):
+            continue
+        programs.add(index.display_name(degree, _text(row.course_code), _text(row.college)) or degree)
     programs.update(catalog["courses"])
     years = sorted({_text(row.year_graduated) for row in records if _text(row.year_graduated)}, reverse=True)
     kind_by_pair = {(item["college"], item["course"]): item.get("kind") or "" for item in catalog["programs"]}
@@ -425,7 +447,7 @@ def filter_options(db: Session) -> dict[str, Any]:
     pairs = []
     for row in records:
         college = _text(row.college)
-        program = _text(row.degree)
+        program = index.display_name(_text(row.degree), _text(row.course_code), college) or _text(row.degree)
         key = (college, program)
         if key in seen or not (college or program):
             continue
@@ -503,6 +525,7 @@ def _academic_context(row: TracerSubmission) -> dict[str, str]:
     return {
         "college": _text(record.college if record else "") or "Unspecified",
         "program": program or _text(record.course_code if record else "") or "Unspecified",
+        "course_code": _text(record.course_code if record else ""),
         "year": year or "Unknown",
     }
 
@@ -673,7 +696,7 @@ def build_oaaps_report(
     people = []
     for row in submission_rows:
         classified = classify_graduate(row)
-        if not _matches_filters(classified["context"], college, program, year):
+        if not _matches_filters(classified["context"], college, program, year, _index_from(row)):
             continue
         profile = row.account.profile if row.account else None
         data = apply_profile_unemployment(row.data_json or {}, profile)
@@ -867,16 +890,23 @@ def build_oaaps_report(
             "productive": 0,
         }
     )
+    from app.services.academic_filters import program_index
+
+    label_index = program_index(db)
+
+    def _program_label(college_name: str, degree: str, course_code: str) -> str:
+        return label_index.display_name(degree, course_code, college_name) or _text(degree) or _text(course_code) or "Unspecified"
+
     for record in records:
         key = (
             _text(record.college) or "Unspecified",
-            _text(record.degree) or _text(record.course_code) or "Unspecified",
+            _program_label(record.college, record.degree, record.course_code),
             _text(record.year_graduated) or "Unknown",
         )
         grouped[key]["graduates"] += 1
     for item in people:
         ctx = item["context"]
-        key = (ctx["college"], ctx["program"], ctx["year"])
+        key = (ctx["college"], _program_label(ctx["college"], ctx["program"], ctx.get("course_code") or ""), ctx["year"])
         grouped[key]["traced"] += 1
         grouped[key]["workforce"] += int(item["workforce"])
         grouped[key]["professional"] += int(item["professional"])

@@ -58,18 +58,6 @@ HOW_FOUND_FIRST_JOB = [
 
 GUARDIAN_OPTIONS = ["Both Parents", "Father", "Mother", "Other"]
 
-QUESTION_TYPES = {
-    "short_answer": "Short Answer",
-    "paragraph": "Paragraph",
-    "multiple_choice": "Multiple Choice",
-    "checkboxes": "Checkboxes",
-    "dropdown": "Dropdown",
-    "scale": "Linear Scale",
-    "yes_no": "Yes/No",
-    "date": "Date",
-    "number": "Number",
-}
-
 CORE_GTS_SECTIONS = [
     {
         "key": "general",

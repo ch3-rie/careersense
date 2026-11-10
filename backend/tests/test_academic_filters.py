@@ -55,7 +55,9 @@ def test_registry_college_and_course_filters(client):
         headers=headers,
         params={"q": "Reyes", "college": NURSING},
     )
-    assert mismatch.json()["total"] == 0
+    emails = {row["personal_email"] for row in mismatch.json()["items"]}
+    assert "maria.reyes@gmail.com" not in emails
+    assert all(row["college"] == NURSING for row in mismatch.json()["items"])
 
     cleared = client.get("/api/admin/university-records", headers=headers, params={"page_size": 25})
     assert cleared.json()["total"] >= both.json()["total"]

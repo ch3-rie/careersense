@@ -1,0 +1,126 @@
+{
+  "stamp": "95b332c6",
+  "health": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "service": "CareerSense",
+      "environment": "development",
+      "llm_configured": false,
+      "docs_enabled": true,
+      "email_configured": false,
+      "email_enabled": false,
+      "email_provider": "",
+      "email_scheduler": false
+    }
+  },
+  "super_login": 200,
+  "users_before": {
+    "status": 200,
+    "full_active": 1,
+    "administrator_rows": 5,
+    "note": "Five administrator rows were already present. One was the seeded full administrator. The other four were not full administrators. Personal addresses already in the local database are not copied into this log."
+  },
+  "create_second": {
+    "status": 200,
+    "email": "qa.super.95b332c6@example.com",
+    "employee_number": "093",
+    "privileges_on_create": "add_users",
+    "full_admin_on_create": false,
+    "detail": null
+  },
+  "privilege_cleared": {
+    "admin_privileges": "",
+    "status": "Active",
+    "note": "The users function always stores add_users. Empty privileges were written in the local database so this account is a second full administrator for TC-AUTH-003."
+  },
+  "second_listed": {
+    "status": 200,
+    "full_admin": true,
+    "privilege_label": "Full access",
+    "full_active": 2
+  },
+  "deactivate_second_while_two_full_admins": {
+    "status": 200,
+    "message": "Administrator deactivated",
+    "resulting_status": "Inactive"
+  },
+  "deactivate_signed_in_super": {
+    "status": 400,
+    "detail": "You cannot deactivate your own account."
+  },
+  "seeded_super_still_signs_in": {
+    "status": 200,
+    "role": "Admin"
+  },
+  "tc_auth_003": {
+    "status": 403,
+    "detail": "This administrator account is inactive.",
+    "token_issued": false
+  },
+  "tc_auth_002_followup": {
+    "reset_status": 200,
+    "change_status": 200,
+    "change_message": "Password updated.",
+    "login_after_change": 200,
+    "must_change_password": false,
+    "full_admin": false,
+    "admin_privileges": "add_users",
+    "users": 200,
+    "approvals": [
+      403,
+      "This account can only add users."
+    ],
+    "password_recorded": false
+  },
+  "tc_reg_010": {
+    "email": "qa.expire.95b332c6@example.com",
+    "register_status": 200,
+    "account_created": false,
+    "draft_id": 12,
+    "expires_at_before_move": "2026-11-10 15:02:21.116145",
+    "complete_status": 400,
+    "complete_detail": "Your resume review session expired. Please upload your resume again.",
+    "login_status": 401,
+    "login_detail": "Incorrect email or password.",
+    "draft_remaining": false,
+    "account_remaining": false,
+    "clock": "expires_at was set to 2000-01-01 in the local database. The test did not wait 24 hours."
+  },
+  "pin_account": {
+    "email": "qa.reject.6101f451@example.com",
+    "found": true
+  },
+  "tc_pwd_002": {
+    "request_status": 200,
+    "request_message": "If an account exists for this email address, a verification PIN has been sent.",
+    "challenge_id": 3,
+    "expires_at_before_move": "2026-11-09 15:12:21.179462",
+    "verify_status": 400,
+    "verify_detail": "This PIN has expired. Please request a new PIN.",
+    "recent_audit": [
+      "password_reset_email_failed",
+      "password_reset_requested",
+      "REJECT"
+    ],
+    "clock": "The challenge expires_at was set to 2000-01-01. The test did not wait 10 minutes.",
+    "inbox": "No inbox was checked. email_enabled was false."
+  },
+  "tc_pwd_003": {
+    "request_status": 200,
+    "request_message": "If an account exists for this email address, a verification PIN has been sent.",
+    "pin_recovered": true,
+    "pin_recorded": false,
+    "verify_status": 200,
+    "verify_message": "Email verified successfully. You can now create a new password.",
+    "reset_token_recorded": false,
+    "reset_status": 200,
+    "reset_message": "Password updated successfully",
+    "login_with_new_password": 200,
+    "login_status_value": "Rejected"
+  },
+  "password_restored": {
+    "login_status": 200,
+    "account_status": "Rejected"
+  }
+}

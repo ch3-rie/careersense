@@ -43,6 +43,7 @@ export function normalizeAchievement(row) {
     description: row.description || "",
     locked_description: row.locked_description || row.description || "",
     icon: row.icon || "check",
+    image_url: row.image_url || "",
     category: row.category || "core",
     earned,
     awarded_at: row.awarded_at || null,

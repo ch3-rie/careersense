@@ -53,11 +53,20 @@ Password rule: at least **8 characters**, with **letters and numbers**.
 
 | Who | Email | Password | Status | What to test |
 |-----|-------|----------|--------|--------------|
-| OAAPS admin | `admin@auf.edu.ph` | `Admin@AUF2026` | Active | Approvals, registry, survey, perks, SOC, reports, users |
+| OAAPS Super Admin | `admin@auf.edu.ph` | `Admin@AUF2026` | Active | Whole admin portal: approvals, registry, records, cards, reports, perks, SOC, users |
 | Maria Reyes (BSIT, aligned) | `maria.reyes@gmail.com` | `Alumni@2026` | Active | Full alumni portal, claimed alumni card, perks, achievements |
 | Liza Torres (BSA, misaligned) | `liza.torres@gmail.com` | `Alumni@2026` | Active | Misaligned occupation, no alumni card yet, further studies |
 | Juan Dela Cruz | `juan.delacruz@gmail.com` | `Alumni@2026` | Pending | Pending page; cannot open `/alumni` |
 | Ana Garcia | `ana.garcia@gmail.com` | `Alumni@2026` | Rejected | Rejected page with OAAPS reason |
+
+**OAAPS Super Admin and OAAPS Admin are different accounts.**
+
+| | OAAPS Super Admin | OAAPS Admin |
+|--|-------------------|-------------|
+| How it exists | Seeded account `admin@auf.edu.ph`. No privilege restriction. | Created from **Users**. Privilege is always **Add users**. |
+| Portal | Every admin page: approvals, registry, records, alumni card, profile updates, reports, perks, badges, colleges and courses, SOC, users, account. | **Users** and **Account** only. Other admin pages redirect to Users. |
+| User management | Add administrators. Edit, activate, deactivate, and reset passwords. Cannot deactivate the last active Super Admin, or their own account. | Add other OAAPS Admins and view the list. Cannot edit, activate, deactivate, or reset passwords. |
+| First login | Password above. | Must change the one-time temporary password on `/admin/account`. |
 
 **New registration (no account yet):** `carlos.mendoza@gmail.com` is in the graduate registry. Use resume [`carlos_mendoza.txt`](../backend/data/samples/carlos_mendoza.txt) and password `Alumni@2026`.
 
@@ -121,6 +130,8 @@ Other registry emails with **no account** (register the same way):
 
 Use Chrome or Edge. Sign out between accounts (Manage Account → Sign out, or use a private window).
 
+A resume file is uploaded only at registration (`/register`). Signed-in alumni do not upload another file. **Extract Resume** (`/alumni/resume`) edits and exports the resume built from that registration file and the saved profile.
+
 ### A. Public site
 
 1. Open `/`. Confirm Features and How it works.
@@ -131,9 +142,9 @@ Use Chrome or Edge. Sign out between accounts (Manage Account → Sign out, or u
 
 1. Log in at `/login`.
 2. **Home** `/alumni`: profile completion, achievements, work history, notifications.
-3. **Alumni Card**: claimed card number and expiry (2028-03-31).
+3. **Alumni QR** `/alumni/qr`: confirm the prompt, then check the QR code and the claimed Angelenean Alumni Card (card number and expiry 2028-03-31) on the same page. `/alumni/card` opens that same card without the QR code. See [alumni-qr-and-card.md](alumni-qr-and-card.md).
 4. **Perks**: cafe discount is claimable; library perk is available because the card is claimed; Career Fair is expired; Homecoming is already used.
-5. **Resume & Tracer**: review pre-filled GTS, save a small edit (for example skills), confirm alignment stays Aligned.
+5. **Extract Resume** `/alumni/resume`: the registration file is already on the resume. Edit a small detail (for example a skill) and save. There is no upload control on this page.
 6. **Manage Account**: change password only if you will keep using this tester machine; otherwise skip so other testers can still use `Alumni@2026`.
 
 Expected: Maria can open every `/alumni/*` page and is redirected away from `/admin`.
@@ -141,21 +152,18 @@ Expected: Maria can open every `/alumni/*` page and is redirected away from `/ad
 ### C. Sign in as Liza (misalignment + card apply)
 
 1. Home shows **Misaligned** and suggested paths such as accountant / auditor.
-2. Open Alumni Card → apply with:
+2. Open **Alumni QR** (`/alumni/qr`) or `/alumni/card` and choose **Get Alumni Card**. The form fills identity from her record. Enter the fields the form still asks for, then pick an open appointment:
 
    | Field | Sample |
    |-------|--------|
-   | Birthday | 1998-08-20 |
-   | Phone | +63 918 555 0144 |
-   | City | Mabalacat |
-   | Country | Philippines |
-   | Mailing address | 12 Rizal St., Mabalacat, Pampanga |
-   | Company | Kapampangan Kitchen Group |
-   | Position | Restaurant Manager |
-   | Membership | New |
+   | Date of birth | 1998-08-20 |
+   | Mobile number | +63 918 555 0144 |
+   | Home address | 12 Rizal St., Mabalacat, Pampanga |
+
+   Membership is set to New by the application. Showing the QR code does not submit this form.
 
 3. After submit, status should be **For verification**. Library perk stays locked until OAAPS marks the card ready/claimed.
-4. Resume & Tracer: confirm MBA further-studies row is present.
+4. **Extract Resume**: confirm the MBA further-studies row is present. Do not upload another resume.
 
 ### D. Pending and rejected
 
@@ -197,7 +205,7 @@ Expected: Maria can open every `/alumni/*` page and is redirected away from `/ad
 
 ## 5. OAAPS / admin tester scripts
 
-Log in as `admin@auf.edu.ph`.
+Log in as the OAAPS Super Admin, `admin@auf.edu.ph`. An OAAPS Admin created from Users cannot run these scripts: that account only opens Users and Account.
 
 ### A. Approval queue
 
@@ -228,13 +236,7 @@ Log in as `admin@auf.edu.ph`.
 1. **Records**: open Maria (Aligned) and Liza (Misaligned).
 2. **Reports**: totals, filters (year / college), CSV export, OAAPS document export/print.
 
-### D. Survey manager
-
-1. Confirm the four core sections (General, Employment, Further Studies, Feedback) are present.
-2. Add a question, for example: *Would you recommend AUF to a family member?* (Yes/No, Feedback).
-3. Publish if the UI requires it, then confirm the question appears on `/register` and on Maria’s Resume & Tracer form.
-
-### E. Perks
+### D. Perks
 
 Create a test perk:
 
@@ -250,25 +252,27 @@ Create a test perk:
 
 Toggle it off and confirm alumni no longer see it as available.
 
-### F. SOC mapping
+### E. SOC mapping
 
 1. Search `2512` (Software Developers) and `1412` (Restaurant Managers).
 2. Add a mapping if needed, e.g. raw title `fullstack engineer` → `2512`.
 3. Re-save a GTS with that title and confirm alignment uses the mapping.
 
-### G. Profile updates
+### F. Profile updates
 
 1. Search Maria. Send a request for **Phone number** and **City**.
 2. Sign in as Maria: notification appears; update contact on Home.
 3. Admin request list should reflect the follow-up.
 
-### H. Admin users
+### G. Users (Super Admin vs OAAPS Admin)
 
-1. Create a second admin (copy the **one-time temporary password** immediately).
-2. New admin must change password on first login (`/admin/account`).
-3. Do not deactivate the last active admin.
+1. On **Users**, `admin@auf.edu.ph` is listed as **Super Admin**.
+2. Create an OAAPS Admin (copy the **one-time temporary password** immediately). The new account’s role is Admin and its privilege is Add users.
+3. Sign in as that OAAPS Admin. The sidebar shows only **Users** and **Account**. Opening Approvals, Registry, or Reports returns to Users. The account can add another admin and can view the list. Edit, Activate, Deactivate, and Reset password are not available.
+4. The new admin must change the temporary password on first login (`/admin/account`).
+5. Do not deactivate the last active Super Admin. A Super Admin also cannot deactivate their own account.
 
-### I. Authorization (IT)
+### H. Authorization (IT)
 
 | Caller | `/api/admin/dashboard` | `/api/alumni/dashboard` |
 |--------|------------------------|-------------------------|
@@ -357,7 +361,7 @@ LlamaParse is optional. Without `LLM_API_KEY`, extraction uses the built-in pars
 4. Carlos registration + admin approve.
 5. Registry add Elena → unemployed registration.
 6. Unmatched applicant + reject.
-7. Survey extra question, perk create, SOC search, reports export.
+7. Perk create, SOC search, reports export.
 8. Optional: email PIN.
 
 Record pass/fail on a copy of this list. Note browser, date, and whether Gemini was on.

@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1028" height="626" viewBox="0 0 1028 626">
+<rect width="1028" height="626" fill="#ffffff"/>
+<text x="514.0" y="32.0" fill="#222222" font-family="Arial" font-size="18" font-weight="700" font-style="normal" text-anchor="middle">Figure 46. Alumni Services Class Diagram</text>
+<polyline points="168.0,319.0 288.0,319.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="398.0,319.0 518.0,319.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="713.0,319.0 833.0,319.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="324.0,482.0 324.0,373.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="362.0,482.0 362.0,373.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="409.5,536.0 902.0,536.0 902.0,382.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<rect x="17.0" y="78.0" width="174.0" height="108.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="17.0,112.0 191.0,112.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="104.0" y="101.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">AacAppointmentSlot</text>
+<text x="29.0" y="132.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">slotDate</text>
+<text x="29.0" y="150.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">slotTime</text>
+<text x="29.0" y="168.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">capacity</text>
+<rect x="40.0" y="256.0" width="128.0" height="126.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="40.0,290.0 168.0,290.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="104.0" y="279.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">AlumniCard</text>
+<text x="52.0" y="310.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">status</text>
+<text x="52.0" y="328.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">cardNumber</text>
+<text x="52.0" y="346.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">appointmentDate</text>
+<text x="52.0" y="364.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">appointmentTime</text>
+<rect x="288.0" y="265.0" width="110.0" height="108.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="288.0,299.0 398.0,299.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="343.0" y="288.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">Account</text>
+<text x="300.0" y="319.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">personalEmail</text>
+<text x="300.0" y="337.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">role</text>
+<text x="300.0" y="355.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">status</text>
+<rect x="518.0" y="274.0" width="195.0" height="90.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="518.0,308.0 713.0,308.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="615.5" y="297.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">AlumniPerkRedemption</text>
+<text x="530.0" y="328.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">redeemedAt</text>
+<text x="530.0" y="346.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">code</text>
+<rect x="833.0" y="256.0" width="138.0" height="126.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="833.0,290.0 971.0,290.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="902.0" y="279.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">AlumniPerk</text>
+<text x="845.0" y="310.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">name</text>
+<text x="845.0" y="328.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">partner</text>
+<text x="845.0" y="346.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">discount</text>
+<text x="845.0" y="364.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">requiresActiveCard</text>
+<rect x="276.5" y="482.0" width="133.0" height="108.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="276.5,516.0 409.5,516.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="343.0" y="505.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">PartnerActivity</text>
+<text x="288.5" y="536.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">activityType</text>
+<text x="288.5" y="554.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">partnerName</text>
+<text x="288.5" y="572.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">activityAt</text>
+<rect x="212.0" y="293.0" width="32.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="228.0" y="305.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="middle">card</text>
+<rect x="170.0" y="299.0" width="28.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="184.0" y="311.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..1</text>
+<rect x="264.5" y="323.0" width="15.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="272.0" y="335.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">1</text>
+<rect x="419.0" y="293.0" width="78.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="458.0" y="305.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="middle">claimed perk</text>
+<rect x="406.5" y="299.0" width="15.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="414.0" y="311.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">1</text>
+<rect x="489.0" y="323.0" width="26.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="502.0" y="335.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..*</text>
+<rect x="757.0" y="293.0" width="32.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="773.0" y="305.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="middle">perk</text>
+<rect x="716.0" y="299.0" width="26.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="729.0" y="311.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..*</text>
+<rect x="809.5" y="323.0" width="15.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="817.0" y="335.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">1</text>
+<rect x="261.0" y="419.5" width="55.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="316.0" y="431.5" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="end">alumnus</text>
+<rect x="299.0" y="458.0" width="26.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="312.0" y="470.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..*</text>
+<rect x="322.0" y="381.0" width="28.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="336.0" y="393.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..1</text>
+<rect x="370.0" y="419.5" width="73.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="370.0" y="431.5" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="start">recorded by</text>
+<rect x="337.0" y="458.0" width="26.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="350.0" y="470.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..*</text>
+<rect x="360.0" y="381.0" width="28.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="374.0" y="393.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..1</text>
+<rect x="624.8" y="510.0" width="62.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="655.8" y="522.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="middle">perk used</text>
+<rect x="412.5" y="516.0" width="26.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="425.5" y="528.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..*</text>
+<rect x="900.0" y="390.0" width="28.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="914.0" y="402.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..1</text>
+<text x="17.0" y="208.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="start">Open schedule only. The card stores the chosen date and time.</text>
+</svg>

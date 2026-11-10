@@ -155,6 +155,8 @@ def serialize_definition(row: BadgeDefinition, earned_count: int = 0) -> dict:
         "description": row.description or "",
         "locked_description": row.locked_description or "",
         "icon": row.icon or "check",
+        "has_image": bool(row.image_path),
+        "image_url": f"/api/admin/badges/{row.id}/image" if row.image_path else None,
         "category": row.category or "recognition",
         "category_label": dict(CATEGORIES).get(row.category, row.category or ""),
         "criteria_type": row.criteria_type,
@@ -182,6 +184,7 @@ def as_catalog_dict(row: BadgeDefinition) -> dict:
         "description": row.description or "",
         "locked_description": row.locked_description or "",
         "icon": row.icon or "check",
+        "image_url": f"/api/alumni/achievements/{row.key}/image" if row.image_path else None,
         "category": row.category or "core",
         "route": row.route or "/alumni",
         "cta": row.cta or "Continue",
@@ -334,5 +337,6 @@ def remove_badge(db: Session, row: BadgeDefinition) -> dict:
             )
         return {"removed": False, "deactivated": True, "message": message}
     name = row.name
+    stored = row.image_path or ""
     db.delete(row)
-    return {"removed": True, "deactivated": False, "message": f"{name} was removed."}
+    return {"removed": True, "deactivated": False, "message": f"{name} was removed.", "image_path": stored}

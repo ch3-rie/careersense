@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="855" height="520" viewBox="0 0 855 520">
+<rect width="855" height="520" fill="#ffffff"/>
+<text x="427.5" y="32.0" fill="#222222" font-family="Arial" font-size="18" font-weight="700" font-style="normal" text-anchor="middle">Figure 42. Registration and Authentication Class Diagram</text>
+<polyline points="197.0,173.0 347.0,173.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="497.0,173.0 647.0,173.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="706.0,254.0 706.0,354.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<rect x="48.0" y="92.0" width="149.0" height="162.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="48.0,126.0 197.0,126.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="122.5" y="115.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">RegistrationDraft</text>
+<text x="60.0" y="146.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">personalEmail</text>
+<text x="60.0" y="164.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">passwordHash</text>
+<text x="60.0" y="182.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">privacyConsent</text>
+<text x="60.0" y="200.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">resumeFile</text>
+<text x="60.0" y="218.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">extractedText</text>
+<text x="60.0" y="236.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">parsedFields</text>
+<rect x="347.0" y="119.0" width="150.0" height="108.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="347.0,153.0 497.0,153.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="422.0" y="142.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">UniversityRecord</text>
+<text x="359.0" y="173.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">studentId</text>
+<text x="359.0" y="191.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">degree</text>
+<text x="359.0" y="209.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">yearGraduated</text>
+<rect x="647.0" y="92.0" width="118.0" height="162.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="647.0,126.0 765.0,126.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="706.0" y="115.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">Account</text>
+<text x="659.0" y="146.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">personalEmail</text>
+<text x="659.0" y="164.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">passwordHash</text>
+<text x="659.0" y="182.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">role</text>
+<text x="659.0" y="200.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">status</text>
+<text x="659.0" y="218.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">isVerified</text>
+<text x="659.0" y="236.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">linkedStudentId</text>
+<rect x="597.0" y="354.0" width="218.0" height="126.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="597.0,388.0 815.0,388.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="706.0" y="377.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">PasswordResetVerification</text>
+<text x="609.0" y="408.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">emailHash</text>
+<text x="609.0" y="426.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">pinHash</text>
+<text x="609.0" y="444.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">expiresAt</text>
+<text x="609.0" y="462.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">attempts</text>
+<rect x="227.0" y="147.0" width="90.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="272.0" y="159.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="middle">possible match</text>
+<rect x="200.0" y="153.0" width="26.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="213.0" y="165.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..*</text>
+<rect x="317.0" y="177.0" width="28.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="331.0" y="189.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..1</text>
+<rect x="518.5" y="147.0" width="107.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="572.0" y="159.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="middle">matched graduate</text>
+<rect x="499.0" y="153.0" width="28.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="513.0" y="165.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..1</text>
+<rect x="617.0" y="177.0" width="28.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="631.0" y="189.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..1</text>
+<rect x="714.0" y="296.0" width="55.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="714.0" y="308.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="start">recovery</text>
+<rect x="704.0" y="262.0" width="28.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="718.0" y="274.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..1</text>
+<rect x="681.0" y="330.0" width="26.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="694.0" y="342.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..*</text>
+<text x="48.0" y="282.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="start">The draft is removed after the survey is submitted and the account is created.</text>
+</svg>

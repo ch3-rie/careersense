@@ -5,6 +5,7 @@ import { PortalShell } from "../../components/Layout";
 import { ChevronDownIcon, PencilIcon, PlusIcon, SearchIcon } from "../../components/icons";
 import { Alert, Dialog, Empty, Field, LoadError, Pager, SortButton, TableSkeleton, TabList, sortBy, toggleSort } from "../../components/ui";
 import { api } from "../../lib/api";
+import { createProgramIndex } from "../../lib/academicFilters";
 
 const PAGE_SIZE = 8;
 
@@ -133,6 +134,22 @@ export default function AdminAcademics() {
   const colleges = data?.colleges || [];
   const courses = data?.courses || [];
   const term = query.trim().toLowerCase();
+  const programIndex = useMemo(
+    () => createProgramIndex(courses.map((course) => ({
+      college: course.college,
+      course: course.name,
+      course_code: course.course_code,
+      kind: course.kind,
+    }))),
+    [courses],
+  );
+
+  function courseMatchesTerm(course) {
+    if (!term) return true;
+    const plain = [course.name, course.course_code, course.college, course.kind_label, course.review_label, course.parent_name].join(" ").toLowerCase();
+    if (plain.includes(term)) return true;
+    return programIndex.matchesRecord(term, { degree: course.name, courseCode: course.course_code, college: course.college });
+  }
 
   useEffect(() => {
     setCollapsedSearchIds(new Set());
@@ -142,7 +159,7 @@ export default function AdminAcademics() {
     const filtered = colleges.filter((row) => {
       if (!term) return true;
       if ([row.name, row.code].join(" ").toLowerCase().includes(term)) return true;
-      return courses.some((course) => course.college_id === row.id && [course.name, course.course_code].join(" ").toLowerCase().includes(term));
+      return courses.some((course) => course.college_id === row.id && courseMatchesTerm(course));
     });
     return sortBy(filtered, sort, {
       name: (row) => row.name.toLowerCase(),
@@ -150,13 +167,13 @@ export default function AdminAcademics() {
       course_count: (row) => row.course_count || 0,
       graduate_count: (row) => row.graduate_count || 0,
     });
-  }, [colleges, courses, term, sort]);
+  }, [colleges, courses, term, sort, programIndex]);
 
   const courseRows = useMemo(() => {
     const filtered = courses.filter((row) => {
       if (collegeFilter && String(row.college_id) !== collegeFilter) return false;
       if (!term) return true;
-      return [row.name, row.course_code, row.college, row.kind_label, row.review_label, row.parent_name].join(" ").toLowerCase().includes(term);
+      return courseMatchesTerm(row);
     });
     return sortBy(filtered, sort, {
       name: (row) => row.name.toLowerCase(),
@@ -164,7 +181,7 @@ export default function AdminAcademics() {
       college: (row) => row.college.toLowerCase(),
       graduate_count: (row) => row.graduate_count || 0,
     });
-  }, [courses, term, sort, collegeFilter]);
+  }, [courses, term, sort, collegeFilter, programIndex]);
 
   const rows = tab === "colleges" ? collegeRows : courseRows;
   const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
@@ -173,7 +190,7 @@ export default function AdminAcademics() {
   const searchLabel = tab === "colleges" ? "Search colleges, codes, or courses" : "Search by course, course code, or college";
 
   function courseHit(course) {
-    return Boolean(term) && [course.name, course.course_code].join(" ").toLowerCase().includes(term);
+    return Boolean(term) && courseMatchesTerm(course);
   }
 
   function coursesFor(college) {

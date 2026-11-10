@@ -299,7 +299,12 @@ export function JobTimeline({
                 <li key={job.id} className={shown.is_current ? "is-current" : ""}>
                   <span className="job-dot" aria-hidden="true" />
                   <div>
-                    {periodLine(shown, true) ? <p className="job-when">{periodLine(shown, true)}</p> : null}
+                    {periodLine(shown, true) || job.is_first_job ? (
+                      <p className="job-when">
+                        {periodLine(shown, true) ? <span>{periodLine(shown, true)}</span> : null}
+                        {job.is_first_job ? <span className="job-first">First Job</span> : null}
+                      </p>
+                    ) : null}
                     <strong>{shown.job_title}</strong>
                     <p>{shown.company}</p>
                     {shown.location ? <p className="muted">{shown.location}</p> : null}
@@ -376,7 +381,7 @@ export function JobTimeline({
                 <article className="job-card">
                   <div className="job-card-top">
                     <div className="job-card-copy">
-                      {when || shown.is_current || job.duration ? (
+                      {when || shown.is_current || job.duration || job.is_first_job ? (
                         <p className="job-when">
                           {when || job.duration ? (
                             <span>
@@ -385,6 +390,7 @@ export function JobTimeline({
                               {job.duration}
                             </span>
                           ) : null}
+                          {job.is_first_job ? <span className="job-first">First Job</span> : null}
                           {shown.is_current ? <span className="job-now">Current</span> : null}
                         </p>
                       ) : null}

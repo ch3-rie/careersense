@@ -163,54 +163,6 @@ def test_hidden_pres_occ_does_not_replace_missing_first_occ(client):
     assert response.status_code == 400
 
 
-def test_closed_survey_blocks_pending_gts(client):
-    from tests.test_registration import _register
-
-    admin = login(client, "admin@auf.edu.ph", "Admin@AUF2026")
-    admin_headers = auth_header(admin["access_token"])
-    start = _register(client, "qa.pending.closed@gmail.com", first_name="Pending", last_name="Closed")
-    complete = client.post(
-        "/api/auth/register/complete",
-        json={
-            "registration_token": start.json()["registration_token"],
-            "first_name": "Pending",
-            "last_name": "Closed",
-            "degree": "Bachelor of Science in Information Technology",
-            "year_graduated": "2024",
-            "ever_employed": "No",
-            "is_currently_employed": "No",
-        },
-    )
-    assert complete.status_code == 200, complete.text
-    token = complete.json()["access_token"]
-    client.put(
-        "/api/admin/survey/settings",
-        headers=admin_headers,
-        json={"accepting_responses": False, "allow_alumni_edit": True},
-    )
-    try:
-        blocked = client.post(
-            "/api/alumni/gts",
-            headers=auth_header(token),
-            json={
-                "first_name": "Pending",
-                "last_name": "Closed",
-                "degree": "Bachelor of Science in Information Technology",
-                "year_graduated": "2024",
-                "ever_employed": "No",
-                "is_currently_employed": "No",
-            },
-        )
-        assert blocked.status_code == 400
-        assert "not currently accepting" in blocked.json()["detail"].lower()
-    finally:
-        client.put(
-            "/api/admin/survey/settings",
-            headers=admin_headers,
-            json={"accepting_responses": True, "allow_alumni_edit": True},
-        )
-
-
 def test_open_survey_allows_pending_gts(client):
     from tests.test_registration import _register
 

@@ -280,6 +280,31 @@ def ensure_runtime_schema(bind=None) -> None:
             ("review_status", "VARCHAR(20) DEFAULT 'on_record'"),
         ],
     )
+    _ensure_columns(
+        bind,
+        "university_records",
+        [
+            ("uploaded_at", dt_type),
+        ],
+    )
+    _ensure_columns(
+        bind,
+        "badge_definitions",
+        [
+            ("image_path", "VARCHAR(500) DEFAULT ''"),
+            ("image_mime", "VARCHAR(120) DEFAULT ''"),
+        ],
+    )
+    interest_flag = "BOOLEAN NOT NULL DEFAULT FALSE" if bind.dialect.name == "postgresql" else "INTEGER NOT NULL DEFAULT 0"
+    _ensure_columns(
+        bind,
+        "alumni_profiles",
+        [
+            ("interest_speaker", interest_flag),
+            ("interest_mentor", interest_flag),
+            ("interest_sponsor", interest_flag),
+        ],
+    )
     _relax_university_email(bind)
 
 

@@ -33,7 +33,7 @@ def job_duration(start: date | None, end: date | None, is_current: bool) -> str:
     return " ".join(parts) or "Less than a month"
 
 
-def serialize_job(row: AlumniJob) -> dict:
+def serialize_job(row: AlumniJob, *, is_first_job: bool = False) -> dict:
     return {
         "id": row.id,
         "job_title": row.job_title,
@@ -41,12 +41,24 @@ def serialize_job(row: AlumniJob) -> dict:
         "start_date": row.start_date.isoformat() if row.start_date else None,
         "end_date": row.end_date.isoformat() if row.end_date else None,
         "is_current": bool(row.is_current),
+        "is_first_job": is_first_job,
         "industry": row.industry or "",
         "location": row.location or "",
         "salary_range": row.salary_range or "",
         "description": row.description or "",
         "duration": job_duration(row.start_date, row.end_date, bool(row.is_current)),
     }
+
+
+def first_job_id(rows: list[AlumniJob]) -> int | None:
+    """Earliest start date, only when every job is dated and that date is unique."""
+    if not rows or any(row.start_date is None for row in rows):
+        return None
+    earliest = min(row.start_date for row in rows)
+    matches = [row.id for row in rows if row.start_date == earliest]
+    if len(matches) != 1:
+        return None
+    return matches[0]
 
 
 def _query_jobs(db: Session, account_id: int) -> list[AlumniJob]:
@@ -63,7 +75,9 @@ def _query_jobs(db: Session, account_id: int) -> list[AlumniJob]:
 
 
 def serialize_jobs(db: Session, account_id: int) -> list[dict]:
-    return [serialize_job(row) for row in _query_jobs(db, account_id)]
+    rows = _query_jobs(db, account_id)
+    marked = first_job_id(rows)
+    return [serialize_job(row, is_first_job=row.id == marked) for row in rows]
 
 
 def parse_job_date(value) -> date | None:

@@ -151,8 +151,8 @@ export default function AdminRecords() {
               <input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Name, student number, or email"
-                aria-label="Search by name, student number, or email"
+                placeholder="Name, student number, email, or program"
+                aria-label="Search by name, student number, email, or program"
               />
             </div>
           </Field>

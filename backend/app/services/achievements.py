@@ -270,6 +270,7 @@ def serialize_achievement(
         "description": definition.get("description") or "",
         "locked_description": locked_hint,
         "icon": definition.get("icon") or "check",
+        "image_url": definition.get("image_url") or None,
         "category": definition.get("category") or "core",
         "earned": earned,
         "awarded": earned,

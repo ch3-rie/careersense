@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AuthImage } from "../../components/AlumniChrome";
+import { FileDrop } from "../../components/FileDrop";
 import {
   BriefcaseIcon,
   CheckIcon,
@@ -15,6 +17,10 @@ import { PortalShell } from "../../components/Layout";
 import { RowActions } from "../../components/RowActions";
 import { Alert, Badge, Dialog, Empty, Field, LoadError } from "../../components/ui";
 import { api } from "../../lib/api";
+import { PHOTO_ACCEPT, imageFileError } from "../../lib/profilePhoto";
+
+const BADGE_IMAGE_MIN = 64;
+const BADGE_IMAGE_MAX = 2048;
 
 const EMPTY = {
   name: "",
@@ -27,7 +33,24 @@ const EMPTY = {
   requirementTouched: false,
 };
 
-function BadgeSeal({ icon, inactive = false }) {
+function measureImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      const size = { width: image.naturalWidth, height: image.naturalHeight };
+      URL.revokeObjectURL(url);
+      resolve(size);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("invalid"));
+    };
+    image.src = url;
+  });
+}
+
+function BadgeSeal({ icon, inactive = false, imageUrl = "", previewUrl = "" }) {
   const size = 18;
   let glyph = <CheckIcon size={size} />;
   if (icon === "file") glyph = <FileTextIcon size={size} />;
@@ -35,7 +58,13 @@ function BadgeSeal({ icon, inactive = false }) {
   else if (icon === "briefcase") glyph = <BriefcaseIcon size={size} />;
   else if (icon === "id-card") glyph = <CreditCardIcon size={size} />;
   else if (icon === "star") glyph = <StarIcon size={size} />;
-  return <span className={`achievement-seal badge-admin-seal${inactive ? " is-inactive" : " is-earned"}`} aria-hidden="true">{glyph}</span>;
+  return (
+    <span className={`achievement-seal badge-admin-seal${inactive ? " is-inactive" : " is-earned"}`} aria-hidden="true">
+      {glyph}
+      {previewUrl ? <img className="badge-custom-image" src={previewUrl} alt="" /> : null}
+      {!previewUrl && imageUrl ? <AuthImage className="badge-custom-image" src={imageUrl} alt="" /> : null}
+    </span>
+  );
 }
 
 function removalCopy(row) {
@@ -61,6 +90,74 @@ export default function AdminBadges() {
   const [formError, setFormError] = useState("");
   const [removeTarget, setRemoveTarget] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
+  const [imageError, setImageError] = useState("");
+  const [removeImage, setRemoveImage] = useState(false);
+  const imageToken = useRef(0);
+  const previewRef = useRef("");
+
+  function replacePreview(next) {
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+    previewRef.current = next || "";
+    setImagePreview(previewRef.current);
+  }
+
+  function resetImage() {
+    imageToken.current += 1;
+    setImageFile(null);
+    setImageError("");
+    setRemoveImage(false);
+    replacePreview("");
+  }
+
+  useEffect(() => () => {
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+  }, []);
+
+  async function acceptImage(file, message) {
+    const token = imageToken.current + 1;
+    imageToken.current = token;
+    if (!file) {
+      setImageFile(null);
+      setImageError(message || "");
+      replacePreview("");
+      return;
+    }
+    const basic = message || imageFileError(file);
+    if (basic) {
+      setImageFile(null);
+      setImageError(basic);
+      replacePreview("");
+      return;
+    }
+    let size;
+    try {
+      size = await measureImage(file);
+    } catch {
+      if (token !== imageToken.current) return;
+      setImageFile(null);
+      setImageError("The selected file is not a valid image.");
+      replacePreview("");
+      return;
+    }
+    if (token !== imageToken.current) return;
+    if (
+      size.width < BADGE_IMAGE_MIN
+      || size.height < BADGE_IMAGE_MIN
+      || size.width > BADGE_IMAGE_MAX
+      || size.height > BADGE_IMAGE_MAX
+    ) {
+      setImageFile(null);
+      setImageError(`Badge image must be between ${BADGE_IMAGE_MIN} and ${BADGE_IMAGE_MAX} pixels on each side.`);
+      replacePreview("");
+      return;
+    }
+    setImageError("");
+    setImageFile(file);
+    setRemoveImage(false);
+    replacePreview(URL.createObjectURL(file));
+  }
 
   async function load() {
     setError("");
@@ -89,10 +186,16 @@ export default function AdminBadges() {
     });
   }, [data, query, category, status]);
 
+  function closeEditor() {
+    resetImage();
+    setEditor(null);
+  }
+
   function openCreate() {
     const first = data?.criteria?.[0];
     setFieldErrors({});
     setFormError("");
+    resetImage();
     setEditor({
       ...EMPTY,
       criteria_type: first?.value || "profile_complete",
@@ -103,6 +206,7 @@ export default function AdminBadges() {
   function openEdit(row) {
     setFieldErrors({});
     setFormError("");
+    resetImage();
     setEditor({ ...row, requirementTouched: true });
   }
 
@@ -128,8 +232,9 @@ export default function AdminBadges() {
     event.preventDefault();
     const problems = validate(editor);
     setFieldErrors(problems);
+    if (imageError) problems.image = imageError;
     if (Object.keys(problems).length) {
-      setFormError("Complete the required fields before saving.");
+      setFormError(problems.image && Object.keys(problems).length === 1 ? problems.image : "Complete the required fields before saving.");
       return;
     }
     setSaving(true);
@@ -148,8 +253,32 @@ export default function AdminBadges() {
         method: editor.id ? "PUT" : "POST",
         body: payload,
       });
-      setOk(result.message || "Badge saved.");
-      setEditor(null);
+      const saved = result.item;
+      try {
+        if (imageFile) {
+          const imageForm = new FormData();
+          imageForm.append("image", imageFile);
+          const uploaded = await api(`/api/admin/badges/${saved.id}/image`, { method: "POST", form: imageForm });
+          setOk(uploaded.message || result.message || "Badge saved.");
+        } else if (removeImage && editor.has_image) {
+          const cleared = await api(`/api/admin/badges/${saved.id}/image`, { method: "DELETE" });
+          setOk(cleared.message || result.message || "Badge saved.");
+        } else {
+          setOk(result.message || "Badge saved.");
+        }
+      } catch (imageErr) {
+        setEditor({
+          ...editor,
+          id: saved.id,
+          key: saved.key,
+          has_image: Boolean(saved.has_image),
+          image_url: saved.image_url || "",
+        });
+        setFormError(imageErr.message);
+        await load();
+        return;
+      }
+      closeEditor();
       await load();
     } catch (err) {
       setFormError(err.message);
@@ -272,7 +401,7 @@ export default function AdminBadges() {
                     <tr key={row.id}>
                       <td>
                         <div className="badge-admin-name">
-                          <BadgeSeal icon={row.icon} inactive={!row.active} />
+                          <BadgeSeal icon={row.icon} inactive={!row.active} imageUrl={row.image_url} />
                           <span className="badge-admin-copy">
                             <strong>{row.name}</strong>
                             {row.is_system ? <Badge tone="unknown">Built-in</Badge> : null}
@@ -321,7 +450,7 @@ export default function AdminBadges() {
       </div>
 
       {editor ? (
-        <Dialog title={editor.id ? "Edit badge" : "Add badge"} hideActions wide onClose={() => setEditor(null)}>
+        <Dialog title={editor.id ? "Edit badge" : "Add badge"} hideActions wide onClose={closeEditor}>
           <form className="admin-badge-form" onSubmit={save}>
             {formError ? <Alert type="error">{formError}</Alert> : null}
             <fieldset className="setup-group">
@@ -335,13 +464,47 @@ export default function AdminBadges() {
             </fieldset>
             <fieldset className="setup-group">
               <legend>Appearance</legend>
-              <Field label="Icon" required>
+              <Field label="Icon" required hint="Used when no custom image is uploaded.">
                 <select value={editor.icon} onChange={(event) => setEditor({ ...editor, icon: event.target.value })}>
                   {(data?.icons || []).map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                 </select>
               </Field>
+              <FileDrop
+                file={imageFile}
+                accept={PHOTO_ACCEPT}
+                validate={imageFileError}
+                error={imageError}
+                disabled={saving}
+                compact
+                label="Custom image"
+                formats="JPG, PNG, or WebP"
+                maxSize={`${BADGE_IMAGE_MIN}–${BADGE_IMAGE_MAX} pixels · 5 MB`}
+                description="Optional. Leave this empty to keep the selected icon."
+                onChange={(file, message) => { acceptImage(file, message); }}
+              />
+              {editor.image_url && !removeImage && !imagePreview ? (
+                <div className="badge-image-actions">
+                  <button
+                    className="btn btn-outline btn-sm"
+                    type="button"
+                    onClick={() => {
+                      setRemoveImage(true);
+                      setImageError("");
+                    }}
+                  >
+                    Remove image
+                  </button>
+                  <p className="setup-help">A saved image is currently used. Removing it shows the icon again.</p>
+                </div>
+              ) : null}
+              {removeImage ? <p className="setup-help">The icon will be used when you save.</p> : null}
               <div className="badge-admin-name" aria-live="polite">
-                <BadgeSeal icon={editor.icon} inactive={!editor.active} />
+                <BadgeSeal
+                  icon={editor.icon}
+                  inactive={!editor.active}
+                  imageUrl={removeImage ? "" : editor.image_url}
+                  previewUrl={imagePreview}
+                />
                 <span className="badge-admin-copy">
                   <strong>{editor.name.trim() || "Badge preview"}</strong>
                   <span>{editor.description.trim() || "Description appears here."}</span>
@@ -390,7 +553,7 @@ export default function AdminBadges() {
               <p className="badge-admin-note">Deactivated badges are no longer newly awarded. Alumni who already earned a badge keep it on their profile.</p>
             </fieldset>
             <div className="dialog-actions">
-              <button className="btn btn-outline" type="button" onClick={() => setEditor(null)}>Cancel</button>
+              <button className="btn btn-outline" type="button" onClick={closeEditor}>Cancel</button>
               <button className="btn btn-navy" type="submit" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
             </div>
           </form>

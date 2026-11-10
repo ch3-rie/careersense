@@ -7,6 +7,8 @@ from typing import Iterable
 
 from fastapi import HTTPException
 from sqlalchemy import or_
+
+from app.services.academic_filters import course_selection_clause, program_term_clause, readable_program_name
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import get_settings
@@ -366,19 +368,27 @@ def search_alumni(
     term = (q or "").strip()
     if term:
         like = f"%{term}%"
-        query = query.filter(
-            or_(
-                Account.personal_email.ilike(like),
-                Account.linked_student_id.ilike(like),
-                AlumniProfile.first_name.ilike(like),
-                AlumniProfile.last_name.ilike(like),
-                AlumniProfile.middle_name.ilike(like),
-            )
+        person = or_(
+            Account.personal_email.ilike(like),
+            Account.linked_student_id.ilike(like),
+            AlumniProfile.first_name.ilike(like),
+            AlumniProfile.last_name.ilike(like),
+            AlumniProfile.middle_name.ilike(like),
         )
+        academic = program_term_clause(db, term)
+        query = query.filter(or_(person, academic) if academic is not None else person)
     if year.strip():
         query = query.filter(AlumniProfile.year_graduated == year.strip())
-    if degree.strip():
-        query = query.filter(AlumniProfile.degree.ilike(f"%{degree.strip()}%"))
+    degree_text = degree.strip()
+    if degree_text:
+        parts = [AlumniProfile.degree.ilike(f"%{degree_text}%")]
+        selected = course_selection_clause(db, degree_text)
+        term_match = program_term_clause(db, degree_text)
+        if selected is not None:
+            parts.append(selected)
+        if term_match is not None:
+            parts.append(term_match)
+        query = query.filter(or_(*parts))
 
     needs_score = (completion or "").strip().lower()
     if needs_score:
@@ -420,7 +430,12 @@ def search_alumni(
                 "name": alumni_display_name(user),
                 "email": user.personal_email,
                 "student_id": user.linked_student_id or "",
-                "degree": profile.degree if profile else "",
+                "degree": readable_program_name(
+                    db,
+                    profile.degree if profile else "",
+                    user.university_record.course_code if user.university_record else "",
+                    user.university_record.college if user.university_record else "",
+                ),
                 "year_graduated": profile.year_graduated if profile else "",
                 "status": user.status,
                 "completion_percent": percent,

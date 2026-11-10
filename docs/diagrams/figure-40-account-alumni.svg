@@ -1,0 +1,163 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1035" height="944" viewBox="0 0 1035 944">
+<rect width="1035" height="944" fill="#ffffff"/>
+<text x="517.5" y="32.0" fill="#222222" font-family="Arial" font-size="18" font-weight="700" font-style="normal" text-anchor="middle">Figure 40. Account and Alumni Management Class Diagram</text>
+<polyline points="186.0,195.0 306.0,195.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="435.0,195.0 555.0,195.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="106.5,532.0 106.5,604.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="168.0,649.0 334.4,649.0 334.4,294.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="664.4,424.0 664.4,390.0 380.8,390.0 380.8,294.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="679.0,532.0 679.0,604.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="803.0,652.6 837.0,652.6 837.0,352.0 414.4,352.0 414.4,294.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="352.4,294.0 352.4,764.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="88.0,764.0 909.0,764.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="88.0,764.0 88.0,800.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="234.5,764.0 234.5,800.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="397.0,764.0 397.0,800.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="581.0,764.0 581.0,800.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="759.0,764.0 759.0,800.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="909.0,764.0 909.0,800.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<rect x="306.0" y="96.0" width="129.0" height="198.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="306.0,130.0 435.0,130.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="370.5" y="119.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">Account</text>
+<text x="318.0" y="150.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">personalEmail</text>
+<text x="318.0" y="168.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">passwordHash</text>
+<text x="318.0" y="186.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">role</text>
+<text x="318.0" y="204.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">status</text>
+<text x="318.0" y="222.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">isVerified</text>
+<text x="318.0" y="240.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">linkedStudentId</text>
+<text x="318.0" y="258.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">employeeNumber</text>
+<text x="318.0" y="276.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">adminPrivileges</text>
+<rect x="36.0" y="141.0" width="150.0" height="108.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="36.0,175.0 186.0,175.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="111.0" y="164.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">UniversityRecord</text>
+<text x="48.0" y="195.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">studentId</text>
+<text x="48.0" y="213.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">degree</text>
+<text x="48.0" y="231.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">yearGraduated</text>
+<rect x="555.0" y="78.0" width="137.0" height="234.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="555.0,112.0 692.0,112.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="623.5" y="101.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">AlumniProfile</text>
+<text x="567.0" y="132.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">phone</text>
+<text x="567.0" y="150.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">address</text>
+<text x="567.0" y="168.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">degree</text>
+<text x="567.0" y="186.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">yearGraduated</text>
+<text x="567.0" y="204.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">bio</text>
+<text x="567.0" y="222.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">photo</text>
+<text x="567.0" y="240.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">employmentStatus</text>
+<text x="567.0" y="258.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">interestSpeaker</text>
+<text x="567.0" y="276.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">interestMentor</text>
+<text x="567.0" y="294.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">interestSponsor</text>
+<rect x="36.0" y="424.0" width="141.0" height="108.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="36.0,458.0 177.0,458.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="106.5" y="447.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">BadgeDefinition</text>
+<text x="48.0" y="478.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">key</text>
+<text x="48.0" y="496.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">name</text>
+<text x="48.0" y="514.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">description</text>
+<rect x="45.0" y="604.0" width="123.0" height="90.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="45.0,638.0 168.0,638.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="106.5" y="627.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">AlumniBadge</text>
+<text x="57.0" y="658.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">badgeKey</text>
+<text x="57.0" y="676.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">awardedAt</text>
+<rect x="588.0" y="424.0" width="182.0" height="108.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="588.0,458.0 770.0,458.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="679.0" y="447.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">ProfileUpdateRequest</text>
+<text x="600.0" y="478.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">subject</text>
+<text x="600.0" y="496.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">requestedFields</text>
+<text x="600.0" y="514.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">status</text>
+<rect x="555.0" y="604.0" width="248.0" height="108.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="555.0,638.0 803.0,638.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="679.0" y="627.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">ProfileUpdateRequestRecipient</text>
+<text x="567.0" y="658.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">emailStatus</text>
+<text x="567.0" y="676.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">viewedAt</text>
+<text x="567.0" y="694.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">completedAt</text>
+<rect x="36.0" y="800.0" width="104.0" height="108.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="36.0,834.0 140.0,834.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="88.0" y="823.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">AlumniJob</text>
+<text x="48.0" y="854.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">jobTitle</text>
+<text x="48.0" y="872.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">company</text>
+<text x="48.0" y="890.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">isCurrent</text>
+<rect x="174.0" y="800.0" width="121.0" height="108.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="174.0,834.0 295.0,834.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="234.5" y="823.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">FurtherStudy</text>
+<text x="186.0" y="854.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">courseDegree</text>
+<text x="186.0" y="872.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">school</text>
+<text x="186.0" y="890.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">yearEnrolled</text>
+<rect x="329.0" y="800.0" width="136.0" height="108.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="329.0,834.0 465.0,834.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="397.0" y="823.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">AlumniSeminar</text>
+<text x="341.0" y="854.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">title</text>
+<text x="341.0" y="872.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">location</text>
+<text x="341.0" y="890.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">heldOn</text>
+<rect x="499.0" y="800.0" width="164.0" height="108.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="499.0,834.0 663.0,834.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="581.0" y="823.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">AlumniCertification</text>
+<text x="511.0" y="854.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">certificationName</text>
+<text x="511.0" y="872.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">issuingOrganization</text>
+<text x="511.0" y="890.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">dateIssued</text>
+<rect x="697.0" y="800.0" width="124.0" height="108.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="697.0,834.0 821.0,834.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="759.0" y="823.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">AlumniAward</text>
+<text x="709.0" y="854.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">title</text>
+<text x="709.0" y="872.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">issuer</text>
+<text x="709.0" y="890.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">awardedOn</text>
+<rect x="855.0" y="800.0" width="108.0" height="90.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="855.0,834.0 963.0,834.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="909.0" y="823.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">AlumniSkill</text>
+<text x="867.0" y="854.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">skillName</text>
+<text x="867.0" y="872.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">category</text>
+<rect x="225.5" y="169.0" width="41.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="246.0" y="181.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="middle">match</text>
+<rect x="188.0" y="175.0" width="28.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="202.0" y="187.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..1</text>
+<rect x="276.0" y="199.0" width="28.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="290.0" y="211.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..1</text>
+<rect x="474.0" y="169.0" width="42.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="495.0" y="181.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="middle">profile</text>
+<rect x="443.5" y="175.0" width="15.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="451.0" y="187.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">1</text>
+<rect x="525.0" y="199.0" width="28.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="539.0" y="211.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..1</text>
+<rect x="114.5" y="560.0" width="65.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="114.5" y="572.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="start">badge key</text>
+<rect x="111.0" y="540.0" width="15.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="118.5" y="552.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">1</text>
+<rect x="81.5" y="580.0" width="26.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="94.5" y="592.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..*</text>
+<rect x="342.4" y="463.5" width="56.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="342.4" y="475.5" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="start">awarded</text>
+<rect x="171.0" y="629.0" width="26.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="184.0" y="641.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..*</text>
+<rect x="338.9" y="302.0" width="15.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="346.4" y="314.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">1</text>
+<rect x="490.1" y="364.0" width="65.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="522.6" y="376.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="middle">created by</text>
+<rect x="639.4" y="400.0" width="26.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="652.4" y="412.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..*</text>
+<rect x="385.3" y="302.0" width="15.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="392.8" y="314.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">1</text>
+<rect x="687.0" y="560.0" width="61.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="687.0" y="572.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="start">recipients</text>
+<rect x="683.5" y="540.0" width="15.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="691.0" y="552.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">1</text>
+<rect x="654.0" y="580.0" width="26.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="667.0" y="592.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">1..*</text>
+<rect x="845.0" y="494.3" width="55.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="845.0" y="506.3" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="start">alumnus</text>
+<rect x="806.0" y="632.6" width="26.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="819.0" y="644.6" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..*</text>
+<rect x="418.9" y="302.0" width="15.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="426.4" y="314.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">1</text>
+<rect x="356.9" y="302.0" width="15.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="364.4" y="314.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">1</text>
+<rect x="63.0" y="776.0" width="26.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="76.0" y="788.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..*</text>
+<rect x="209.5" y="776.0" width="26.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="222.5" y="788.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..*</text>
+<rect x="372.0" y="776.0" width="26.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="385.0" y="788.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..*</text>
+<rect x="556.0" y="776.0" width="26.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="569.0" y="788.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..*</text>
+<rect x="734.0" y="776.0" width="26.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="747.0" y="788.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..*</text>
+<rect x="884.0" y="776.0" width="26.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="897.0" y="788.0" fill="#222222" font-family="Arial" font-size="12" font-weight="700" font-style="normal" text-anchor="middle">0..*</text>
+</svg>

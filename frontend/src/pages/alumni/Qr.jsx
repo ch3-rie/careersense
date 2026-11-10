@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { AlumniCardWorkspace } from "../../components/AlumniCardWorkspace";
 import { PortalShell } from "../../components/Layout";
 import { Dialog } from "../../components/ui";
 import { api } from "../../lib/api";
@@ -40,7 +40,6 @@ function AlumniQrSkeleton() {
 }
 
 export default function AlumniQrPage() {
-  const navigate = useNavigate();
   const [identity, setIdentity] = useState(null);
   const [imageUrl, setImageUrl] = useState("");
   const [phase, setPhase] = useState("confirm");
@@ -83,13 +82,8 @@ export default function AlumniQrPage() {
     setPhase("loading");
   }
 
-  function leave() {
-    const index = window.history.state?.idx;
-    if (typeof index === "number" && index > 0) {
-      navigate(-1);
-      return;
-    }
-    navigate("/alumni", { replace: true });
+  function keepHidden() {
+    setPhase("hidden");
   }
 
   useEffect(() => () => {
@@ -106,52 +100,65 @@ export default function AlumniQrPage() {
     setAttempt((value) => value + 1);
   }
 
+  const qrHeld = phase === "confirm" || phase === "hidden";
+
   return (
     <PortalShell role="Alumni">
       {phase === "confirm" ? (
-        <Dialog title="Confirm QR Code Display" confirmLabel="Proceed" onConfirm={proceed} onClose={leave}>
+        <Dialog title="Confirm QR Code Display" confirmLabel="Proceed" onConfirm={proceed} onClose={keepHidden}>
           <p>Show this code only when you are at an AUF partner and ready to record your visit.</p>
-          <p>Before you continue, make sure no one else can see your screen. Do not display the code if someone could photograph it, or if you are sharing or recording your screen.</p>
+          <p>Before you continue, make sure no one else can see your screen. Do not display the code if someone could photograph it, or if you are sharing or recording your screen. Hiding the code does not change your alumni card.</p>
         </Dialog>
       ) : null}
-      {phase === "confirm" ? null : (
-        <div className="alumni-qr">
-        {phase === "loading" ? (
-          <>
-            <p className="sr-only" role="status">Loading your Alumni QR card.</p>
-            <AlumniQrSkeleton />
-          </>
-        ) : null}
-
-        {phase === "error" ? (
-          <section className="alumni-qr-error" role="alert">
-            <h2>Unable to load your Alumni QR card.</h2>
-            <p>Please try again.</p>
-            <button type="button" className="btn btn-navy" onClick={retry}>Retry</button>
-          </section>
-        ) : null}
-
-        {phase === "ready" ? (
-          <section className="alumni-qr-sheet" aria-label="Alumni QR">
-            <div className="alumni-qr-code">
-              <div className="alumni-qr-frame">
-                <img src={imageUrl} alt="QR code for recording alumni card visits at AUF partners" />
-              </div>
-              <p className="alumni-qr-scan">Scan at Partners</p>
-              <p className="alumni-qr-hint">Scan this code at AUF partner places and restaurants to record where your alumni card was used.</p>
+      <div className="alumni-qr-page">
+        <section className="alumni-qr" aria-label="Alumni QR">
+          <div className="alumni-qr-intro">
+            <h2>Alumni QR</h2>
+            <p>This code identifies your alumni record at an AUF partner. Showing it does not activate your alumni card.</p>
+          </div>
+          {qrHeld ? (
+            <div className="alumni-qr-hold">
+              <p>Your QR code stays hidden until you choose to display it.</p>
+              {phase === "hidden" ? (
+                <button type="button" className="btn btn-navy" onClick={() => setPhase("confirm")}>Show QR code</button>
+              ) : null}
             </div>
-            <dl className="alumni-qr-facts">
-              {FIELDS.map(([key, label, placement]) => (
-                <div key={key} className={placement}>
-                  <dt>{label}</dt>
-                  <dd>{shown(identity?.[key])}</dd>
+          ) : null}
+          {phase === "loading" ? (
+            <>
+              <p className="sr-only" role="status">Loading your Alumni QR code.</p>
+              <AlumniQrSkeleton />
+            </>
+          ) : null}
+          {phase === "error" ? (
+            <section className="alumni-qr-error" role="alert">
+              <h2>Unable to load your Alumni QR code.</h2>
+              <p>Please try again.</p>
+              <button type="button" className="btn btn-navy" onClick={retry}>Retry</button>
+            </section>
+          ) : null}
+          {phase === "ready" ? (
+            <div className="alumni-qr-sheet">
+              <div className="alumni-qr-code">
+                <div className="alumni-qr-frame">
+                  <img src={imageUrl} alt="QR code for identifying this alumnus at AUF partners" />
                 </div>
-              ))}
-            </dl>
-          </section>
-        ) : null}
+                <p className="alumni-qr-scan">Scan at Partners</p>
+                <p className="alumni-qr-hint">Scan this code at AUF partner places and restaurants to record where your alumni card was used.</p>
+              </div>
+              <dl className="alumni-qr-facts">
+                {FIELDS.map(([key, label, placement]) => (
+                  <div key={key} className={placement}>
+                    <dt>{label}</dt>
+                    <dd>{shown(identity?.[key])}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          ) : null}
+        </section>
+        <AlumniCardWorkspace />
       </div>
-      )}
     </PortalShell>
   );
 }

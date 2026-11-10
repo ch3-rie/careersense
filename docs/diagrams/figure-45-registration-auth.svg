@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="990" height="620" viewBox="0 0 990 620">
+<rect width="990" height="620" fill="#ffffff"/>
+<text x="495.0" y="32.0" fill="#222222" font-family="Arial" font-size="18" font-weight="700" font-style="normal" text-anchor="middle">Figure 45. Registration and Authentication ERD</text>
+<polyline points="272.0,173.0 372.0,173.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="591.0,173.0 693.0,173.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="825.5,278.0 825.5,328.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<rect x="48.0" y="92.0" width="198.0" height="162.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="48.0,126.0 246.0,126.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="147.0" y="115.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">registration_drafts</text>
+<text x="58.0" y="146.0" fill="#222222" font-family="Arial" font-size="11" font-weight="700" font-style="normal" text-anchor="start">PK</text>
+<text x="106.0" y="146.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">id</text>
+<text x="106.0" y="164.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">personal_email</text>
+<text x="106.0" y="182.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">password_hash</text>
+<text x="106.0" y="200.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">privacy_consent</text>
+<text x="106.0" y="218.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">original_filename</text>
+<text x="58.0" y="236.0" fill="#222222" font-family="Arial" font-size="11" font-weight="700" font-style="normal" text-anchor="start">FK</text>
+<text x="106.0" y="236.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">linked_student_id</text>
+<rect x="396.0" y="119.0" width="171.0" height="108.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="396.0,153.0 567.0,153.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="481.5" y="142.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">university_records</text>
+<text x="406.0" y="173.0" fill="#222222" font-family="Arial" font-size="11" font-weight="700" font-style="normal" text-anchor="start">PK</text>
+<text x="454.0" y="173.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">student_id</text>
+<text x="454.0" y="191.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">degree</text>
+<text x="454.0" y="209.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">year_graduated</text>
+<rect x="717.0" y="92.0" width="217.0" height="162.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="717.0,126.0 934.0,126.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="825.5" y="115.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">accounts</text>
+<text x="727.0" y="146.0" fill="#222222" font-family="Arial" font-size="11" font-weight="700" font-style="normal" text-anchor="start">PK</text>
+<text x="775.0" y="146.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">id</text>
+<text x="775.0" y="164.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">personal_email</text>
+<text x="775.0" y="182.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">password_hash</text>
+<text x="775.0" y="200.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">role</text>
+<text x="775.0" y="218.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">status</text>
+<text x="727.0" y="236.0" fill="#222222" font-family="Arial" font-size="11" font-weight="700" font-style="normal" text-anchor="start">FK UK</text>
+<text x="775.0" y="236.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">linked_student_id</text>
+<rect x="708.5" y="354.0" width="234.0" height="162.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="708.5,388.0 942.5,388.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="825.5" y="377.0" fill="#222222" font-family="Arial" font-size="15" font-weight="700" font-style="normal" text-anchor="middle">password_reset_verifications</text>
+<text x="718.5" y="408.0" fill="#222222" font-family="Arial" font-size="11" font-weight="700" font-style="normal" text-anchor="start">PK</text>
+<text x="766.5" y="408.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">id</text>
+<text x="766.5" y="426.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">email_hash</text>
+<text x="766.5" y="444.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">pin_hash</text>
+<text x="766.5" y="462.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">expires_at</text>
+<text x="766.5" y="480.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">attempts</text>
+<text x="718.5" y="498.0" fill="#222222" font-family="Arial" font-size="11" font-weight="700" font-style="normal" text-anchor="start">FK</text>
+<text x="766.5" y="498.0" fill="#222222" font-family="Arial" font-size="13" font-weight="400" font-style="normal" text-anchor="start">account_id</text>
+<circle cx="266.0" cy="173.0" r="5.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="258.0,173.0 246.0,166.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="258.0,173.0 246.0,173.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="258.0,173.0 246.0,180.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<circle cx="381.0" cy="173.0" r="5.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="390.0,180.0 390.0,166.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<rect x="268.5" y="147.0" width="105.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="321.0" y="159.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="middle">linked_student_id</text>
+<circle cx="582.0" cy="173.0" r="5.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="573.0,166.0 573.0,180.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<circle cx="702.0" cy="173.0" r="5.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="711.0,180.0 711.0,166.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<rect x="589.5" y="147.0" width="105.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="642.0" y="159.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="middle">linked_student_id</text>
+<circle cx="825.5" cy="269.0" r="5.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="832.5,260.0 818.5,260.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<circle cx="825.5" cy="334.0" r="5.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="825.5,342.0 818.5,354.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="825.5,342.0 825.5,354.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="825.5,342.0 832.5,354.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<rect x="833.5" y="296.0" width="68.0" height="16.0" fill="#ffffff" stroke="none"/>
+<text x="833.5" y="308.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="start">account_id</text>
+<text x="48.0" y="282.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="italic" text-anchor="start">The draft is removed after the survey is submitted and the account is created.</text>
+<polyline points="36.0,578.0 62.0,578.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="73.0,585.0 73.0,571.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="67.0,585.0 67.0,571.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="86.0" y="582.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="normal" text-anchor="start">Exactly one</text>
+<polyline points="177.0,578.0 195.0,578.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<circle cx="204.0" cy="578.0" r="5.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="213.0,585.0 213.0,571.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="227.0" y="582.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="normal" text-anchor="start">Zero or one</text>
+<polyline points="318.0,578.0 342.0,578.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="346.0,585.0 346.0,571.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="346.0,578.0 360.0,585.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="346.0,578.0 360.0,578.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="346.0,578.0 360.0,571.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="368.0" y="582.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="normal" text-anchor="start">One or many</text>
+<polyline points="466.0,578.0 482.0,578.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<circle cx="488.0" cy="578.0" r="5.0" fill="#ffffff" stroke="#222222" stroke-width="1.4"/>
+<polyline points="496.0,578.0 508.0,585.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="496.0,578.0 508.0,578.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<polyline points="496.0,578.0 508.0,571.0" fill="none" stroke="#222222" stroke-width="1.4"/>
+<text x="516.0" y="582.0" fill="#222222" font-family="Arial" font-size="12" font-weight="400" font-style="normal" text-anchor="start">Zero or many</text>
+</svg>

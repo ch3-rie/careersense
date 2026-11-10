@@ -12,12 +12,6 @@ import AdminAcademics from "./pages/admin/Academics";
 import AdminRegistry from "./pages/admin/Registry";
 import AdminReports from "./pages/admin/Reports";
 import AdminSoc from "./pages/admin/Soc";
-import AdminSurvey from "./pages/admin/Survey";
-import {
-  AdminSurveyQuestionDetail,
-  AdminSurveySectionDetail,
-  AdminSurveyVersionDetail,
-} from "./pages/admin/SurveyDetail";
 import AdminPartnerActivity from "./pages/admin/PartnerActivity";
 import AdminPerks from "./pages/admin/Perks";
 import AdminBadges from "./pages/admin/Badges";
@@ -114,10 +108,7 @@ export default function App() {
       <Route path="/admin/records" element={<Guard role="Admin"><AdminRecords /></Guard>} />
       <Route path="/admin/records/:id" element={<Guard role="Admin"><AdminRecordDetail /></Guard>} />
       <Route path="/admin/profile-updates" element={<Guard role="Admin"><AdminProfileUpdates /></Guard>} />
-      <Route path="/admin/survey" element={<Guard role="Admin"><AdminSurvey /></Guard>} />
-      <Route path="/admin/survey/questions/:questionId" element={<Guard role="Admin"><AdminSurveyQuestionDetail /></Guard>} />
-      <Route path="/admin/survey/sections/:sectionId" element={<Guard role="Admin"><AdminSurveySectionDetail /></Guard>} />
-      <Route path="/admin/survey/versions/:versionNumber" element={<Guard role="Admin"><AdminSurveyVersionDetail /></Guard>} />
+      <Route path="/admin/survey/*" element={<Navigate to="/admin" replace />} />
       <Route path="/admin/perks" element={<Guard role="Admin"><AdminPerks /></Guard>} />
       <Route path="/admin/partner-activity" element={<Guard role="Admin"><AdminPartnerActivity /></Guard>} />
       <Route path="/admin/badges" element={<Guard role="Admin"><AdminBadges /></Guard>} />

@@ -17,6 +17,7 @@ from app.services.alumni_hub import (
     serialize_card,
     transition_alumni_card_status,
 )
+from app.services.academic_filters import program_term_clause, readable_program_name
 from app.services.card_renewal import MANILA, RENEWAL_BATCH_YEAR, assess_card_renewal
 from app.services.email.dispatch import send_notice
 
@@ -64,12 +65,14 @@ def _application(account: Account) -> dict:
     return raw if isinstance(raw, dict) else {}
 
 
-def _academic(account: Account) -> dict:
+def _academic(account: Account, db: Session | None = None) -> dict:
     application = _application(account)
     record = account.university_record
     profile = account.profile
     college = _blank(record.college if record else "") or _blank(application.get("college"))
     course = _blank(record.degree if record else "") or _blank(application.get("course")) or _blank(profile.degree if profile else "")
+    if db is not None:
+        course = readable_program_name(db, course, record.course_code if record else "", college) or course
     year = (
         _blank(record.year_graduated if record else "")
         or _blank(profile.year_graduated if profile else "")
@@ -212,10 +215,10 @@ def _resting_counts(summary_query) -> tuple[int, int]:
     return claimed, renewal
 
 
-def _serialize_item(account: Account) -> dict:
+def _serialize_item(account: Account, db: Session | None = None) -> dict:
     card = serialize_card(account.alumni_card)
     application = _application(account)
-    academic = _academic(account)
+    academic = _academic(account, db)
     status = card["status"]
     claimed = status == "Claimed"
     renewal = _assessment(account, academic["year_graduated"], card.get("issued_at"))
@@ -346,15 +349,15 @@ def list_cards(
     term = (q or "").strip()
     if term:
         like = f"%{term}%"
-        query = query.filter(
-            or_(
-                Account.personal_email.ilike(like),
-                Account.linked_student_id.ilike(like),
-                AlumniProfile.first_name.ilike(like),
-                AlumniProfile.middle_name.ilike(like),
-                AlumniProfile.last_name.ilike(like),
-            )
+        person = or_(
+            Account.personal_email.ilike(like),
+            Account.linked_student_id.ilike(like),
+            AlumniProfile.first_name.ilike(like),
+            AlumniProfile.middle_name.ilike(like),
+            AlumniProfile.last_name.ilike(like),
         )
+        academic = program_term_clause(db, term)
+        query = query.filter(or_(person, academic) if academic is not None else person)
     key = (sort_by or "submitted").lower()
     descending = (sort_dir or "desc").lower() != "asc"
     if key == "name":
@@ -380,7 +383,7 @@ def list_cards(
         .all()
     )
     return {
-        "items": [_serialize_item(row) for row in rows],
+        "items": [_serialize_item(row, db) for row in rows],
         "total": total,
         "page": page,
         "page_size": page_size,
@@ -468,7 +471,7 @@ def card_detail(account_id: int, admin: Account = Depends(require_admin), db: Se
     if not user:
         raise HTTPException(status_code=404, detail="Alumni account not found.")
     card = serialize_card(user.alumni_card)
-    academic = _academic(user)
+    academic = _academic(user, db)
     claimed = card["status"] == "Claimed"
     renewal = _assessment(user, academic["year_graduated"], card.get("issued_at"))
     application = _application(user)

@@ -155,25 +155,6 @@ class GtsPayload(BaseModel):
     registration_token: Optional[str] = None
 
 
-class QuestionIn(BaseModel):
-    section_key: str
-    label: str
-    input_type: str
-    options: list[str] = Field(default_factory=list)
-    required: bool = False
-    order_index: int = 0
-
-
-class QuestionUpdate(BaseModel):
-    label: Optional[str] = None
-    input_type: Optional[str] = None
-    options: Optional[list[str]] = None
-    required: Optional[bool] = None
-    order_index: Optional[int] = None
-    active: Optional[bool] = None
-    section_key: Optional[str] = None
-
-
 class SocIn(BaseModel):
     soc_code: str
     description: str
@@ -272,6 +253,12 @@ class ProfileUpdateIn(BaseModel):
     bio: str = Field(default="", max_length=800)
 
 
+class ParticipationIn(BaseModel):
+    """Interest only. Selecting a role does not enroll the alumnus in an activity."""
+
+    roles: list[str] = []
+
+
 MEMBERSHIP_TYPES = ("New", "Renewal", "Regular", "Lifetime", "Replacement")
 
 
@@ -324,28 +311,6 @@ class CardStatusIn(BaseModel):
     card_number: str = Field(default="", max_length=40)
     note: str = Field(default="", max_length=400)
     claimed_on: Optional[date] = None
-
-
-class SurveyDraftIn(BaseModel):
-    survey_schema: dict[str, Any] = Field(alias="schema")
-    auto: bool = False
-
-    model_config = {"populate_by_name": True}
-
-
-class SurveySettingsIn(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    intro: Optional[str] = None
-    confirmation_message: Optional[str] = None
-    accepting_responses: Optional[bool] = None
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
-    allow_alumni_edit: Optional[bool] = None
-
-
-class SurveyPublishIn(BaseModel):
-    confirm_impact: bool = False
 
 
 class PerkIn(BaseModel):

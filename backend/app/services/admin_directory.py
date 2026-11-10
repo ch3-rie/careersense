@@ -22,6 +22,7 @@ from app.models import Account, AlignmentResult, AlumniProfile, TracerSubmission
 from app.services.employment import apply_profile_unemployment, is_no, is_yes
 from app.services.reports import (
     NOT_REPORTED_REASON,
+    _index_from,
     _latest_tracer_rows,
     _matches_filters,
     _record_matches,
@@ -61,18 +62,30 @@ def _name(account: Account | None) -> str:
     return account.personal_email or ""
 
 
-def _course(account: Account | None) -> str:
+def _course_parts(account: Account | None) -> tuple[str, str, str]:
+    """Readable program name, stored degree, and course code."""
     if account is None:
-        return ""
+        return "", "", ""
     record = account.university_record
     profile = account.profile
+    degree = ""
     if record and _text(record.degree):
-        return _text(record.degree)
-    if profile and _text(profile.degree):
-        return _text(profile.degree)
-    if record and _text(record.course_code):
-        return _text(record.course_code)
-    return ""
+        degree = _text(record.degree)
+    elif profile and _text(profile.degree):
+        degree = _text(profile.degree)
+    code = _text(record.course_code) if record else ""
+    college = _text(record.college) if record else ""
+    label = degree or code
+    from app.services.academic_filters import program_index_for
+
+    index = program_index_for(account)
+    if index is not None:
+        label = index.display_name(degree, code, college) or label
+    return label, degree, code
+
+
+def _course(account: Account | None) -> str:
+    return _course_parts(account)[0]
 
 
 def _year(account: Account | None, *, profile_only: bool = False) -> str:
@@ -112,6 +125,7 @@ def _person(
     employment: str = "",
     year: str | None = None,
 ) -> dict[str, Any]:
+    label, raw_degree, raw_code = _course_parts(account)
     return {
         "id": account.id if account else (submission.account_id if submission else 0),
         "submission_id": submission.id if submission else None,
@@ -119,7 +133,9 @@ def _person(
         "email": account.personal_email if account else "",
         "student_id": (account.linked_student_id if account and account.linked_student_id else "")
         or (submission.student_id if submission and submission.student_id else ""),
-        "course": _course(account),
+        "course": label,
+        "_degree": raw_degree,
+        "_course_code": raw_code,
         "year_graduated": year if year is not None else _year(account),
         "status": account.status if account else "",
         "employment_status": employment,
@@ -281,7 +297,10 @@ def _registry_person(record: UniversityRecord, account: Account | None, latest: 
     if account is not None:
         row = _from_account(account, latest)
         row["student_id"] = row["student_id"] or record.student_id
-        row["course"] = row["course"] or report_text(record.degree) or report_text(record.course_code)
+        if not row.get("_degree"):
+            row["_degree"] = report_text(record.degree)
+            row["_course_code"] = report_text(record.course_code)
+            row["course"] = row["course"] or _registry_course(record)
         row["year_graduated"] = row["year_graduated"] or report_text(record.year_graduated)
         return row
     parts = [record.first_name, record.middle_name, record.last_name]
@@ -292,7 +311,9 @@ def _registry_person(record: UniversityRecord, account: Account | None, latest: 
         "name": name or record.personal_email or "",
         "email": record.personal_email or "",
         "student_id": record.student_id or "",
-        "course": report_text(record.degree) or report_text(record.course_code),
+        "course": _registry_course(record),
+        "_degree": report_text(record.degree),
+        "_course_code": report_text(record.course_code),
         "year_graduated": report_text(record.year_graduated),
         "status": "Not registered",
         "employment_status": "",
@@ -352,7 +373,7 @@ def _productivity_cohort(db: Session, filters: dict[str, str]) -> tuple[str, str
     rows = []
     for row in latest_submissions(db, submitted_from, submitted_to):
         classified = classify_graduate(row)
-        if not _matches_filters(classified["context"], college, program, year):
+        if not _matches_filters(classified["context"], college, program, year, _index_from(row)):
             continue
         if not matches_population(row.account, _prepared(row), award, further):
             continue
@@ -362,14 +383,44 @@ def _productivity_cohort(db: Session, filters: dict[str, str]) -> tuple[str, str
     return indicator, "Graduates counted in this figure. A percentage on the report uses this list as its numerator.", rows
 
 
-def _matches_search(row: dict[str, Any], term: str) -> bool:
+def _registry_course(record: UniversityRecord) -> str:
+    from app.services.academic_filters import program_index_for
+
+    degree = report_text(record.degree)
+    code = report_text(record.course_code)
+    index = program_index_for(record)
+    if index is None:
+        return degree or code
+    return index.display_name(degree, code, report_text(record.college)) or degree or code
+
+
+def _public_row(row: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in row.items() if not str(key).startswith("_")}
+
+
+def _matches_search(row: dict[str, Any], term: str, index=None) -> bool:
     if not term:
         return True
+    folded = " ".join(term.split()).casefold()
     haystack = " ".join(
         str(row.get(key) or "")
-        for key in ("name", "email", "student_id", "course", "year_graduated", "status", "employment_status")
-    ).lower()
-    return term.lower() in haystack
+        for key in (
+            "name",
+            "email",
+            "student_id",
+            "course",
+            "_degree",
+            "_course_code",
+            "year_graduated",
+            "status",
+            "employment_status",
+        )
+    ).casefold()
+    if folded in haystack:
+        return True
+    if index is None:
+        return False
+    return index.record_matches_term(term, row.get("_degree") or row.get("course"), row.get("_course_code"))
 
 
 _EXPORT_FIELDS = (
@@ -384,9 +435,12 @@ _EXPORT_FIELDS = (
 
 
 def _sorted_rows(db: Session, *, q: str, sort_by: str, sort_dir: str, **filters: str):
+    from app.services.academic_filters import program_index
+
     title, description, cohort_rows = _cohort(db, **filters)
     term = _text(q)
-    matched = [row for row in cohort_rows if _matches_search(row, term)]
+    index = program_index(db)
+    matched = [_public_row(row) for row in cohort_rows if _matches_search(row, term, index)]
     key = sort_by if sort_by in _SORT_KEYS else "name"
     descending = _text(sort_dir).lower() == "desc"
     matched.sort(key=lambda row: (str(row.get(key) or "").lower(), row.get("id") or 0), reverse=descending)

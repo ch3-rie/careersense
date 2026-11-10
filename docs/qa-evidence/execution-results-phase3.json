@@ -1,0 +1,83 @@
+{
+  "stamp": "6101f451",
+  "results": [
+    {
+      "id": "PREP-REGISTRY",
+      "status": "Pass",
+      "actual": "HTTP 200 {'ok': True, 'student_id': 'QA-6101f4', 'course_code': 'BSIT', 'college': 'College of Computer Studies', 'degree': 'Bachelor of Science in Information Technology'}",
+      "data": "qa.match.6101f451@example.com"
+    },
+    {
+      "id": "TC-REG-008",
+      "status": "Pass",
+      "actual": "HTTP 200; matched={'matched': True, 'student_id': 'QA-6101f4', 'degree': 'Bachelor of Science in Information Technology', 'year_graduated': '2024', 'first_name': 'Match', 'last_name': 'Case'}",
+      "data": "qa.match.6101f451@example.com"
+    },
+    {
+      "id": "TC-GTS-001",
+      "status": "Pass",
+      "actual": "blank occupation HTTP 400 Please answer: Occupation (first job).; GET /api/admin/survey HTTP 404",
+      "data": "qa.match.6101f451@example.com"
+    },
+    {
+      "id": "TC-GTS-002",
+      "status": "Pass",
+      "actual": "complete HTTP 200 status=Pending id=24; login HTTP 200 status=Pending; tracer occupation present=True",
+      "data": "qa.match.6101f451@example.com"
+    },
+    {
+      "id": "TC-APR-001",
+      "status": "Pass",
+      "actual": "approve HTTP 200 {'ok': True, 'status': 'Active'}; login status=Active",
+      "data": "qa.match.6101f451@example.com"
+    },
+    {
+      "id": "TC-APR-002",
+      "status": "Pass",
+      "actual": "complete HTTP 200; empty HTTP 422 String should have at least 3 characters; short HTTP 422 String should have at least 3 characters; reject HTTP 200; login status=Rejected reason=Registry identity could not be confirmed.",
+      "data": "qa.reject.6101f451@example.com"
+    },
+    {
+      "id": "TC-APR-003",
+      "status": "Pass",
+      "actual": "deactivate HTTP 400 You cannot deactivate your own account.; subsequent login HTTP 200",
+      "data": "signed-in Super Admin"
+    },
+    {
+      "id": "TC-AUTH-002",
+      "status": "Fail",
+      "actual": "create HTTP 400; login HTTP 401 privileges=None full_admin=None must_change=None; approvals HTTP 401 Invalid authentication token.; users HTTP 401; super approvals HTTP 200",
+      "data": "qa.admin.6101f451@example.com"
+    },
+    {
+      "id": "TC-AUTH-003",
+      "status": "Blocked",
+      "actual": "Created account is an Admin with privileges=None, not a second Super Admin. Inactive login HTTP 401 Incorrect email or password.. The only Super Admin was not deactivated.",
+      "data": "qa.inactive.6101f451@example.com"
+    },
+    {
+      "id": "TC-AUTH-001",
+      "status": "Pass",
+      "actual": "attempts=['401:Incorrect email or password.', '401:Incorrect email or password.', '401:Incorrect email or password.']; correct HTTP 200 status=Active",
+      "data": "maria.reyes@gmail.com"
+    },
+    {
+      "id": "TC-ALN-001",
+      "status": "Pass",
+      "actual": "jobs HTTP 200 count=2; edited job 1 current=False HTTP 200; alignment Aligned -> Aligned; restored HTTP 200",
+      "data": "Bookstore Clerk"
+    },
+    {
+      "id": "TC-PWD-001",
+      "status": "Pass",
+      "actual": "request HTTP 200 If an account exists for this email address, a verification PIN has been sent.; email_enabled=false so delivery was not observed; attempts=['1:400:The PIN is incorrect. Please try again.', '2:400:The PIN is incorrect. Please try again.', '3:400:The PIN is incorrect. Please try again.', '4:400:The PIN is incorrect. Please try again.', '5:400:Too many incorrect attempts. Please request a new PIN.']",
+      "data": "PIN 000000"
+    },
+    {
+      "id": "TC-QR-001",
+      "status": "Pass",
+      "actual": "usage 1 -> 1; identity HTTP 200 {'student_number': '2020-0001', 'student_id': None, 'name': 'Maria Cruz Reyes', 'course': 'Bachelor of Science in Information Technology', 'college': 'College of Computer Studies', 'year': None, 'year_graduated': '2022'}; image HTTP 200",
+      "data": "maria.reyes@gmail.com"
+    }
+  ]
+}

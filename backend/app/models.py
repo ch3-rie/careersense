@@ -32,6 +32,8 @@ class UniversityRecord(Base):
     year_graduated: Mapped[str] = mapped_column(String(8), nullable=False)
     course_code: Mapped[str] = mapped_column(String(40), default="")
     college: Mapped[str] = mapped_column(String(160), default="")
+    # Set when this row is imported or added. Older rows stay empty rather than receiving a guessed date.
+    uploaded_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     accounts: Mapped[list["Account"]] = relationship(back_populates="university_record")
 
@@ -167,6 +169,9 @@ class AlumniProfile(Base):
     unemployment_reason: Mapped[str] = mapped_column(String(40), default="")
     unemployment_details: Mapped[str] = mapped_column(Text, default="")
     employment_answer_before: Mapped[str] = mapped_column(String(8), default="")
+    interest_speaker: Mapped[bool] = mapped_column(Boolean, default=False)
+    interest_mentor: Mapped[bool] = mapped_column(Boolean, default=False)
+    interest_sponsor: Mapped[bool] = mapped_column(Boolean, default=False)
     birth_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     resume_document: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -434,6 +439,8 @@ class BadgeDefinition(Base):
     description: Mapped[str] = mapped_column(Text, default="")
     locked_description: Mapped[str] = mapped_column(Text, default="")
     icon: Mapped[str] = mapped_column(String(40), default="check")
+    image_path: Mapped[str] = mapped_column(String(500), default="")
+    image_mime: Mapped[str] = mapped_column(String(120), default="")
     category: Mapped[str] = mapped_column(String(40), default="recognition")
     criteria_type: Mapped[str] = mapped_column(String(80), nullable=False)
     route: Mapped[str] = mapped_column(String(200), default="/alumni")

@@ -19,7 +19,7 @@ This is a full-stack rebuild of the earlier Streamlit prototype (`Resume-NLP-Par
 | Alumni / Admin / Pending / Rejected flows | **Retained** as real URLs. |
 | Streamlit UI and session routing | **Replaced.** Streamlit reruns were the main source of lag. |
 | Supabase-only data layer | **Replaced** with SQLAlchemy. SQLite locally; PostgreSQL for deployment. |
-| Supplementary GTS questions | **Upgraded** from session-only prototype to database CRUD that appears on the live form. |
+| Supplementary GTS questions | **Fixed on the published form.** The office no longer edits survey questions, sections, or open/close settings. |
 | SOC “add code” | **Upgraded** from a fake success message to a real insert. |
 | Password change | **Upgraded** from UI-only to a verified hash update. |
 
@@ -66,7 +66,7 @@ Core tables (see `backend/app/models.py`):
 - `tracer_submissions` — each GTS snapshot, alignment, SOC code, extra answers
 - `further_studies`, `alumni_skills`, `alignment_results`
 - `soc_codes`, `job_title_mappings`
-- `gts_questions` — supplementary (non-core) questions managed by admins
+- `gts_questions` — supplementary questions included on the published Graduate Tracer Survey
 - `admin_logs` — approve/reject and configuration audit trail
 
 ---
@@ -93,7 +93,6 @@ Interactive docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 | GET | `/api/admin/dashboard` | Admin | KPIs and charts |
 | GET/POST | `/api/admin/approvals…` | Admin | Queue, verify, approve, reject |
 | GET | `/api/admin/tracer` | Admin | Search tracer records |
-| CRUD | `/api/admin/questions` | Admin | Supplementary GTS questions |
 | GET/POST | `/api/admin/soc` | Admin | PSOC/SOC codes |
 | POST | `/api/admin/job-mappings` | Admin | Raw title → SOC |
 | GET | `/api/admin/reports` + `/export` | Admin | Totals and CSV |
@@ -104,7 +103,7 @@ Interactive docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
 ## Authentication and authorization
 
-1. Alumni register with email, password, privacy consent, and a resume.
+1. Alumni register with email, password, privacy consent, and a resume. The resume file is uploaded only at registration. After approval, alumni edit and export that resume on Extract Resume; they do not upload another file.
 2. The API hashes the password (bcrypt), stores the file, parses the resume, and tries to match `university_records`.
 3. A JWT is returned. Status is `Pending` until an admin approves.
 4. The graduate reviews the GTS and submits. Alignment is computed against SOC codes.
@@ -178,16 +177,19 @@ Seeded on first API start:
 
 | Role | Email | Password | Status |
 |------|-------|----------|--------|
-| Admin | `admin@auf.edu.ph` | `Admin@AUF2026` | Active |
+| OAAPS Super Admin | `admin@auf.edu.ph` | `Admin@AUF2026` | Active. Whole admin portal. |
 | Alumni | `maria.reyes@gmail.com` | `Alumni@2026` | Active (aligned BSIT / software) |
 | Alumni | `juan.delacruz@gmail.com` | `Alumni@2026` | Pending |
 | Alumni | `liza.torres@gmail.com` | `Alumni@2026` | Active (misaligned BSA / restaurant manager) |
 | Alumni | `ana.garcia@gmail.com` | `Alumni@2026` | Rejected |
 
+`admin@auf.edu.ph` is the OAAPS Super Admin: it can use every admin page and can manage other administrators. Accounts created from Users are OAAPS Admins. Their privilege is Add users, so they can open only Users and Account. They can add other admins and view the list, and they cannot edit, activate, deactivate, or reset passwords.
+
 A sample resume for parser tests is at `backend/data/sample_resume.txt`.  
 `carlos.mendoza@gmail.com` exists in the graduate registry but has no account yet — use it to try a full registration.
 
 **User and IT testing pack:** [docs/UAT-testing-guide.md](docs/UAT-testing-guide.md)  
+Alumni QR and Angelenean Alumni Card: [docs/alumni-qr-and-card.md](docs/alumni-qr-and-card.md)  
 Sample resumes, GTS answers, and extra registry rows: [backend/data/samples/](backend/data/samples/).
 
 ---
@@ -230,7 +232,7 @@ DATABASE_URL=postgresql+psycopg://careersense:careersense@localhost:5432/careers
 Step-by-step scripts, sample resumes, and GTS answers for alumni testers and IT/OAAPS staff: [docs/UAT-testing-guide.md](docs/UAT-testing-guide.md).
 
 1. Sign in as admin and open **Approval queue**, **SOC mapping**, **Survey manager**, and **Reports**.
-2. Sign in as `maria.reyes@gmail.com` and open dashboard, analytics, resume upload, and password change.
+2. Sign in as `maria.reyes@gmail.com` and open dashboard, analytics, Extract Resume (edit the registration resume; do not upload another file), and password change.
 3. Register `carlos.mendoza@gmail.com` with `backend/data/samples/carlos_mendoza.txt` (or a PDF), review the pre-filled GTS, submit, then approve from the admin queue.
 4. Add a supplementary question in Survey manager and confirm it appears on the GTS form.
 5. Add a SOC code and confirm it is searchable and used in alignment.

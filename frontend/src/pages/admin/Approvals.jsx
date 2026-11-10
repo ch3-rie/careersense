@@ -24,7 +24,7 @@ import {
   SortButton,
   TableSkeleton,
 } from "../../components/ui";
-import { programChoices } from "../../lib/academicFilters";
+import { courseLabel, programChoices } from "../../lib/academicFilters";
 import { formatLongDate } from "../../lib/format";
 import { api } from "../../lib/api";
 
@@ -199,8 +199,8 @@ export default function AdminApprovals() {
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search by name, email, or student ID"
-                aria-label="Search by name, email, or student ID"
+                placeholder="Search by name, email, student ID, or program"
+                aria-label="Search by name, email, student ID, or program"
               />
             </div>
           </Field>
@@ -213,7 +213,7 @@ export default function AdminApprovals() {
           <Field label="Course">
             <select aria-label="Filter by course" value={courseChoices.some((item) => item.course === filters.course) ? filters.course : ""} onChange={(event) => { setPage(1); setFilters((current) => ({ ...current, course: event.target.value })); }}>
               <option value="">All courses</option>
-              {courseChoices.map((item) => <option key={`${item.college}-${item.course}`} value={item.course}>{item.course}</option>)}
+              {courseChoices.map((item) => <option key={`${item.college}-${item.course}`} value={item.course}>{courseLabel(item)}</option>)}
             </select>
           </Field>
           <Field label="Batch year">

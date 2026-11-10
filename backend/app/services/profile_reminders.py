@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import get_settings as get_app_settings
@@ -21,6 +22,7 @@ from app.models import (
     ProfileReminderSettings,
     ProfileUpdateRequestRecipient,
 )
+from app.services.academic_filters import course_selection_clause, program_term_clause
 from app.services.email import email_health, scheduler_is_enabled, send_profile_update_email
 from app.services.email.clock import aware, campus_tz, now_utc
 from app.services.email.outbox import enqueue_if_retryable
@@ -229,8 +231,17 @@ def resolve_candidates(db: Session, row: ProfileReminderSettings) -> list[Accoun
     if mode == "filtered":
         if filters["year"]:
             query = query.filter(AlumniProfile.year_graduated == filters["year"])
-        if filters["degree"]:
-            query = query.filter(AlumniProfile.degree.ilike(f"%{filters['degree']}%"))
+        degree = filters["degree"].strip()
+        if degree:
+            like = AlumniProfile.degree.ilike(f"%{degree}%")
+            parts = [like]
+            selected = course_selection_clause(db, degree)
+            term_match = program_term_clause(db, degree)
+            if selected is not None:
+                parts.append(selected)
+            if term_match is not None:
+                parts.append(term_match)
+            query = query.filter(or_(*parts))
     rows = query.order_by(AlumniProfile.last_name.asc(), Account.id.asc()).all()
     selected = []
     for user in rows:
